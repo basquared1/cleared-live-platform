@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You've been invited to submit a clearance request</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+
+          <!-- Platform header -->
+          <tr>
+            <td align="center" style="background:{{ platform_color }};border-radius:8px 8px 0 0;padding:32px 40px;">
+              <div style="font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">
+                {{ platform_name }}
+              </div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:6px;letter-spacing:0.08em;text-transform:uppercase;">
+                Rights Clearance Portal
+              </div>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background:#ffffff;padding:40px;border-radius:0 0 8px 8px;">
+              <p style="margin:0 0 20px;font-size:16px;color:#1a1a2e;line-height:1.6;">
+                Hi{% if name %} {{ name }}{% endif %},
+              </p>
+              <p style="margin:0 0 20px;font-size:16px;color:#444;line-height:1.6;">
+                <strong>{{ platform_name }}</strong> has invited you to submit a rights clearance
+                request through their clearance portal, powered by Cleared.live.
+              </p>
+              {% if project_hint %}
+              <div style="background:#f4f6f9;border-left:4px solid {{ platform_color }};border-radius:4px;padding:14px 18px;margin:0 0 28px;">
+                <div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Project</div>
+                <div style="font-size:15px;color:#1a1a2e;font-weight:600;">{{ project_hint }}</div>
+              </div>
+              {% else %}
+              <div style="margin-bottom:28px;"></div>
+              {% endif %}
+              <p style="margin:0 0 28px;font-size:15px;color:#444;line-height:1.6;">
+                Click the button below to begin. You'll be guided through the intake form —
+                your agreements will be drafted for you, and you can track every clearance item in real time.
+              </p>
+
+              <!-- CTA -->
+              <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+                <tr>
+                  <td align="center" style="background:{{ platform_color }};border-radius:6px;">
+                    <a href="{{ invite_url }}"
+                       style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.01em;">
+                      Start My Submission &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Link fallback -->
+              <p style="margin:0 0 8px;font-size:13px;color:#888;">
+                If the button doesn't work, copy this link into your browser:
+              </p>
+              <p style="margin:0 0 32px;font-size:12px;word-break:break-all;">
+                <a href="{{ invite_url }}" style="color:{{ platform_color }};">{{ invite_url }}</a>
+              </p>
+
+              <!-- One-time notice -->
+              <div style="border-top:1px solid #eee;padding-top:24px;">
+                <p style="margin:0;font-size:12px;color:#aaa;line-height:1.6;">
+                  This link is personal to you and can only be used once. If you were not expecting
+                  this invitation, you can safely ignore this email.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:24px 40px 0;">
+              <p style="margin:0;font-size:12px;color:#aaa;line-height:1.6;">
+                Sent by <a href="https://cleared.live" style="color:#aaa;">Cleared.live</a>
+                on behalf of {{ platform_name }}.
+                Cleared.live is a rights clearance infrastructure platform for media companies.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

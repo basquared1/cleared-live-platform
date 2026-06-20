@@ -830,12 +830,12 @@ def platform_send_invite():
     if resend_key:
         import resend as _resend
         _resend.api_key = resend_key
-        body = (
-            f"<p>Hi{' ' + name if name else ''},</p>"
-            f"<p>{user.platform.name} has invited you to submit a rights clearance request via Cleared.live.</p>"
-            + (f"<p><strong>Project:</strong> {project_hint}</p>" if project_hint else "")
-            + f'<p><a href="{invite_url}" style="display:inline-block;padding:12px 24px;background:#0d3b6e;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Start Your Clearance Submission</a></p>'
-            + '<p style="color:#999;font-size:12px;">This link is personal to you and can only be used once. If you did not expect this invite, you can ignore this email.</p>'
+        body = render_template("email/invite.html",
+            platform_name  = user.platform.name,
+            platform_color = user.platform.primary_color or "#0d3b6e",
+            name           = name or None,
+            project_hint   = project_hint or None,
+            invite_url     = invite_url,
         )
         try:
             _resend.Emails.send({
