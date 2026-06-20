@@ -6,12 +6,15 @@ import threading
 from datetime import datetime, timedelta
 from functools import wraps
 
+import base64
+import anthropic as _anthropic
 import requests as http_requests
 from dotenv import load_dotenv
 from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, jsonify, abort, send_file, Response,
 )
+from sqlalchemy import text as sa_text
 from werkzeug.security import check_password_hash
 from werkzeug.security import generate_password_hash as _gph
 
@@ -169,6 +172,124 @@ def inject_globals():
         "admin_user": current_admin(),
         "now": datetime.utcnow(),
     }
+
+
+# ---------------------------------------------------------------------------
+# AI helpers
+# ---------------------------------------------------------------------------
+
+def _ai_client():
+    key = os.getenv("ANTHROPIC_API_KEY")
+    return _anthropic.Anthropic(api_key=key) if key else None
+
+
+def _sub_context(sub):
+    return (
+        f"Project: {sub.title} ({sub.project_type_label})\n"
+        f"Platform: {sub.platform.name}\n"
+        f"Territory: {sub.territory_label}\n"
+        f"Intended Use: {', '.join(sub.intended_use_list) if sub.intended_use_list else 'Streaming'}\n"
+        f"Artist/Talent: {sub.artist_name or 'N/A'}\n"
+        f"Label: {sub.label or 'N/A'}\n"
+        f"Publisher: {sub.publisher or 'N/A'}\n"
+        f"Event: {(sub.event_name or '') + (' at ' + sub.venue if sub.venue else '')} {('on ' + sub.event_date) if sub.event_date else ''}\n"
+        f"Production Company: {sub.production_company or 'N/A'}\n"
+        f"Submitter: {sub.submitter_name} ({sub.submitter_company or 'N/A'})"
+    )
+
+
+def generate_draft(sub, item):
+    client = _ai_client()
+    if not client:
+        return None
+    msg = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1200,
+        messages=[{"role": "user", "content": (
+            f"You are a senior business affairs attorney specializing in entertainment clearances for streaming platforms.\n\n"
+            f"Generate a professional {item.item_label} for:\n{_sub_context(sub)}\n\n"
+            f"Structure your response as:\n"
+            f"## DEAL POINTS\n- [4–6 key terms, specific to this project and rights type]\n\n"
+            f"## DRAFT AGREEMENT\n[200–350 word professional draft. Use [RIGHTS HOLDER] and [PLATFORM] as party placeholders. "
+            f"Include grant of rights, territory, term, compensation basis, representations & warranties, and signature blocks. "
+            f"Be specific to the project details above.]"
+        )}],
+    )
+    return msg.content[0].text
+
+
+def generate_outreach(sub, item):
+    client = _ai_client()
+    if not client:
+        return None
+    msg = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=600,
+        messages=[{"role": "user", "content": (
+            f"You are a business affairs professional at {sub.platform.name}.\n\n"
+            f"Write a professional clearance outreach email requesting a {item.item_label} for:\n{_sub_context(sub)}\n\n"
+            f"Write 175–225 words. Start with 'Dear [Rights Holder],'. Do NOT include a subject line. "
+            f"State exactly what rights are being requested, for which project and platform, reference event details, "
+            f"request a response within 5 business days, and close professionally from the {sub.platform.name} Business Affairs team."
+        )}],
+    )
+    return msg.content[0].text
+
+
+def send_to_docusign(sub, item):
+    account_id = os.getenv("DOCUSIGN_ACCOUNT_ID")
+    token      = os.getenv("DOCUSIGN_ACCESS_TOKEN")
+    base_url   = os.getenv("DOCUSIGN_BASE_URL", "https://demo.docusign.net/restapi")
+    if not account_id or not token:
+        return None, "DocuSign not configured — set DOCUSIGN_ACCOUNT_ID and DOCUSIGN_ACCESS_TOKEN in Render environment."
+
+    draft = item.ai_draft or f"[AI draft pending for {item.item_label}]"
+    html_doc = f"""<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:760px;margin:2rem auto;padding:1rem;">
+<h2 style="color:#1a3a5c;">{item.item_label}</h2>
+<table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;font-size:.9rem;">
+<tr><td style="padding:4px 8px;color:#666;width:160px;">Project</td><td style="padding:4px 8px;font-weight:bold;">{sub.title}</td></tr>
+<tr><td style="padding:4px 8px;color:#666;">Platform</td><td style="padding:4px 8px;">{sub.platform.name}</td></tr>
+<tr><td style="padding:4px 8px;color:#666;">Artist</td><td style="padding:4px 8px;">{sub.artist_name or 'N/A'}</td></tr>
+<tr><td style="padding:4px 8px;color:#666;">Territory</td><td style="padding:4px 8px;">{sub.territory_label}</td></tr>
+<tr><td style="padding:4px 8px;color:#666;">Intended Use</td><td style="padding:4px 8px;">{', '.join(sub.intended_use_list) if sub.intended_use_list else 'Streaming'}</td></tr>
+</table>
+<hr style="margin:1.5rem 0;">
+<div style="white-space:pre-wrap;font-family:Georgia,serif;line-height:1.7;font-size:.95rem;">{draft}</div>
+<div style="margin-top:4rem;">
+<p style="font-weight:bold;">AGREED AND ACCEPTED:</p>
+<br>
+<p>Submitter Signature: <span style="font-size:1.1em;">/s1e1/</span></p>
+<p>Date: /d1e1/</p>
+<br>
+<p>Authorized Signatory: <span style="font-size:1.1em;">/s2e1/</span></p>
+<p>Date: /d2e1/</p>
+</div></body></html>"""
+
+    doc_b64 = base64.b64encode(html_doc.encode()).decode()
+    envelope = {
+        "emailSubject": f"Please sign: {item.item_label} — {sub.title} ({sub.platform.name})",
+        "documents": [{"documentBase64": doc_b64, "name": f"{item.item_label}.html",
+                        "fileExtension": "html", "documentId": "1"}],
+        "recipients": {"signers": [{
+            "email": sub.submitter_email,
+            "name": sub.submitter_name,
+            "recipientId": "1",
+            "routingOrder": "1",
+            "tabs": {
+                "signHereTabs": [{"anchorString": "/s1e1/", "anchorUnits": "pixels"}],
+                "dateSignedTabs": [{"anchorString": "/d1e1/", "anchorUnits": "pixels"}],
+            }
+        }]},
+        "status": "sent",
+    }
+    resp = http_requests.post(
+        f"{base_url}/v2.1/accounts/{account_id}/envelopes",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json=envelope, timeout=15,
+    )
+    if resp.status_code == 201:
+        return resp.json().get("envelopeId"), None
+    return None, f"DocuSign API error {resp.status_code}: {resp.text[:300]}"
 
 
 # ---------------------------------------------------------------------------
@@ -656,6 +777,89 @@ def api_docs():
 
 
 # ---------------------------------------------------------------------------
+# AI + DocuSign routes
+# ---------------------------------------------------------------------------
+
+@app.route("/platform/project/<int:sub_id>/ai-draft-all", methods=["POST"])
+@require_platform
+def platform_ai_draft_all(sub_id):
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    if not _ai_client():
+        flash("ANTHROPIC_API_KEY not configured in Render environment.", "danger")
+        return redirect(url_for("platform_project", sub_id=sub_id))
+    for item in sub.clearance_items:
+        item.ai_draft = generate_draft(sub, item)
+    db.session.commit()
+    flash(f"AI drafts generated for all {len(sub.clearance_items)} clearance items.", "success")
+    return redirect(url_for("platform_project", sub_id=sub_id))
+
+
+@app.route("/platform/project/<int:sub_id>/item/<int:item_id>/ai-draft", methods=["POST"])
+@require_platform
+def platform_ai_draft(sub_id, item_id):
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub_id:
+        abort(403)
+    draft = generate_draft(sub, item)
+    if draft:
+        item.ai_draft = draft
+        db.session.commit()
+        flash(f"AI draft generated for {item.item_label}.", "success")
+    else:
+        flash("ANTHROPIC_API_KEY not configured in Render environment.", "danger")
+    return redirect(url_for("platform_project", sub_id=sub_id))
+
+
+@app.route("/platform/project/<int:sub_id>/item/<int:item_id>/ai-outreach", methods=["POST"])
+@require_platform
+def platform_ai_outreach(sub_id, item_id):
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub_id:
+        abort(403)
+    body = generate_outreach(sub, item)
+    if not body:
+        flash("ANTHROPIC_API_KEY not configured in Render environment.", "danger")
+        return redirect(url_for("platform_project", sub_id=sub_id))
+    item.ai_outreach_body    = body
+    item.ai_outreach_sent_at = datetime.utcnow()
+    db.session.commit()
+    flash(f"AI outreach drafted for {item.item_label}.", "success")
+    return redirect(url_for("platform_project", sub_id=sub_id))
+
+
+@app.route("/platform/project/<int:sub_id>/item/<int:item_id>/docusign", methods=["POST"])
+@require_platform
+def platform_docusign(sub_id, item_id):
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub_id:
+        abort(403)
+    envelope_id, error = send_to_docusign(sub, item)
+    if envelope_id:
+        item.docusign_envelope_id = envelope_id
+        item.docusign_status      = "sent"
+        db.session.commit()
+        flash(f"DocuSign envelope sent for {item.item_label}. ID: {envelope_id[:12]}…", "success")
+    else:
+        flash(f"DocuSign: {error}", "danger")
+    return redirect(url_for("platform_project", sub_id=sub_id))
+
+
+# ---------------------------------------------------------------------------
 # DB init CLI
 # ---------------------------------------------------------------------------
 
@@ -715,6 +919,31 @@ def init_db():
     db.session.commit()
     print("Demo platforms created: Netflix, YouTube, HBO, UMG")
     print("\nDatabase ready.")
+
+
+@app.cli.command("migrate-db")
+def migrate_db_cmd():
+    """Add AI + DocuSign columns to clearance_items (safe to re-run)."""
+    cols = [
+        ("ai_draft",             "TEXT"),
+        ("ai_deal_points",       "TEXT"),
+        ("ai_outreach_body",     "TEXT"),
+        ("ai_outreach_sent_at",  "TIMESTAMP"),
+        ("docusign_envelope_id", "VARCHAR(100)"),
+        ("docusign_status",      "VARCHAR(50)"),
+    ]
+    with db.engine.connect() as conn:
+        for col_name, col_type in cols:
+            try:
+                conn.execute(sa_text(
+                    f"ALTER TABLE clearance_items ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                ))
+                conn.commit()
+                print(f"  + {col_name}")
+            except Exception as exc:
+                conn.rollback()
+                print(f"  ~ {col_name}: {exc}")
+    print("Migration complete.")
 
 
 if __name__ == "__main__":

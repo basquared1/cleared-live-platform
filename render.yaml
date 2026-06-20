@@ -12,6 +12,16 @@ services:
         fromDatabase:
           name: cleared-platform-db
           property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DOCUSIGN_ACCOUNT_ID
+        sync: false
+      - key: DOCUSIGN_ACCESS_TOKEN
+        sync: false
+      - key: DOCUSIGN_BASE_URL
+        value: https://demo.docusign.net/restapi
+      - key: RESEND_API_KEY
+        sync: false
 
 databases:
   - name: cleared-platform-db

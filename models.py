@@ -273,6 +273,13 @@ class ClearanceItem(db.Model):
     cleared_by    = db.Column(db.String(100))
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
+    ai_draft             = db.Column(db.Text)
+    ai_deal_points       = db.Column(db.Text)
+    ai_outreach_body     = db.Column(db.Text)
+    ai_outreach_sent_at  = db.Column(db.DateTime)
+    docusign_envelope_id = db.Column(db.String(100))
+    docusign_status      = db.Column(db.String(50))
+
     documents = db.relationship("SubmissionDocument", backref="clearance_item", lazy=True)
 
     @property
