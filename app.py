@@ -807,6 +807,9 @@ def track_item_start(token, item_id):
     item.status = "in_progress"
     db.session.commit()
     threading.Thread(target=_auto_outreach_agent, args=(item.id,), daemon=True).start()
+    # Generate agreement draft in background if missing
+    if not item.ai_draft:
+        threading.Thread(target=_auto_draft_agent, args=(sub.id,), daemon=True).start()
     return redirect(url_for("track", token=token))
 
 
@@ -852,6 +855,19 @@ def track_item_submit_review(token, item_id):
         sub.status = "in_clearance"
         db.session.commit()
     return redirect(url_for("track", token=token))
+
+
+@app.route("/track/<token>/item/<int:item_id>/gen-draft", methods=["POST"])
+def track_item_gen_draft(token, item_id):
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    item.ai_draft = None
+    db.session.commit()
+    threading.Thread(target=_auto_draft_agent, args=(sub.id,), daemon=True).start()
+    flash("Agreement draft generating — refresh in 15–20 seconds.", "info")
+    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
 
 
 @app.route("/track/<token>/item/<int:item_id>/save-draft", methods=["POST"])

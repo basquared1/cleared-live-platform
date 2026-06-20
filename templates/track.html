@@ -175,7 +175,20 @@
         <div>
 
           <!-- AI Draft Agreement -->
-          {% if item.ai_draft %}
+          {% if not item.ai_draft %}
+          <div class="mb-3 p-3 rounded d-flex align-items-center gap-3" style="background:#fff8e1;border:1px solid #f5c842;">
+            <i class="bi bi-hourglass-split text-warning fs-5"></i>
+            <div class="flex-grow-1">
+              <div class="fw-semibold small text-navy">Agreement draft not generated yet</div>
+              <div class="text-muted" style="font-size:.78rem;">AI will draft the agreement for this item. Click to generate now.</div>
+            </div>
+            <form method="POST" action="{{ url_for('track_item_gen_draft', token=sub.token, item_id=item.id) }}">
+              <button type="submit" class="btn btn-sm btn-warning fw-semibold text-dark">
+                <i class="bi bi-stars me-1"></i>Generate Draft
+              </button>
+            </form>
+          </div>
+          {% else %}
           <div class="mb-3" id="draft-section-{{ item.id }}">
             <div class="d-flex align-items-center gap-2 mb-2">
               <i class="bi bi-stars text-warning"></i>
