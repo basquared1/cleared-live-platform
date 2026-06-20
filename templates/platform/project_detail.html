@@ -352,6 +352,47 @@
   <!-- RIGHT: sidebar -->
   <div class="col-lg-4">
 
+    <!-- Negotiation Positions (internal BA reference) -->
+    {% if platform.negotiation_positions %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+        <div class="fw-semibold text-navy small"><i class="bi bi-bar-chart-steps me-2"></i>Negotiation Positions</div>
+        <span class="badge bg-secondary" style="font-size:.6rem;">Internal</span>
+      </div>
+      <div class="card-body py-3 px-4">
+        <p class="text-muted small mb-3">
+          Submitted: <strong>{{ sub.territory_label }}</strong> ·
+          {{ sub.intended_use_list | join(', ') or '—' }}
+        </p>
+        {% set rank_colors = {1: 'success', 2: 'warning', 3: 'danger', 4: 'secondary'} %}
+        {% set rank_text   = {2: 'text-dark', 3: 'text-white', 4: 'text-white'} %}
+        {% for pos in platform.negotiation_positions %}
+        <div class="border rounded-2 p-2 mb-2" style="font-size:.8rem;">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-{{ rank_colors.get(pos.rank, 'secondary') }} {{ rank_text.get(pos.rank,'') }}"
+                  style="font-size:.65rem;">{{ pos.label }}</span>
+            <span class="fw-semibold text-navy">
+              {{ territory_labels.get(pos.territory, pos.territory) }}
+              · {{ term_labels.get(pos.term, pos.term) }}
+            </span>
+          </div>
+          {% if pos.uses %}
+          <div class="text-muted mb-1">{{ pos.uses | join(', ') }}</div>
+          {% endif %}
+          {% if pos.notes %}
+          <div class="text-muted fst-italic" style="font-size:.75rem;">{{ pos.notes }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+        <div class="mt-2 pt-2 border-top">
+          <a href="{{ url_for('platform_settings') }}" class="small text-muted text-decoration-none">
+            <i class="bi bi-sliders me-1"></i>Edit positions
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Submitter info -->
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-header bg-white border-bottom py-3">

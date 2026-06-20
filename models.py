@@ -124,10 +124,12 @@ class Platform(db.Model):
     created_at             = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Form configuration — what the platform mandates on every submission
-    form_territory         = db.Column(db.String(50))    # pre-selected territory
-    form_territory_locked  = db.Column(db.Boolean, default=False)
-    form_intended_use      = db.Column(db.String(300))   # comma-separated pre-checked uses
+    form_territory           = db.Column(db.String(50))
+    form_territory_locked    = db.Column(db.Boolean, default=False)
+    form_intended_use        = db.Column(db.String(300))  # comma-separated
     form_intended_use_locked = db.Column(db.Boolean, default=False)
+    # Negotiation positions — JSON array of {rank, label, territory, uses, term, notes}
+    negotiation_positions_json = db.Column(db.Text)
 
     submissions = db.relationship("Submission", backref="platform", lazy="dynamic")
     users       = db.relationship("PlatformUser", backref="platform", lazy=True)
@@ -140,6 +142,14 @@ class Platform(db.Model):
     @property
     def form_intended_use_list(self):
         return [u.strip() for u in (self.form_intended_use or "").split(",") if u.strip()]
+
+    @property
+    def negotiation_positions(self):
+        import json
+        try:
+            return json.loads(self.negotiation_positions_json or "[]")
+        except Exception:
+            return []
 
     @property
     def total_count(self):

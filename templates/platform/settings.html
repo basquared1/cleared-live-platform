@@ -8,18 +8,9 @@
       <span class="text-muted fw-normal" style="font-size:.8rem;">Clearance Portal</span>
     </a>
     <div class="ms-auto d-flex align-items-center gap-3">
-      <a href="{{ url_for('platform_guidelines') }}"
-         class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
-        <i class="bi bi-book"></i> Guidelines
-      </a>
-      <a href="{{ url_for('platform_invites') }}"
-         class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
-        <i class="bi bi-envelope-check"></i> Invites
-      </a>
-      <a href="{{ url_for('platform_settings') }}"
-         class="btn btn-sm btn-primary d-none d-md-inline-flex align-items-center gap-1">
-        <i class="bi bi-sliders"></i> Form Settings
-      </a>
+      <a href="{{ url_for('platform_guidelines') }}" class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1"><i class="bi bi-book"></i> Guidelines</a>
+      <a href="{{ url_for('platform_invites') }}" class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1"><i class="bi bi-envelope-check"></i> Invites</a>
+      <a href="{{ url_for('platform_settings') }}" class="btn btn-sm btn-primary d-none d-md-inline-flex align-items-center gap-1"><i class="bi bi-sliders"></i> Form Settings</a>
       <a href="{{ url_for('platform_logout') }}" class="btn btn-sm btn-outline-secondary">Logout</a>
     </div>
   </div>
@@ -27,114 +18,196 @@
 {% endblock %}
 {% block content %}
 
-<div class="d-flex align-items-center justify-content-between mb-4">
+<div class="d-flex align-items-start justify-content-between mb-4">
   <div>
     <h4 class="fw-bold text-navy mb-1">Form Configuration</h4>
-    <p class="text-muted small mb-0">
-      Control what submitters see on your intake form. Locked fields are pre-filled and cannot be changed.
-    </p>
+    <p class="text-muted small mb-0">Control what submitters see, and set your team's negotiation positions for every project on this platform.</p>
   </div>
-  <a href="{{ url_for('platform_dashboard') }}" class="btn btn-sm btn-outline-secondary">
-    <i class="bi bi-arrow-left me-1"></i>Dashboard
-  </a>
+  <a href="{{ url_for('platform_dashboard') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
 </div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-      {{ message }}
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endfor %}
-  {% endif %}
+  {% if messages %}{% for category, message in messages %}
+  <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+    {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}{% endif %}
 {% endwith %}
 
-<form method="POST">
+<!-- Preset selector -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body p-4">
+    <h6 class="fw-bold text-navy mb-1">Start from a Preset</h6>
+    <p class="text-muted small mb-3">Select the template that matches your platform type. It will auto-fill the form configuration and negotiation positions below — you can customize before saving.</p>
+    <div class="row g-3">
+      {% for key, preset in form_presets.items() %}
+      <div class="col-sm-6 col-lg-4">
+        <button type="button" class="btn btn-outline-secondary w-100 text-start p-3 h-100 preset-btn"
+                data-preset="{{ key }}" style="line-height:1.4;">
+          <div class="fw-semibold small text-navy">{{ preset.label }}</div>
+          <div class="text-muted" style="font-size:.75rem; margin-top:2px;">{{ preset.description }}</div>
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<form method="POST" id="settingsForm">
+
+  <!-- Section 1: Intake form fields -->
   <div class="card border-0 shadow-sm mb-4">
     <div class="card-body p-4">
+      <h6 class="fw-bold text-navy mb-1">Intake Form — What Submitters See</h6>
+      <p class="text-muted small mb-4">Locked fields are shown as read-only with a "Set by {{ platform.name }}" badge. Unlocked fields are pre-filled but the submitter can change them.</p>
 
       <!-- Territory -->
-      <h6 class="fw-bold text-navy mb-1">Territory</h6>
-      <p class="text-muted small mb-3">
-        Set the territory your platform requires for every submission. Lock it to prevent submitters from changing it.
-      </p>
-      <div class="row g-3 align-items-center mb-2">
+      <div class="row g-3 align-items-end mb-4">
         <div class="col-md-5">
           <label class="form-label fw-semibold small">Default Territory</label>
-          <select name="form_territory" class="form-select">
+          <select name="form_territory" id="form_territory" class="form-select">
             <option value="">— No default (submitter chooses) —</option>
             {% for key, label in territory_labels.items() %}
             <option value="{{ key }}" {% if platform.form_territory == key %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-4 pt-md-4">
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" name="form_territory_locked" id="lockTerritory" value="1"
+        <div class="col-md-4">
+          <div class="form-check form-switch mt-1">
+            <input class="form-check-input" type="checkbox" name="form_territory_locked" id="form_territory_locked" value="1"
                    {% if platform.form_territory_locked %}checked{% endif %}>
-            <label class="form-check-label small fw-semibold" for="lockTerritory">
-              Lock — submitter cannot change
-            </label>
+            <label class="form-check-label small fw-semibold" for="form_territory_locked">Lock — submitter cannot change</label>
           </div>
         </div>
       </div>
-      {% if platform.form_territory %}
-      <div class="alert alert-info py-2 small mb-0">
-        <i class="bi bi-info-circle me-1"></i>
-        Submitters will see <strong>{{ territory_labels.get(platform.form_territory, platform.form_territory) }}</strong>
-        {% if platform.form_territory_locked %}as a locked field.{% else %}pre-selected but can change it.{% endif %}
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-body p-4">
 
       <!-- Intended Use -->
-      <h6 class="fw-bold text-navy mb-1">Intended Use</h6>
-      <p class="text-muted small mb-3">
-        Check the uses your platform requires. Lock to prevent submitters from adding or removing any.
-      </p>
-      <div class="d-flex flex-wrap gap-3 mb-3">
+      <label class="form-label fw-semibold small">Default Intended Use</label>
+      <div class="d-flex flex-wrap gap-3 mb-2" id="intended_use_checkboxes">
         {% for key, label in intended_use_options %}
         <div class="form-check">
           <input class="form-check-input" type="checkbox" name="form_intended_use" value="{{ key }}"
-                 id="cfg_use_{{ key }}"
-                 {% if key in platform.form_intended_use_list %}checked{% endif %}>
+                 id="cfg_use_{{ key }}" {% if key in platform.form_intended_use_list %}checked{% endif %}>
           <label class="form-check-label small fw-semibold" for="cfg_use_{{ key }}">{{ label }}</label>
         </div>
         {% endfor %}
       </div>
-      <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" name="form_intended_use_locked" id="lockIntendedUse" value="1"
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" name="form_intended_use_locked" id="form_intended_use_locked" value="1"
                {% if platform.form_intended_use_locked %}checked{% endif %}>
-        <label class="form-check-label small fw-semibold" for="lockIntendedUse">
-          Lock — submitter cannot change
-        </label>
+        <label class="form-check-label small fw-semibold" for="form_intended_use_locked">Lock — submitter cannot change</label>
       </div>
-      {% if platform.form_intended_use_list %}
-      <div class="alert alert-info py-2 small mt-3 mb-0">
-        <i class="bi bi-info-circle me-1"></i>
-        Pre-checked:
-        <strong>
-          {% for key, label in intended_use_options %}
-            {% if key in platform.form_intended_use_list %}{{ label }}{% if not loop.last %}, {% endif %}{% endif %}
-          {% endfor %}
-        </strong>
-        {% if platform.form_intended_use_locked %}— locked.{% else %}— submitter can add more.{% endif %}
-      </div>
-      {% endif %}
     </div>
   </div>
 
-  <div class="d-flex gap-2">
-    <button type="submit" class="btn btn-primary fw-semibold px-4">
-      <i class="bi bi-check2 me-1"></i>Save Configuration
-    </button>
+  <!-- Section 2: Negotiation Positions -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+      <h6 class="fw-bold text-navy mb-1">Negotiation Positions <span class="badge bg-secondary fw-normal ms-1" style="font-size:.65rem;">Internal — BA team only</span></h6>
+      <p class="text-muted small mb-4">Define your primary ask and fallback positions. These are shown to your BA team on every project — not visible to submitters. Use them to stay consistent across negotiations.</p>
+
+      {% set positions = platform.negotiation_positions %}
+      {% for i in range(1, 5) %}
+      {% set pos = positions[i-1] if positions|length >= i else {} %}
+      {% set rank_labels = {1: "Primary", 2: "Fallback 1", 3: "Fallback 2", 4: "Fallback 3 / Minimum"} %}
+      {% set rank_colors = {1: "success", 2: "warning", 3: "danger", 4: "secondary"} %}
+      <div class="border rounded-3 p-3 mb-3 position-row" id="pos_row_{{ i }}">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span class="badge bg-{{ rank_colors[i] }} {% if i == 2 %}text-dark{% endif %}">{{ rank_labels[i] }}</span>
+          <input type="text" name="pos_{{ i }}_label" class="form-control form-control-sm w-auto"
+                 placeholder="Position name" value="{{ pos.get('label', rank_labels[i]) }}">
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">Territory</label>
+            <select name="pos_{{ i }}_territory" class="form-select form-select-sm pos-territory">
+              <option value="">— Select —</option>
+              {% for key, label in territory_labels.items() %}
+              <option value="{{ key }}" {% if pos.get('territory') == key %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">Term</label>
+            <select name="pos_{{ i }}_term" class="form-select form-select-sm">
+              <option value="">— Select —</option>
+              {% for key, label in term_labels.items() %}
+              <option value="{{ key }}" {% if pos.get('term') == key %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-muted mb-1">Intended Uses</label>
+            <div class="d-flex flex-wrap gap-2">
+              {% for key, label in intended_use_options %}
+              {% if key != 'all' %}
+              <div class="form-check form-check-inline m-0">
+                <input class="form-check-input" type="checkbox" name="pos_{{ i }}_uses" value="{{ key }}"
+                       id="pos{{ i }}_use_{{ key }}"
+                       {% if key in pos.get('uses', []) %}checked{% endif %}>
+                <label class="form-check-label" style="font-size:.75rem;" for="pos{{ i }}_use_{{ key }}">{{ label }}</label>
+              </div>
+              {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="form-label small text-muted mb-1">Internal Notes — guidance for your BA team</label>
+          <textarea name="pos_{{ i }}_notes" class="form-control form-control-sm" rows="2"
+                    placeholder="e.g. Do not accept below this without VP approval. Require auto-renewal clause.">{{ pos.get('notes', '') }}</textarea>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mb-5">
+    <button type="submit" class="btn btn-primary fw-semibold px-4"><i class="bi bi-check2 me-1"></i>Save Configuration</button>
     <a href="{{ url_for('platform_dashboard') }}" class="btn btn-outline-secondary">Cancel</a>
   </div>
 </form>
 
+<!-- Preset data for JS auto-fill -->
+<script>
+const PRESETS = {{ form_presets | tojson }};
+const TERRITORY_LABELS = {{ territory_labels | tojson }};
+const TERM_LABELS = {{ term_labels | tojson }};
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const key = btn.dataset.preset;
+    const p   = PRESETS[key];
+    if (!p) return;
+
+    // Highlight selected preset
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('btn-primary','text-white'));
+    btn.classList.add('btn-primary','text-white');
+
+    // Territory
+    document.getElementById('form_territory').value = p.territory || '';
+    document.getElementById('form_territory_locked').checked = p.territory_locked || false;
+
+    // Intended use
+    document.querySelectorAll('[name="form_intended_use"]').forEach(cb => {
+      cb.checked = (p.intended_use || []).includes(cb.value);
+    });
+    document.getElementById('form_intended_use_locked').checked = p.intended_use_locked || false;
+
+    // Negotiation positions
+    const positions = p.positions || [];
+    for (let i = 1; i <= 4; i++) {
+      const pos = positions[i - 1] || {};
+      const f = (name) => document.querySelector(`[name="pos_${i}_${name}"]`);
+      if (f('label'))     f('label').value    = pos.label    || '';
+      if (f('territory')) f('territory').value = pos.territory || '';
+      if (f('term'))      f('term').value      = pos.term     || '';
+      if (f('notes'))     f('notes').value     = pos.notes    || '';
+      document.querySelectorAll(`[name="pos_${i}_uses"]`).forEach(cb => {
+        cb.checked = (pos.uses || []).includes(cb.value);
+      });
+    }
+  });
+});
+</script>
 {% endblock %}

@@ -34,6 +34,72 @@ from models import (
 
 load_dotenv()
 
+# ---------------------------------------------------------------------------
+# Platform form configuration presets
+# Each preset defines the intake form defaults AND internal negotiation positions.
+# Positions are ordered primary → fallback; BA team uses them as negotiating parameters.
+# ---------------------------------------------------------------------------
+FORM_PRESETS = {
+    "streaming_standard": {
+        "label": "Streaming Platform Standard",
+        "description": "Worldwide streaming, locked — e.g. Spotify, Apple Music, Amazon Music",
+        "territory": "worldwide", "territory_locked": True,
+        "intended_use": ["streaming"], "intended_use_locked": True,
+        "positions": [
+            {"rank": 1, "label": "Primary",    "territory": "worldwide",      "uses": ["streaming"], "term": "perpetuity", "notes": "Standard ask. Worldwide streaming in perpetuity. Do not go below without approval."},
+            {"rank": 2, "label": "Fallback 1", "territory": "worldwide",      "uses": ["streaming"], "term": "5_years",    "notes": "Acceptable with auto-renewal clause in contract."},
+            {"rank": 3, "label": "Fallback 2", "territory": "north_america",  "uses": ["streaming"], "term": "3_years",    "notes": "Last resort. Flag for VP approval before accepting."},
+        ],
+    },
+    "label_all_media": {
+        "label": "Label Standard — All Media WW in Perp",
+        "description": "All media worldwide in perpetuity, excl. theatrical & commercials — e.g. Sony, Warner, UMG",
+        "territory": "worldwide", "territory_locked": True,
+        "intended_use": ["streaming", "broadcast", "home_video", "social", "promotional"], "intended_use_locked": False,
+        "positions": [
+            {"rank": 1, "label": "Primary",    "territory": "worldwide",      "uses": ["streaming", "broadcast", "home_video", "social", "promotional"], "term": "perpetuity", "notes": "All media WW in perp, excl. theatrical and commercials. Be specific — do not grant 'All Media' as a catch-all."},
+            {"rank": 2, "label": "Fallback 1", "territory": "worldwide",      "uses": ["streaming", "broadcast", "home_video"],                          "term": "perpetuity", "notes": "Drop social and promotional if rights holder pushes back. Still insist on perp."},
+            {"rank": 3, "label": "Fallback 2", "territory": "worldwide",      "uses": ["streaming", "broadcast"],                                         "term": "5_years",    "notes": "Minimum acceptable. Must include renewal option and revert clause if not renewed within 60 days."},
+        ],
+    },
+    "svod_standard": {
+        "label": "SVOD / Streaming + Broadcast",
+        "description": "Streaming and broadcast worldwide — e.g. Netflix, HBO Max, Hulu",
+        "territory": "worldwide", "territory_locked": True,
+        "intended_use": ["streaming", "broadcast"], "intended_use_locked": True,
+        "positions": [
+            {"rank": 1, "label": "Primary",    "territory": "worldwide",      "uses": ["streaming", "broadcast"], "term": "perpetuity", "notes": "WW streaming and broadcast in perpetuity. Standard for SVOD platforms."},
+            {"rank": 2, "label": "Fallback 1", "territory": "worldwide",      "uses": ["streaming", "broadcast"], "term": "5_years",    "notes": "Accept with auto-renewal. Do not accept without renewal provision."},
+            {"rank": 3, "label": "Fallback 2", "territory": "north_america",  "uses": ["streaming", "broadcast"], "term": "3_years",    "notes": "Territory restriction acceptable only for initial window — must include right of first refusal for WW expansion."},
+        ],
+    },
+    "social_standard": {
+        "label": "Social Platform Standard",
+        "description": "Streaming and social media worldwide — e.g. YouTube, TikTok, Meta",
+        "territory": "worldwide", "territory_locked": True,
+        "intended_use": ["streaming", "social"], "intended_use_locked": True,
+        "positions": [
+            {"rank": 1, "label": "Primary",    "territory": "worldwide", "uses": ["streaming", "social"], "term": "perpetuity", "notes": "WW streaming and social in perpetuity."},
+            {"rank": 2, "label": "Fallback 1", "territory": "worldwide", "uses": ["streaming", "social"], "term": "3_years",    "notes": "Acceptable for initial deal with renewal option."},
+        ],
+    },
+    "custom": {
+        "label": "Custom — Configure Manually",
+        "description": "Set your own territory, intended use, and negotiation positions",
+        "territory": "", "territory_locked": False,
+        "intended_use": [], "intended_use_locked": False,
+        "positions": [],
+    },
+}
+
+TERM_LABELS = {
+    "perpetuity": "In Perpetuity",
+    "5_years":    "5 Years",
+    "3_years":    "3 Years",
+    "2_years":    "2 Years",
+    "1_year":     "1 Year",
+}
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-me")
 
@@ -856,21 +922,36 @@ def platform_send_invite():
 @app.route("/platform/settings", methods=["GET", "POST"])
 @require_platform
 def platform_settings():
+    import json
     user = current_platform_user()
     p    = user.platform
     if request.method == "POST":
-        p.form_territory          = request.form.get("form_territory") or None
-        p.form_territory_locked   = bool(request.form.get("form_territory_locked"))
-        p.form_intended_use       = ",".join(request.form.getlist("form_intended_use")) or None
+        p.form_territory           = request.form.get("form_territory") or None
+        p.form_territory_locked    = bool(request.form.get("form_territory_locked"))
+        p.form_intended_use        = ",".join(request.form.getlist("form_intended_use")) or None
         p.form_intended_use_locked = bool(request.form.get("form_intended_use_locked"))
+        # Collect up to 4 negotiation positions from form
+        positions = []
+        for i in range(1, 5):
+            label     = request.form.get(f"pos_{i}_label", "").strip()
+            territory = request.form.get(f"pos_{i}_territory", "").strip()
+            uses      = request.form.getlist(f"pos_{i}_uses")
+            term      = request.form.get(f"pos_{i}_term", "").strip()
+            notes     = request.form.get(f"pos_{i}_notes", "").strip()
+            if label and territory:
+                positions.append({"rank": i, "label": label, "territory": territory,
+                                   "uses": uses, "term": term, "notes": notes})
+        p.negotiation_positions_json = json.dumps(positions) if positions else None
         db.session.commit()
         flash("Form configuration saved.", "success")
         return redirect(url_for("platform_settings"))
     return render_template("platform/settings.html",
-        platform              = p,
-        platform_user         = user,
-        territory_labels      = TERRITORY_LABELS,
-        intended_use_options  = INTENDED_USE_OPTIONS,
+        platform             = p,
+        platform_user        = user,
+        territory_labels     = TERRITORY_LABELS,
+        intended_use_options = INTENDED_USE_OPTIONS,
+        term_labels          = TERM_LABELS,
+        form_presets         = FORM_PRESETS,
     )
 
 
@@ -947,6 +1028,9 @@ def platform_project(sub_id):
         sub=sub,
         platform=user.platform,
         pricing_tiers=PRICING_TIERS,
+        territory_labels=TERRITORY_LABELS,
+        intended_use_options=INTENDED_USE_OPTIONS,
+        term_labels=TERM_LABELS,
     )
 
 
@@ -1745,10 +1829,11 @@ def migrate_db_cmd():
                 print(f"  clearance_guidelines.{col_name}: {exc}")
         # Add platform form-config columns
         for col_name, col_type in [
-            ("form_territory",          "VARCHAR(50)"),
-            ("form_territory_locked",   "BOOLEAN DEFAULT FALSE"),
-            ("form_intended_use",       "VARCHAR(300)"),
-            ("form_intended_use_locked","BOOLEAN DEFAULT FALSE"),
+            ("form_territory",             "VARCHAR(50)"),
+            ("form_territory_locked",      "BOOLEAN DEFAULT FALSE"),
+            ("form_intended_use",          "VARCHAR(300)"),
+            ("form_intended_use_locked",   "BOOLEAN DEFAULT FALSE"),
+            ("negotiation_positions_json", "TEXT"),
         ]:
             try:
                 conn.execute(sa_text(
