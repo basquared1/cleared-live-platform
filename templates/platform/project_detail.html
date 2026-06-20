@@ -450,18 +450,12 @@
         <div class="fw-semibold text-navy small"><i class="bi bi-credit-card me-2"></i>Payment</div>
       </div>
       <div class="card-body py-3 px-4">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div>
-            <div class="fw-bold fs-5 text-navy">{{ sub.price_display }}</div>
-            <div class="text-muted small">{{ sub.pricing_tier_info.label }} tier</div>
-          </div>
-          <span class="badge {% if sub.payment_status == 'paid' %}bg-success
-            {% elif sub.payment_status == 'invoiced' %}bg-warning text-dark
-            {% elif sub.payment_status == 'waived' %}bg-secondary
-            {% else %}bg-light text-dark border{% endif %} px-3 py-2">
-            {{ sub.payment_status.title() }}
-          </span>
-        </div>
+        <span class="badge {% if sub.payment_status == 'paid' %}bg-success
+          {% elif sub.payment_status == 'invoiced' %}bg-warning text-dark
+          {% elif sub.payment_status == 'waived' %}bg-secondary
+          {% else %}bg-light text-dark border{% endif %} px-3 py-2">
+          {{ sub.payment_status.title() }}
+        </span>
       </div>
     </div>
 
@@ -502,26 +496,6 @@
       </div>
     </div>
 
-    <!-- API status card -->
-    <div class="card border-0 shadow-sm mb-3">
-      <div class="card-header bg-white border-bottom py-3">
-        <div class="fw-semibold text-navy small"><i class="bi bi-code-slash me-2"></i>API Status</div>
-      </div>
-      <div class="card-body p-3">
-        <div class="api-block" style="font-size:.72rem; white-space:pre-wrap; word-break:break-all;">{
-  <span class="key">"token"</span>: <span class="val">"{{ sub.token }}"</span>,
-  <span class="key">"status"</span>: <span class="val">"{{ sub.status }}"</span>,
-  <span class="key">"progress_pct"</span>: <span class="val">{{ sub.progress_pct }}</span>,
-  <span class="key">"cleared_at"</span>: <span class="val">{{ ('"%s"' % sub.cleared_at.isoformat()) if sub.cleared_at else 'null' }}</span>
-}</div>
-        <div class="mt-2">
-          <a href="{{ url_for('api_status', token=sub.token) }}" target="_blank"
-             class="small text-decoration-none">
-            <i class="bi bi-box-arrow-up-right me-1"></i>Live API endpoint
-          </a>
-        </div>
-      </div>
-    </div>
 
   </div>
 </div>
