@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Form Settings — {{ platform.name }}{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('platform_dashboard') }}">
+      <span style="color:{{ platform.primary_color }}; font-weight:900; font-size:1.05rem;">{{ platform.logo_text or platform.name }}</span>
+      <span class="text-muted fw-normal" style="font-size:.8rem;">Clearance Portal</span>
+    </a>
+    <div class="ms-auto d-flex align-items-center gap-3">
+      <a href="{{ url_for('platform_guidelines') }}"
+         class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
+        <i class="bi bi-book"></i> Guidelines
+      </a>
+      <a href="{{ url_for('platform_invites') }}"
+         class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
+        <i class="bi bi-envelope-check"></i> Invites
+      </a>
+      <a href="{{ url_for('platform_settings') }}"
+         class="btn btn-sm btn-primary d-none d-md-inline-flex align-items-center gap-1">
+        <i class="bi bi-sliders"></i> Form Settings
+      </a>
+      <a href="{{ url_for('platform_logout') }}" class="btn btn-sm btn-outline-secondary">Logout</a>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="fw-bold text-navy mb-1">Form Configuration</h4>
+    <p class="text-muted small mb-0">
+      Control what submitters see on your intake form. Locked fields are pre-filled and cannot be changed.
+    </p>
+  </div>
+  <a href="{{ url_for('platform_dashboard') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Dashboard
+  </a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<form method="POST">
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+
+      <!-- Territory -->
+      <h6 class="fw-bold text-navy mb-1">Territory</h6>
+      <p class="text-muted small mb-3">
+        Set the territory your platform requires for every submission. Lock it to prevent submitters from changing it.
+      </p>
+      <div class="row g-3 align-items-center mb-2">
+        <div class="col-md-5">
+          <label class="form-label fw-semibold small">Default Territory</label>
+          <select name="form_territory" class="form-select">
+            <option value="">— No default (submitter chooses) —</option>
+            {% for key, label in territory_labels.items() %}
+            <option value="{{ key }}" {% if platform.form_territory == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4 pt-md-4">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="form_territory_locked" id="lockTerritory" value="1"
+                   {% if platform.form_territory_locked %}checked{% endif %}>
+            <label class="form-check-label small fw-semibold" for="lockTerritory">
+              Lock — submitter cannot change
+            </label>
+          </div>
+        </div>
+      </div>
+      {% if platform.form_territory %}
+      <div class="alert alert-info py-2 small mb-0">
+        <i class="bi bi-info-circle me-1"></i>
+        Submitters will see <strong>{{ territory_labels.get(platform.form_territory, platform.form_territory) }}</strong>
+        {% if platform.form_territory_locked %}as a locked field.{% else %}pre-selected but can change it.{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+
+      <!-- Intended Use -->
+      <h6 class="fw-bold text-navy mb-1">Intended Use</h6>
+      <p class="text-muted small mb-3">
+        Check the uses your platform requires. Lock to prevent submitters from adding or removing any.
+      </p>
+      <div class="d-flex flex-wrap gap-3 mb-3">
+        {% for key, label in intended_use_options %}
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="form_intended_use" value="{{ key }}"
+                 id="cfg_use_{{ key }}"
+                 {% if key in platform.form_intended_use_list %}checked{% endif %}>
+          <label class="form-check-label small fw-semibold" for="cfg_use_{{ key }}">{{ label }}</label>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" name="form_intended_use_locked" id="lockIntendedUse" value="1"
+               {% if platform.form_intended_use_locked %}checked{% endif %}>
+        <label class="form-check-label small fw-semibold" for="lockIntendedUse">
+          Lock — submitter cannot change
+        </label>
+      </div>
+      {% if platform.form_intended_use_list %}
+      <div class="alert alert-info py-2 small mt-3 mb-0">
+        <i class="bi bi-info-circle me-1"></i>
+        Pre-checked:
+        <strong>
+          {% for key, label in intended_use_options %}
+            {% if key in platform.form_intended_use_list %}{{ label }}{% if not loop.last %}, {% endif %}{% endif %}
+          {% endfor %}
+        </strong>
+        {% if platform.form_intended_use_locked %}— locked.{% else %}— submitter can add more.{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary fw-semibold px-4">
+      <i class="bi bi-check2 me-1"></i>Save Configuration
+    </button>
+    <a href="{{ url_for('platform_dashboard') }}" class="btn btn-outline-secondary">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

@@ -120,8 +120,14 @@ class Platform(db.Model):
     tier            = db.Column(db.String(20), default="standard")  # trial | standard | enterprise
     platform_mode   = db.Column(db.String(20), default="clearance")  # clearance | label_waiver
     is_active       = db.Column(db.Boolean, default=True)
-    accepted_types  = db.Column(db.String(300), default="live_music,documentary,unscripted,social,ugc")
-    created_at      = db.Column(db.DateTime, default=datetime.utcnow)
+    accepted_types         = db.Column(db.String(300), default="live_music,documentary,unscripted,social,ugc")
+    created_at             = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Form configuration — what the platform mandates on every submission
+    form_territory         = db.Column(db.String(50))    # pre-selected territory
+    form_territory_locked  = db.Column(db.Boolean, default=False)
+    form_intended_use      = db.Column(db.String(300))   # comma-separated pre-checked uses
+    form_intended_use_locked = db.Column(db.Boolean, default=False)
 
     submissions = db.relationship("Submission", backref="platform", lazy="dynamic")
     users       = db.relationship("PlatformUser", backref="platform", lazy=True)
@@ -130,6 +136,10 @@ class Platform(db.Model):
     @property
     def accepted_types_list(self):
         return [t.strip() for t in (self.accepted_types or "").split(",") if t.strip()]
+
+    @property
+    def form_intended_use_list(self):
+        return [u.strip() for u in (self.form_intended_use or "").split(",") if u.strip()]
 
     @property
     def total_count(self):

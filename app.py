@@ -853,6 +853,27 @@ def platform_send_invite():
     return redirect(url_for("platform_dashboard"))
 
 
+@app.route("/platform/settings", methods=["GET", "POST"])
+@require_platform
+def platform_settings():
+    user = current_platform_user()
+    p    = user.platform
+    if request.method == "POST":
+        p.form_territory          = request.form.get("form_territory") or None
+        p.form_territory_locked   = bool(request.form.get("form_territory_locked"))
+        p.form_intended_use       = ",".join(request.form.getlist("form_intended_use")) or None
+        p.form_intended_use_locked = bool(request.form.get("form_intended_use_locked"))
+        db.session.commit()
+        flash("Form configuration saved.", "success")
+        return redirect(url_for("platform_settings"))
+    return render_template("platform/settings.html",
+        platform              = p,
+        platform_user         = user,
+        territory_labels      = TERRITORY_LABELS,
+        intended_use_options  = INTENDED_USE_OPTIONS,
+    )
+
+
 @app.route("/platform/invites/<int:invite_id>/delete", methods=["POST"])
 @require_platform
 def platform_delete_invite(invite_id):
@@ -1722,6 +1743,22 @@ def migrate_db_cmd():
             except Exception as exc:
                 conn.rollback()
                 print(f"  clearance_guidelines.{col_name}: {exc}")
+        # Add platform form-config columns
+        for col_name, col_type in [
+            ("form_territory",          "VARCHAR(50)"),
+            ("form_territory_locked",   "BOOLEAN DEFAULT FALSE"),
+            ("form_intended_use",       "VARCHAR(300)"),
+            ("form_intended_use_locked","BOOLEAN DEFAULT FALSE"),
+        ]:
+            try:
+                conn.execute(sa_text(
+                    f"ALTER TABLE platforms ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                ))
+                conn.commit()
+                print(f"  platforms.{col_name} OK")
+            except Exception as exc:
+                conn.rollback()
+                print(f"  platforms.{col_name}: {exc}")
     print("Migration complete.")
 
 

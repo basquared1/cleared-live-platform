@@ -323,31 +323,59 @@
           <div class="col-md-4">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">
               Territory
+              {% if not platform.form_territory_locked %}
               <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
                 data-bs-title="Territory"
-                data-bs-content="Where in the world will this content be available? Wider distribution requires more complex clearance. Start with the most likely territory — we can expand later if needed.">
+                data-bs-content="Where in the world will this content be available? Wider distribution requires more complex clearance.">
                 <i class="bi bi-info-circle"></i></button>
+              {% endif %}
+              {% if platform.form_territory_locked %}
+              <span class="badge bg-secondary fw-normal" style="font-size:.65rem;">Set by {{ platform.name }}</span>
+              {% endif %}
             </label>
-            <select name="territory" class="form-select">
-              {% for key, label in territory_labels.items() %}
-              <option value="{{ key }}">{{ label }}</option>
-              {% endfor %}
-            </select>
+            {% if platform.form_territory_locked and platform.form_territory %}
+              <input type="hidden" name="territory" value="{{ platform.form_territory }}">
+              <div class="form-control bg-light text-muted" style="cursor:default;">
+                {{ territory_labels.get(platform.form_territory, platform.form_territory) }}
+              </div>
+            {% else %}
+              <select name="territory" class="form-select">
+                {% for key, label in territory_labels.items() %}
+                <option value="{{ key }}" {% if platform.form_territory == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            {% endif %}
           </div>
           <div class="col-md-8">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">
               Intended Use
+              {% if not platform.form_intended_use_locked %}
               <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
                 data-bs-title="Intended Use"
-                data-bs-content="Where and how will this content be distributed? This directly affects which licenses are required. Check all that apply — it's better to clear more than you need upfront than to need to re-clear later.">
+                data-bs-content="Where and how will this content be distributed? Check all that apply.">
                 <i class="bi bi-info-circle"></i></button>
               <span class="text-muted fw-normal">(check all that apply)</span>
+              {% else %}
+              <span class="badge bg-secondary fw-normal" style="font-size:.65rem;">Set by {{ platform.name }}</span>
+              {% endif %}
             </label>
             <div class="d-flex flex-wrap gap-2 mt-1">
               {% for key, label in intended_use_options %}
+              {% set pre = key in platform.form_intended_use_list %}
               <div class="form-check form-check-inline m-0">
-                <input class="form-check-input" type="checkbox" name="intended_use" value="{{ key }}" id="use_{{ key }}">
-                <label class="form-check-label small" for="use_{{ key }}">{{ label }}</label>
+                {% if platform.form_intended_use_locked %}
+                  {% if pre %}
+                  <input type="hidden" name="intended_use" value="{{ key }}">
+                  <input class="form-check-input" type="checkbox" checked disabled>
+                  {% else %}
+                  <input class="form-check-input" type="checkbox" disabled>
+                  {% endif %}
+                {% else %}
+                <input class="form-check-input" type="checkbox" name="intended_use" value="{{ key }}"
+                       id="use_{{ key }}" {% if pre %}checked{% endif %}>
+                {% endif %}
+                <label class="form-check-label small {% if platform.form_intended_use_locked and not pre %}text-muted{% endif %}"
+                       for="use_{{ key }}">{{ label }}</label>
               </div>
               {% endfor %}
             </div>
