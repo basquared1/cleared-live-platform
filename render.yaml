@@ -16,10 +16,14 @@ services:
         sync: false
       - key: DOCUSIGN_ACCOUNT_ID
         sync: false
-      - key: DOCUSIGN_ACCESS_TOKEN
+      - key: DOCUSIGN_INTEGRATION_KEY
         sync: false
-      - key: DOCUSIGN_BASE_URL
-        value: https://demo.docusign.net/restapi
+      - key: DOCUSIGN_USER_ID
+        sync: false
+      - key: DOCUSIGN_PRIVATE_KEY
+        sync: false
+      - key: DOCUSIGN_ENV
+        value: demo
       - key: RESEND_API_KEY
         sync: false
 

@@ -6,9 +6,12 @@ import threading
 from datetime import datetime, timedelta
 from functools import wraps
 
+import re
+import io
 import base64
 import anthropic as _anthropic
 import requests as http_requests
+from docx_builder import build_docx
 from dotenv import load_dotenv
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -178,9 +181,97 @@ def inject_globals():
 # AI helpers
 # ---------------------------------------------------------------------------
 
-def _ai_client():
-    key = os.getenv("ANTHROPIC_API_KEY")
-    return _anthropic.Anthropic(api_key=key) if key else None
+_CLP_SYSTEM_PROMPT = """You are a SENIOR music and entertainment attorney drafting on behalf of Cleared.live Business Affairs. You have 20+ years drafting against majors, sublabels, indies, publishers, promoters, venues, and unions. You write like a senior partner who bills by the result, not the page.
+
+## Drafting philosophy — ENFORCE STRICTLY
+Every sentence must earn its place. Every word inside every sentence must earn its place. If a clause can be cut without losing a right or a protection, cut it. Plain English over legalese wherever possible.
+
+## Hard rules
+- California law, Los Angeles County venue — one sentence, always.
+- Rights grant: worldwide, in perpetuity, all media now known or hereafter devised — stated once, broadly.
+- [BRACKETED PLACEHOLDERS] for every fee, date, and amount that is genuinely unknown. Do NOT bracket things you know.
+- No triple asterisks, no stray underscores, no markdown code fences.
+- The drafting party is never itself a signatory unless the agreement is explicitly about retaining them.
+
+## CANONICAL RULE — CLEAN DOCUMENT STANDARD
+This document will be transmitted to the counterparty. It must read as professionally final.
+STRICTLY PROHIBITED: research parentheticals like "(verify against ASCAP/BMI)", internal notes, fee estimates with "(market est.)".
+
+## Signature anchors (DocuSign)
+End the agreement with exactly two signature blocks:
+
+AGREED AND ACCEPTED — SUBMITTER / RIGHTS HOLDER:
+
+/sign_submitter/
+Print Name: /name_submitter/
+Date: /date_submitter/
+
+
+AUTHORIZED SIGNATORY — PLATFORM BUSINESS AFFAIRS:
+
+/sign_ba/
+Print Name: /name_ba/
+Date: /date_ba/
+
+
+## What to include (and nothing else)
+1. Parties — one line each
+2. Background — two sentences max
+3. Grant of Rights — comprehensive but stated in the fewest words possible
+4. Compensation — [AMOUNT]; payment timing in one sentence
+5. Reps & Warranties — four bullets max, mutual where appropriate
+6. Indemnification — one sentence, mutual
+7. Governing Law — one sentence
+8. Miscellaneous — entire agreement + counterparts + amendment in one paragraph
+9. Signature Page — two blocks as specified above"""
+
+
+def _cached_system(system: str) -> list:
+    return [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+
+
+def call_claude_document(system: str, user: str) -> str:
+    """Generate a document with up to two API passes to avoid truncation."""
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set in environment.")
+    client = _anthropic.Anthropic(api_key=api_key)
+    cached = _cached_system(system)
+    msg = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=16000,
+        system=cached,
+        messages=[{"role": "user", "content": user}],
+    )
+    text = msg.content[0].text
+    if msg.stop_reason == "max_tokens":
+        continuation = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=16000,
+            system=cached,
+            messages=[
+                {"role": "user", "content": user},
+                {"role": "assistant", "content": text},
+                {"role": "user", "content": "Continue the agreement from exactly where you left off. Do not repeat any content. Complete all remaining sections and signature blocks."},
+            ],
+        )
+        text += "\n" + continuation.content[0].text
+    return text
+
+
+def call_claude(system: str, user: str, max_tokens: int = 4000) -> str:
+    """Call Claude for shorter outputs (deal points, outreach emails)."""
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set in environment.")
+    client = _anthropic.Anthropic(api_key=api_key)
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=max_tokens,
+        system=_cached_system(system),
+        messages=[{"role": "user", "content": user}],
+    )
+    return message.content[0].text
 
 
 def _sub_context(sub):
@@ -194,98 +285,219 @@ def _sub_context(sub):
         f"Publisher: {sub.publisher or 'N/A'}\n"
         f"Event: {(sub.event_name or '') + (' at ' + sub.venue if sub.venue else '')} {('on ' + sub.event_date) if sub.event_date else ''}\n"
         f"Production Company: {sub.production_company or 'N/A'}\n"
-        f"Submitter: {sub.submitter_name} ({sub.submitter_company or 'N/A'})"
+        f"Submitter: {sub.submitter_name} ({sub.submitter_company or 'N/A'})\n"
+        + (f"Setlist:\n" + "\n".join(f"  - {s}" for s in sub.setlist_list) if sub.setlist_list else "")
+    )
+
+
+def _build_clearance_doc_user_prompt(sub, item):
+    return (
+        f"Draft a professional {item.item_label} for the following project.\n\n"
+        f"REPRESENTED PARTY: {sub.platform.name} Business Affairs\n\n"
+        f"PROJECT DETAILS:\n{_sub_context(sub)}\n\n"
+        f"CLEARANCE ITEM: {item.item_label}\n"
+        + (f"Rights Holder / Counterparty: {item.party_name}\n" if item.party_name else "Rights Holder / Counterparty: [RIGHTS HOLDER]\n")
+        + f"\nDraft the complete agreement now."
     )
 
 
 def generate_draft(sub, item):
-    client = _ai_client()
-    if not client:
+    """Generate full agreement text using the attorney system prompt."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
         return None
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1200,
-        messages=[{"role": "user", "content": (
-            f"You are a senior business affairs attorney specializing in entertainment clearances for streaming platforms.\n\n"
-            f"Generate a professional {item.item_label} for:\n{_sub_context(sub)}\n\n"
-            f"Structure your response as:\n"
-            f"## DEAL POINTS\n- [4–6 key terms, specific to this project and rights type]\n\n"
-            f"## DRAFT AGREEMENT\n[200–350 word professional draft. Use [RIGHTS HOLDER] and [PLATFORM] as party placeholders. "
-            f"Include grant of rights, territory, term, compensation basis, representations & warranties, and signature blocks. "
-            f"Be specific to the project details above.]"
-        )}],
-    )
-    return msg.content[0].text
+    user_prompt = _build_clearance_doc_user_prompt(sub, item)
+    return call_claude_document(_CLP_SYSTEM_PROMPT, user_prompt)
 
 
 def generate_outreach(sub, item):
-    client = _ai_client()
-    if not client:
+    """Generate a clearance outreach email."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
         return None
-    msg = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=600,
-        messages=[{"role": "user", "content": (
-            f"You are a business affairs professional at {sub.platform.name}.\n\n"
-            f"Write a professional clearance outreach email requesting a {item.item_label} for:\n{_sub_context(sub)}\n\n"
-            f"Write 175–225 words. Start with 'Dear [Rights Holder],'. Do NOT include a subject line. "
-            f"State exactly what rights are being requested, for which project and platform, reference event details, "
-            f"request a response within 5 business days, and close professionally from the {sub.platform.name} Business Affairs team."
-        )}],
+    system = (
+        f"You are a business affairs professional at {sub.platform.name}. "
+        "You draft concise, professional outreach emails to rights holders requesting clearance. "
+        "Never include a subject line. Write 175–225 words."
     )
-    return msg.content[0].text
+    user = (
+        f"Write a professional clearance outreach email requesting a {item.item_label} for:\n"
+        f"{_sub_context(sub)}\n\n"
+        f"Start with 'Dear [Rights Holder],'. State exactly what rights are being requested, "
+        f"for which project and platform, reference event details, request a response within 5 business days, "
+        f"and close professionally from the {sub.platform.name} Business Affairs team."
+    )
+    return call_claude(system, user, max_tokens=600)
+
+
+# ---------------------------------------------------------------------------
+# DocuSign — JWT grant flow
+# ---------------------------------------------------------------------------
+
+_ds_env = os.getenv("DOCUSIGN_ENV", "demo")
+DOCUSIGN_BASE_URL = (
+    "https://na4.docusign.net/restapi" if _ds_env == "production"
+    else "https://demo.docusign.net/restapi"
+)
+DOCUSIGN_AUTH_SERVER = (
+    "account.docusign.com" if _ds_env == "production" else "account-d.docusign.com"
+)
+
+
+def _normalize_rsa_key(raw: str) -> str:
+    """Handle RSA keys pasted with literal newlines, escaped \\n, or no newlines."""
+    if not raw:
+        return ""
+    k = raw.strip().replace("\\n", "\n").replace("\r", "")
+    if "\n" in k:
+        return k
+    m = re.match(
+        r"(-+\s*BEGIN [A-Z ]+PRIVATE KEY\s*-+)(.+?)(-+\s*END [A-Z ]+PRIVATE KEY\s*-+)",
+        k, re.DOTALL,
+    )
+    if not m:
+        return k
+    header, body, footer = m.group(1), m.group(2), m.group(3)
+    body = re.sub(r"\s+", "", body)
+    wrapped = "\n".join(body[i:i + 64] for i in range(0, len(body), 64))
+    return f"{header}\n{wrapped}\n{footer}\n"
+
+
+def docusign_configured():
+    return bool(
+        os.getenv("DOCUSIGN_INTEGRATION_KEY")
+        and os.getenv("DOCUSIGN_USER_ID")
+        and os.getenv("DOCUSIGN_ACCOUNT_ID")
+        and os.getenv("DOCUSIGN_PRIVATE_KEY")
+    )
+
+
+def get_docusign_token():
+    """Get DocuSign access token via JWT grant."""
+    import jwt as pyjwt
+    private_key = _normalize_rsa_key(os.getenv("DOCUSIGN_PRIVATE_KEY", ""))
+    integration_key = os.getenv("DOCUSIGN_INTEGRATION_KEY")
+    user_id = os.getenv("DOCUSIGN_USER_ID")
+    now = datetime.utcnow()
+    payload = {
+        "iss": integration_key,
+        "sub": user_id,
+        "aud": DOCUSIGN_AUTH_SERVER,
+        "iat": now,
+        "exp": now + timedelta(hours=1),
+        "scope": "signature",
+    }
+    token = pyjwt.encode(payload, private_key, algorithm="RS256")
+    resp = http_requests.post(
+        f"https://{DOCUSIGN_AUTH_SERVER}/oauth/token",
+        data={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer", "assertion": token},
+        timeout=15,
+    )
+    if not resp.ok:
+        raise Exception(f"DocuSign token {resp.status_code}: {resp.text}")
+    return resp.json()["access_token"]
+
+
+def _ds_tab(anchor, **extra):
+    t = {"anchorString": anchor, "anchorUnits": "pixels", "anchorXOffset": "0", "anchorYOffset": "0"}
+    t.update(extra)
+    return t
+
+
+def _ds_text_tab(anchor, label):
+    return {
+        "anchorString": anchor, "anchorUnits": "pixels",
+        "anchorXOffset": "0", "anchorYOffset": "0",
+        "tabLabel": label, "required": "false", "width": "200",
+    }
+
+
+def _build_ds_tabs(content, sign_anchor, signer_name):
+    """Build DocuSign tabs for one signer derived from anchor patterns in document content."""
+    tabs = {"signHereTabs": [_ds_tab(sign_anchor)]}
+    m = re.match(r"^/sign(_?)(.+)/$", sign_anchor)
+    if not m:
+        return tabs
+    sep, suffix = m.group(1), m.group(2)
+
+    def has(a): return a in (content or "")
+    def a(field): return f"/{field}{sep}{suffix}/"
+
+    if has(a("name")):
+        tabs["fullNameTabs"] = [_ds_tab(a("name"), value=signer_name)]
+    if has(a("date")):
+        tabs["dateSignedTabs"] = [_ds_tab(a("date"))]
+    if has(a("initial")):
+        tabs["initialHereTabs"] = [_ds_tab(a("initial"))]
+
+    text_tabs = []
+    for field, label in [("addr", "Address"), ("phone", "Phone"), ("title", "Title"),
+                          ("company", "Company"), ("text", "Text")]:
+        if has(a(field)):
+            text_tabs.append(_ds_text_tab(a(field), label))
+    if text_tabs:
+        tabs["textTabs"] = text_tabs
+
+    return tabs
+
+
+# Minimal Document-like proxy so build_docx works without the full enterprise model
+class _DocxProxy:
+    def __init__(self, title, content):
+        self.title = title
+        self.content = content
+        self.status = "draft"
 
 
 def send_to_docusign(sub, item):
-    account_id = os.getenv("DOCUSIGN_ACCOUNT_ID")
-    token      = os.getenv("DOCUSIGN_ACCESS_TOKEN")
-    base_url   = os.getenv("DOCUSIGN_BASE_URL", "https://demo.docusign.net/restapi")
-    if not account_id or not token:
-        return None, "DocuSign not configured — set DOCUSIGN_ACCOUNT_ID and DOCUSIGN_ACCESS_TOKEN in Render environment."
+    """Send signed .docx to submitter (signer 1) via DocuSign JWT flow."""
+    if not docusign_configured():
+        return None, "DocuSign not configured — set DOCUSIGN_INTEGRATION_KEY, DOCUSIGN_USER_ID, DOCUSIGN_ACCOUNT_ID, DOCUSIGN_PRIVATE_KEY in Render environment."
 
-    draft = item.ai_draft or f"[AI draft pending for {item.item_label}]"
-    html_doc = f"""<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:760px;margin:2rem auto;padding:1rem;">
-<h2 style="color:#1a3a5c;">{item.item_label}</h2>
-<table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;font-size:.9rem;">
-<tr><td style="padding:4px 8px;color:#666;width:160px;">Project</td><td style="padding:4px 8px;font-weight:bold;">{sub.title}</td></tr>
-<tr><td style="padding:4px 8px;color:#666;">Platform</td><td style="padding:4px 8px;">{sub.platform.name}</td></tr>
-<tr><td style="padding:4px 8px;color:#666;">Artist</td><td style="padding:4px 8px;">{sub.artist_name or 'N/A'}</td></tr>
-<tr><td style="padding:4px 8px;color:#666;">Territory</td><td style="padding:4px 8px;">{sub.territory_label}</td></tr>
-<tr><td style="padding:4px 8px;color:#666;">Intended Use</td><td style="padding:4px 8px;">{', '.join(sub.intended_use_list) if sub.intended_use_list else 'Streaming'}</td></tr>
-</table>
-<hr style="margin:1.5rem 0;">
-<div style="white-space:pre-wrap;font-family:Georgia,serif;line-height:1.7;font-size:.95rem;">{draft}</div>
-<div style="margin-top:4rem;">
-<p style="font-weight:bold;">AGREED AND ACCEPTED:</p>
-<br>
-<p>Submitter Signature: <span style="font-size:1.1em;">/s1e1/</span></p>
-<p>Date: /d1e1/</p>
-<br>
-<p>Authorized Signatory: <span style="font-size:1.1em;">/s2e1/</span></p>
-<p>Date: /d2e1/</p>
-</div></body></html>"""
+    draft_text = item.ai_draft or f"[AI draft pending for {item.item_label}]"
+    doc_proxy = _DocxProxy(title=item.item_label, content=draft_text)
+    try:
+        doc_bytes = build_docx(doc_proxy)
+    except Exception as e:
+        return None, f"Failed to build .docx: {e}"
 
-    doc_b64 = base64.b64encode(html_doc.encode()).decode()
-    envelope = {
-        "emailSubject": f"Please sign: {item.item_label} — {sub.title} ({sub.platform.name})",
-        "documents": [{"documentBase64": doc_b64, "name": f"{item.item_label}.html",
-                        "fileExtension": "html", "documentId": "1"}],
-        "recipients": {"signers": [{
+    doc_b64 = base64.b64encode(doc_bytes).decode()
+
+    ds_signers = [
+        {
             "email": sub.submitter_email,
             "name": sub.submitter_name,
             "recipientId": "1",
             "routingOrder": "1",
-            "tabs": {
-                "signHereTabs": [{"anchorString": "/s1e1/", "anchorUnits": "pixels"}],
-                "dateSignedTabs": [{"anchorString": "/d1e1/", "anchorUnits": "pixels"}],
-            }
-        }]},
+            "tabs": _build_ds_tabs(draft_text, "/sign_submitter/", sub.submitter_name),
+        }
+    ]
+
+    envelope = {
+        "emailSubject": f"Please sign: {item.item_label} — {sub.title} ({sub.platform.name})",
+        "emailBlurb": (
+            f"{sub.platform.name} Business Affairs — {sub.title}\n\n"
+            "Please review and sign the attached clearance agreement."
+        ),
+        "documents": [{
+            "documentBase64": doc_b64,
+            "name": item.item_label,
+            "fileExtension": "docx",
+            "documentId": "1",
+        }],
+        "recipients": {"signers": ds_signers},
         "status": "sent",
     }
+
+    try:
+        access_token = get_docusign_token()
+    except Exception as e:
+        return None, f"DocuSign auth failed: {e}"
+
+    account_id = os.getenv("DOCUSIGN_ACCOUNT_ID")
     resp = http_requests.post(
-        f"{base_url}/v2.1/accounts/{account_id}/envelopes",
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        json=envelope, timeout=15,
+        f"{DOCUSIGN_BASE_URL}/v2.1/accounts/{account_id}/envelopes",
+        headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+        json=envelope,
+        timeout=20,
     )
     if resp.status_code == 201:
         return resp.json().get("envelopeId"), None
