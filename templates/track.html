@@ -45,7 +45,7 @@
         {% else %}bi-inbox{% endif %} fs-5 mt-1 flex-shrink-0"></i>
       <div class="small">
         {% if sub.status == 'submitted' %}
-          <strong>Received — start working on your clearances below.</strong> Your submission has been received by {{ sub.platform.name }}. You are responsible for completing each clearance item. Upload signed documents and submit each item for BA review when ready.
+          <strong>Your workspace is ready — start below.</strong> AI has drafted agreements and outreach emails for each item. Click "Start Working" on any item to review the draft, contact the rights holder, and upload the signed agreement when you have it. The {{ sub.platform.name }} BA team reviews each item as you submit it.
         {% elif sub.status == 'in_review' %}
           <strong>Under BA review.</strong> The {{ sub.platform.name }} business affairs team is reviewing your submission. Continue working on any open items below.
         {% elif sub.status == 'in_clearance' %}
