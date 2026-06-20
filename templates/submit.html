@@ -452,48 +452,8 @@
       </div>
     </div>
 
-    <!-- ───── STEP 4: Pricing ───── -->
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-body p-4">
-        <div class="d-flex align-items-center gap-3 mb-1">
-          <div class="step-pill">4</div>
-          <div>
-            <div class="fw-bold text-navy">Clearance Tier</div>
-          </div>
-        </div>
-        <p class="text-muted small ms-5 mb-4">Select based on your project's complexity. <strong>Not sure? Choose Standard</strong> — we'll confirm the right tier after reviewing your submission and adjust if needed. An invoice is sent after review.</p>
-        <div class="row g-3 mb-3">
-          <div class="col-md-4">
-            <input type="radio" class="btn-check" name="pricing_tier" id="tier_basic" value="basic">
-            <label class="btn btn-outline-secondary w-100 h-100 text-start p-3" for="tier_basic">
-              <div class="fw-bold text-navy fs-5">$500</div>
-              <div class="fw-semibold small mt-1">Basic</div>
-              <div class="text-muted mt-2" style="font-size:.78rem;"><strong>Up to 5 clearance items.</strong> Best for: a single social post, one UGC piece, or a simple one-song license.</div>
-            </label>
-          </div>
-          <div class="col-md-4">
-            <input type="radio" class="btn-check" name="pricing_tier" id="tier_standard" value="standard" checked>
-            <label class="btn btn-outline-secondary w-100 h-100 text-start p-3" for="tier_standard">
-              <div class="d-flex align-items-center gap-2">
-                <div class="fw-bold text-navy fs-5">$1,000</div>
-                <span class="badge bg-primary small">Most common</span>
-              </div>
-              <div class="fw-semibold small mt-1">Standard</div>
-              <div class="text-muted mt-2" style="font-size:.78rem;"><strong>6–15 clearance items.</strong> Best for: concert films, documentaries, unscripted episodes, music videos, short series.</div>
-            </label>
-          </div>
-          <div class="col-md-4">
-            <input type="radio" class="btn-check" name="pricing_tier" id="tier_complex" value="complex">
-            <label class="btn btn-outline-secondary w-100 h-100 text-start p-3" for="tier_complex">
-              <div class="fw-bold text-navy fs-5">$2,000</div>
-              <div class="fw-semibold small mt-1">Complex</div>
-              <div class="text-muted mt-2" style="font-size:.78rem;"><strong>16+ clearance items.</strong> Best for: major label artists, multi-territory deals, archival-heavy films, or projects with a large setlist.</div>
-            </label>
-          </div>
-        </div>
-        <div class="small text-muted px-1"><i class="bi bi-shield-check me-1 text-success"></i>You won't be charged until we've reviewed your submission and confirmed the right tier. Invoice is sent by email.</div>
-      </div>
-    </div>
+    <!-- Pricing tier set by BA team after review — not shown to submitter -->
+    <input type="hidden" name="pricing_tier" value="standard">
 
     <!-- ───── Clearance Preview ───── -->
     <div class="card border-0 shadow-sm mb-4" id="clearancePreview">
