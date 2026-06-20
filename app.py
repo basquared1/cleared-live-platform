@@ -1331,21 +1331,43 @@ def init_db():
 
     # Add more demo platforms
     demos = [
-        ("Netflix", "netflix",     "Netflix",  "#E50914", "standard"),
-        ("YouTube", "youtube",     "YouTube",  "#FF0000", "standard"),
-        ("HBO",     "hbo",         "HBO",      "#1E1E1E", "standard"),
-        ("UMG",     "umg",         "UMG",      "#003087", "enterprise"),
+        ("Netflix", "netflix",     "Netflix",  "#E50914", "standard",    "live_music,documentary,unscripted,social,ugc,podcast"),
+        ("YouTube", "youtube",     "YouTube",  "#FF0000", "standard",    "live_music,documentary,unscripted,social,ugc,podcast"),
+        ("HBO",     "hbo",         "HBO",      "#1E1E1E", "standard",    "live_music,documentary,unscripted,social,ugc"),
+        ("UMG",     "umg",         "UMG",      "#003087", "enterprise",  "live_music,documentary,unscripted,social,ugc,podcast"),
+        ("Spotify", "spotify",     "Spotify",  "#1DB954", "enterprise",  "live_music,podcast,social,ugc"),
     ]
-    for name, slug, logo, color, tier in demos:
+    for name, slug, logo, color, tier, accepted in demos:
         if not Platform.query.filter_by(slug=slug).first():
             db.session.add(Platform(
                 name=name, slug=slug, logo_text=logo,
                 tier=tier, primary_color=color,
-                accepted_types="live_music,documentary,unscripted,social,ugc",
+                accepted_types=accepted,
             ))
     db.session.commit()
-    print("Demo platforms created: Netflix, YouTube, HBO, UMG")
+    print("Demo platforms: Netflix, YouTube, HBO, UMG, Spotify")
     print("\nDatabase ready.")
+
+
+@app.cli.command("add-platform")
+def add_platform_cmd():
+    """Add Spotify (and any other missing demo platforms) to the live database."""
+    demos = [
+        ("Spotify", "spotify", "Spotify", "#1DB954", "enterprise", "live_music,podcast,social,ugc"),
+    ]
+    for name, slug, logo, color, tier, accepted in demos:
+        if Platform.query.filter_by(slug=slug).first():
+            print(f"  {name}: already exists — skipping")
+            continue
+        p = Platform(
+            name=name, slug=slug, logo_text=logo,
+            tier=tier, primary_color=color, accepted_types=accepted,
+        )
+        db.session.add(p)
+        db.session.commit()
+        print(f"  {name} created — submit URL: /submit/{slug}")
+        print(f"  Add a BA user via Render shell:")
+        print(f"    python -c \"from app import app, db; from models import PlatformUser, Platform; from werkzeug.security import generate_password_hash; app.app_context().push(); p=Platform.query.filter_by(slug='{slug}').first(); db.session.add(PlatformUser(platform_id=p.id, username='spotify_ba', email='ba@spotify.com', password_hash=generate_password_hash('spotify123'), role='admin')); db.session.commit(); print('done')\"")
 
 
 @app.cli.command("migrate-db")
