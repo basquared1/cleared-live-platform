@@ -1203,12 +1203,14 @@ def platform_settings():
         for i in range(1, 5):
             label     = request.form.get(f"pos_{i}_label", "").strip()
             territory = request.form.get(f"pos_{i}_territory", "").strip()
-            uses      = request.form.getlist(f"pos_{i}_uses")
-            term      = request.form.get(f"pos_{i}_term", "").strip()
-            notes     = request.form.get(f"pos_{i}_notes", "").strip()
+            uses         = request.form.getlist(f"pos_{i}_uses")
+            uses_exclude = request.form.getlist(f"pos_{i}_uses_exclude")
+            term         = request.form.get(f"pos_{i}_term", "").strip()
+            notes        = request.form.get(f"pos_{i}_notes", "").strip()
             if label and territory:
                 positions.append({"rank": i, "label": label, "territory": territory,
-                                   "uses": uses, "term": term, "notes": notes})
+                                   "uses": uses, "uses_exclude": uses_exclude,
+                                   "term": term, "notes": notes})
         p.negotiation_positions_json = json.dumps(positions) if positions else None
         db.session.commit()
         flash("Form configuration saved.", "success")

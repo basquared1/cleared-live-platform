@@ -417,7 +417,16 @@
             </span>
           </div>
           {% if pos.uses %}
-          <div class="text-muted mb-1">{{ pos.uses | join(', ') }}</div>
+          <div class="text-muted mb-1">
+            {% if 'all' in pos.uses %}
+              All Media
+              {% if pos.uses_exclude %}
+                <span class="text-warning-emphasis fw-semibold">excl. {{ pos.uses_exclude | join(', ') }}</span>
+              {% endif %}
+            {% else %}
+              {{ pos.uses | join(', ') }}
+            {% endif %}
+          </div>
           {% endif %}
           {% if pos.notes %}
           <div class="text-muted fst-italic" style="font-size:.75rem;">{{ pos.notes }}</div>

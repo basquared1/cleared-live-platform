@@ -138,17 +138,46 @@
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label small text-muted mb-1">Intended Uses</label>
-            <div class="d-flex flex-wrap gap-2">
+            {% set all_checked = 'all' in pos.get('uses', []) %}
+            <div class="d-flex flex-wrap gap-2 mb-1">
+              <!-- All Media shortcut -->
+              <div class="form-check form-check-inline m-0">
+                <input class="form-check-input all-media-cb" type="checkbox"
+                       name="pos_{{ i }}_uses" value="all"
+                       id="pos{{ i }}_use_all"
+                       data-pos="{{ i }}"
+                       {% if all_checked %}checked{% endif %}>
+                <label class="form-check-label fw-semibold" style="font-size:.75rem;" for="pos{{ i }}_use_all">All Media</label>
+              </div>
+              <!-- Individual uses (hidden when All Media checked) -->
+              <div class="individual-uses-{{ i }} d-flex flex-wrap gap-2{% if all_checked %} d-none{% endif %}">
               {% for key, label in intended_use_options %}
               {% if key != 'all' %}
               <div class="form-check form-check-inline m-0">
                 <input class="form-check-input" type="checkbox" name="pos_{{ i }}_uses" value="{{ key }}"
                        id="pos{{ i }}_use_{{ key }}"
-                       {% if key in pos.get('uses', []) %}checked{% endif %}>
+                       {% if key in pos.get('uses', []) and not all_checked %}checked{% endif %}>
                 <label class="form-check-label" style="font-size:.75rem;" for="pos{{ i }}_use_{{ key }}">{{ label }}</label>
               </div>
               {% endif %}
               {% endfor %}
+              </div>
+            </div>
+            <!-- Excluding — only shown when All Media is checked -->
+            <div class="excluding-panel-{{ i }}{% if not all_checked %} d-none{% endif %} mt-1 ps-2 border-start border-2 border-warning">
+              <div class="text-muted small mb-1">Excluding:</div>
+              <div class="d-flex flex-wrap gap-2">
+              {% for key, label in intended_use_options %}
+              {% if key != 'all' %}
+              <div class="form-check form-check-inline m-0">
+                <input class="form-check-input" type="checkbox" name="pos_{{ i }}_uses_exclude" value="{{ key }}"
+                       id="pos{{ i }}_excl_{{ key }}"
+                       {% if key in pos.get('uses_exclude', []) %}checked{% endif %}>
+                <label class="form-check-label text-warning-emphasis" style="font-size:.73rem;" for="pos{{ i }}_excl_{{ key }}">{{ label }}</label>
+              </div>
+              {% endif %}
+              {% endfor %}
+              </div>
             </div>
           </div>
         </div>
@@ -206,8 +235,34 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
       document.querySelectorAll(`[name="pos_${i}_uses"]`).forEach(cb => {
         cb.checked = (pos.uses || []).includes(cb.value);
       });
+      document.querySelectorAll(`[name="pos_${i}_uses_exclude"]`).forEach(cb => {
+        cb.checked = (pos.uses_exclude || []).includes(cb.value);
+      });
+      toggleAllMedia(i);
     }
   });
+});
+
+function toggleAllMedia(i) {
+  const allCb = document.getElementById(`pos${i}_use_all`);
+  if (!allCb) return;
+  const indiv   = document.querySelector(`.individual-uses-${i}`);
+  const excPanel = document.querySelector(`.excluding-panel-${i}`);
+  if (allCb.checked) {
+    indiv.classList.add('d-none');
+    excPanel.classList.remove('d-none');
+    // uncheck individual uses (they'd conflict with "all")
+    document.querySelectorAll(`[name="pos_${i}_uses"]:not([value="all"])`).forEach(cb => cb.checked = false);
+  } else {
+    indiv.classList.remove('d-none');
+    excPanel.classList.add('d-none');
+    // clear exclusions
+    document.querySelectorAll(`[name="pos_${i}_uses_exclude"]`).forEach(cb => cb.checked = false);
+  }
+}
+
+document.querySelectorAll('.all-media-cb').forEach(cb => {
+  cb.addEventListener('change', () => toggleAllMedia(parseInt(cb.dataset.pos)));
 });
 </script>
 {% endblock %}
