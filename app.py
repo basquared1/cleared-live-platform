@@ -870,6 +870,18 @@ def track_item_gen_draft(token, item_id):
     return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
 
 
+@app.route("/track/<token>/item/<int:item_id>/save-outreach", methods=["POST"])
+def track_item_save_outreach(token, item_id):
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    item.ai_outreach_body = request.form.get("outreach_text", item.ai_outreach_body)
+    db.session.commit()
+    flash("Outreach email saved.", "success")
+    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
 @app.route("/track/<token>/item/<int:item_id>/save-draft", methods=["POST"])
 def track_item_save_draft(token, item_id):
     sub  = Submission.query.filter_by(token=token).first_or_404()
