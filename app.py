@@ -1570,10 +1570,15 @@ def add_platform_cmd():
     """Add Spotify, Sony, Warner, UMG to the live database (safe to re-run)."""
     # (name, slug, logo, color, tier, accepted_types, platform_mode)
     demos = [
-        ("Spotify",        "spotify",        "Spotify",  "#1DB954", "enterprise", "live_music,podcast,social,ugc", "clearance"),
-        ("Sony Music",     "sony",           "Sony",     "#000000", "enterprise", "live_music",                   "label_waiver"),
-        ("Warner Records", "warner-records", "Warner",   "#0099FF", "enterprise", "live_music",                   "label_waiver"),
-        ("UMG",            "umg-label",      "UMG",      "#003087", "enterprise", "live_music",                   "label_waiver"),
+        ("Spotify",        "spotify",        "Spotify",  "#1DB954", "enterprise", "live_music,podcast,social,ugc",                          "clearance"),
+        ("YouTube",        "youtube",        "YouTube",  "#FF0000", "enterprise", "live_music,documentary,unscripted,social,ugc,podcast",    "clearance"),
+        ("Amazon",         "amazon",         "Amazon",   "#FF9900", "enterprise", "live_music,documentary,unscripted,social,ugc,podcast",    "clearance"),
+        ("Apple TV+",      "apple-tv",       "Apple TV+","#555555", "enterprise", "live_music,documentary,unscripted,podcast",               "clearance"),
+        ("HBO / Max",      "hbo-max",        "Max",      "#6A1B9A", "enterprise", "live_music,documentary,unscripted",                       "clearance"),
+        ("Hulu",           "hulu",           "Hulu",     "#1CE783", "enterprise", "live_music,documentary,unscripted,social",                "clearance"),
+        ("Sony Music",     "sony",           "Sony",     "#000000", "enterprise", "live_music",                                              "label_waiver"),
+        ("Warner Records", "warner-records", "Warner",   "#0099FF", "enterprise", "live_music",                                              "label_waiver"),
+        ("UMG",            "umg-label",      "UMG",      "#003087", "enterprise", "live_music",                                              "label_waiver"),
     ]
     for name, slug, logo, color, tier, accepted, mode in demos:
         if Platform.query.filter_by(slug=slug).first():
