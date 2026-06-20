@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Submitted — Cleared.live{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4" style="max-width:900px;">
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">Cleared<span class="text-warning">.</span>live</a>
+  </div>
+</nav>
+{% endblock %}
+{% block container_class %}container py-5{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-7">
+
+  <!-- Success header -->
+  <div class="text-center mb-5">
+    <div class="mb-3">
+      <div style="width:72px;height:72px;border-radius:50%;background:#d1e7dd;display:inline-flex;align-items:center;justify-content:center;">
+        <i class="bi bi-check-lg text-success" style="font-size:2rem;"></i>
+      </div>
+    </div>
+    <h2 class="fw-bold text-navy mb-2">Submission received.</h2>
+    <p class="text-muted mb-0">Your project has been submitted to <strong>{{ sub.platform.name }}</strong>.<br>
+    Save your tracking link below — it's the only way to check your status.</p>
+  </div>
+
+  <!-- Tracking link — most important thing on this page -->
+  <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid var(--cl-gold) !important;">
+    <div class="card-body p-4">
+      <div class="small fw-bold text-uppercase text-muted mb-1" style="letter-spacing:.08em;">
+        <i class="bi bi-bookmark-star me-1 text-warning"></i>Your Private Tracking Link
+      </div>
+      <div class="small text-muted mb-3">Bookmark this — no login needed. Share it with anyone who needs to follow progress.</div>
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <input type="text" id="trackUrl" class="form-control font-monospace"
+               value="{{ request.host_url }}track/{{ sub.token }}" readonly
+               style="font-size:.82rem;">
+        <button class="btn btn-outline-dark btn-sm flex-shrink-0" onclick="copyTrack()" id="copyBtn">
+          <i class="bi bi-clipboard" id="copyIcon"></i>
+        </button>
+      </div>
+      <a href="{{ url_for('track', token=sub.token) }}" class="btn btn-warning fw-semibold">
+        <i class="bi bi-eye me-1"></i>View Clearance Status Now
+      </a>
+    </div>
+  </div>
+
+  <!-- What happens next — step by step -->
+  <div class="card border-0 bg-navy text-white shadow-sm mb-4">
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-4"><i class="bi bi-arrow-right-circle me-2"></i>What happens next</h6>
+      <div class="d-flex flex-column gap-3">
+
+        <div class="d-flex gap-3">
+          <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle bg-warning text-dark fw-bold"
+               style="width:28px;height:28px;font-size:.8rem;min-width:28px;">1</div>
+          <div class="small">
+            <div class="fw-semibold">Review (1–2 business days)</div>
+            <div class="opacity-75 mt-1">{{ sub.platform.name }}'s business affairs team reviews your submission, verifies the rights holder information, and assigns your clearance items.</div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-3">
+          <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle bg-warning text-dark fw-bold"
+               style="width:28px;height:28px;font-size:.8rem;min-width:28px;">2</div>
+          <div class="small">
+            <div class="fw-semibold">Invoice sent to {{ sub.submitter_email }}</div>
+            <div class="opacity-75 mt-1">You'll receive an invoice for the {{ sub.pricing_tier_info.label }} tier ({{ sub.price_display }}). Clearance work begins once payment is confirmed.</div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-3">
+          <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle bg-warning text-dark fw-bold"
+               style="width:28px;height:28px;font-size:.8rem;min-width:28px;">3</div>
+          <div class="small">
+            <div class="fw-semibold">Clearance outreach begins</div>
+            <div class="opacity-75 mt-1">The team contacts each rights holder — the label, publisher, venue, performers — one by one. You can watch each item go from "Pending" → "In Progress" → "Cleared" on your tracking page.</div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-3">
+          <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle bg-warning text-dark fw-bold"
+               style="width:28px;height:28px;font-size:.8rem;min-width:28px;">4</div>
+          <div class="small">
+            <div class="fw-semibold">Fully cleared — content released</div>
+            <div class="opacity-75 mt-1">When all {{ sub.clearance_items|length }} items are resolved, your content is released on {{ sub.platform.name }} automatically. Your tracking page turns green.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Submission summary -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-light border-0 py-3">
+      <div class="fw-semibold text-navy small"><i class="bi bi-receipt me-2"></i>Submission Summary</div>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0">
+        <tbody>
+          <tr><td class="text-muted small ps-4" style="width:45%;">Project</td><td class="fw-semibold small">{{ sub.title }}</td></tr>
+          <tr><td class="text-muted small ps-4">Type</td><td class="small">{{ sub.project_type_label }}</td></tr>
+          {% if sub.artist_name %}<tr><td class="text-muted small ps-4">Artist</td><td class="small">{{ sub.artist_name }}</td></tr>{% endif %}
+          {% if sub.event_date %}<tr><td class="text-muted small ps-4">Event Date</td><td class="small">{{ sub.event_date }}</td></tr>{% endif %}
+          <tr><td class="text-muted small ps-4">Platform</td><td class="small">{{ sub.platform.name }}</td></tr>
+          <tr><td class="text-muted small ps-4">Territory</td><td class="small">{{ sub.territory_label }}</td></tr>
+          <tr><td class="text-muted small ps-4">Clearance items</td><td class="small fw-semibold">{{ sub.clearance_items|length }} items to clear</td></tr>
+          <tr><td class="text-muted small ps-4">Tier / Fee</td><td class="small">{{ sub.pricing_tier_info.label }} — <strong>{{ sub.price_display }}</strong> <span class="text-muted">(invoiced)</span></td></tr>
+          <tr><td class="text-muted small ps-4">Contact</td><td class="small">{{ sub.submitter_name }}{% if sub.submitter_company %} · {{ sub.submitter_company }}{% endif %}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Clearance checklist preview -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-light border-0 py-3">
+      <div class="fw-semibold text-navy small">
+        <i class="bi bi-list-check me-2"></i>Clearance Checklist
+        <span class="text-muted fw-normal ms-1">(all start as Pending)</span>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      {% for item in sub.clearance_items %}
+      <div class="d-flex align-items-center gap-3 px-4 py-3 border-bottom">
+        <span class="badge bg-light text-dark border" style="min-width:26px; font-size:.72rem;">{{ loop.index }}</span>
+        <span class="small">{{ item.item_label }}</span>
+        <span class="badge bg-warning text-dark ms-auto small">Pending</span>
+      </div>
+      {% endfor %}
+      <div class="px-4 py-3 small text-muted">
+        <i class="bi bi-info-circle me-1"></i>Each item requires written permission from a different party. You can click "What is this?" on your tracking page for a plain-English explanation of each one.
+      </div>
+    </div>
+  </div>
+
+  <div class="text-center text-muted small mb-4">
+    Questions? Email <a href="mailto:clear@cleared.live">clear@cleared.live</a> with your token: <code>{{ sub.token }}</code>
+  </div>
+
+  <div class="d-flex gap-2 justify-content-center flex-wrap">
+    <a href="{{ url_for('track', token=sub.token) }}" class="btn btn-primary">
+      <i class="bi bi-eye me-1"></i>View My Clearance Status
+    </a>
+    <a href="{{ url_for('submit', platform_slug=sub.platform.slug) }}" class="btn btn-outline-secondary">
+      Submit another project
+    </a>
+  </div>
+
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function copyTrack() {
+  const input = document.getElementById('trackUrl');
+  navigator.clipboard.writeText(input.value).then(() => {
+    const btn = document.getElementById('copyBtn');
+    const icon = document.getElementById('copyIcon');
+    icon.className = 'bi bi-check2';
+    btn.classList.replace('btn-outline-dark', 'btn-success');
+    setTimeout(() => {
+      icon.className = 'bi bi-clipboard';
+      btn.classList.replace('btn-success', 'btn-outline-dark');
+    }, 2500);
+  });
+}
+</script>
+{% endblock %}

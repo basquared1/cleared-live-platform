@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}{{ sub.title }} — Admin{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold" href="{{ url_for('admin_dashboard') }}">
+      Cleared<span class="text-warning">.</span>live <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">Admin</span>
+    </a>
+    <div class="ms-auto d-flex gap-2">
+      <a href="{{ url_for('admin_submissions') }}" class="btn btn-sm btn-outline-dark"><i class="bi bi-arrow-left me-1"></i>Submissions</a>
+      <a href="{{ url_for('admin_logout') }}" class="btn btn-sm btn-outline-secondary">Logout</a>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block content %}
+
+<div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
+  <div>
+    <div class="small text-muted mb-1">
+      <a href="{{ url_for('admin_submissions') }}" class="text-muted text-decoration-none">Submissions</a>
+      <i class="bi bi-chevron-right mx-1" style="font-size:.7rem;"></i>{{ sub.title }}
+    </div>
+    <h3 class="fw-bold text-navy mb-1">{{ sub.title }}</h3>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge bg-{{ sub.status_color }} px-3 py-2">{{ sub.status_label }}</span>
+      <span class="badge bg-light text-dark border">{{ sub.project_type_label }}</span>
+      <span class="badge" style="background:{{ sub.platform.primary_color }};color:#fff;">{{ sub.platform.name }}</span>
+    </div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if sub.is_fully_cleared and sub.status != 'cleared' %}
+    <form method="POST" action="{{ url_for('admin_release', sub_id=sub.id) }}">
+      <button type="submit" class="btn btn-success fw-semibold">
+        <i class="bi bi-check-circle me-1"></i>Release &amp; Fire Webhook
+      </button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('track', token=sub.token) }}" target="_blank" class="btn btn-outline-dark">
+      <i class="bi bi-eye me-1"></i>Submitter View
+    </a>
+  </div>
+</div>
+
+<div class="row g-4">
+<div class="col-lg-8">
+
+  <!-- Progress -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+      <div class="d-flex justify-content-between mb-2">
+        <div class="fw-semibold text-navy">Clearance Progress</div>
+        <div class="fw-bold {% if sub.progress_pct==100 %}text-success{% else %}text-navy{% endif %}">{{ sub.progress_pct }}%</div>
+      </div>
+      <div class="progress" style="height:8px; border-radius:8px;">
+        <div class="progress-bar {% if sub.progress_pct==100 %}bg-success{% elif sub.progress_pct>0 %}bg-warning{% else %}bg-secondary{% endif %}"
+             style="width:{{ sub.progress_pct }}%; border-radius:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Items -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom py-3">
+      <div class="fw-semibold text-navy small"><i class="bi bi-list-check me-2"></i>Clearance Items</div>
+    </div>
+    <div class="card-body p-0">
+      {% for item in sub.clearance_items %}
+      <div class="clearance-row status-{{ item.status }} p-3 border-bottom">
+        <div class="d-flex align-items-start gap-3">
+          <i class="bi {{ item.status_icon }} fs-5 mt-1
+            {% if item.status=='cleared' %}text-success{% elif item.status=='in_progress' %}text-info
+            {% elif item.status in ('waived','n_a') %}text-secondary{% else %}text-warning{% endif %}"></i>
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="fw-semibold small">{{ item.item_label }}</span>
+              <span class="badge bg-{{ item.status_color }} {% if item.status_color=='light' %}text-dark border{% endif %} small">{{ item.status_label }}</span>
+            </div>
+            {% if item.party_name %}<div class="text-muted small mb-1"><i class="bi bi-person me-1"></i>{{ item.party_name }}</div>{% endif %}
+            {% if item.notes %}<div class="text-muted small">{{ item.notes }}</div>{% endif %}
+            {% if item.cleared_at %}<div class="text-muted" style="font-size:.75rem;">Cleared {{ item.cleared_at.strftime('%b %d, %Y') }}{% if item.cleared_by %} by {{ item.cleared_by }}{% endif %}</div>{% endif %}
+          </div>
+          <button class="btn btn-sm btn-outline-secondary flex-shrink-0" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#adminitem-{{ item.id }}">
+            <i class="bi bi-pencil"></i>
+          </button>
+        </div>
+        <div class="collapse mt-3 ms-5" id="adminitem-{{ item.id }}">
+          <form method="POST" action="{{ url_for('admin_update_item', sub_id=sub.id, item_id=item.id) }}"
+                class="card card-body bg-light border-0 p-3">
+            <div class="row g-2 mb-2">
+              <div class="col-sm-4">
+                <select name="status" class="form-select form-select-sm">
+                  {% for val, lbl in [('pending','Pending'),('in_progress','In Progress'),('cleared','Cleared'),('waived','Waived'),('n_a','N/A')] %}
+                  <option value="{{ val }}" {% if item.status==val %}selected{% endif %}>{{ lbl }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-sm-8">
+                <input type="text" name="party_name" class="form-control form-control-sm"
+                       value="{{ item.party_name or '' }}" placeholder="Rights holder / party">
+              </div>
+            </div>
+            <div class="mb-2">
+              <input type="text" name="notes" class="form-control form-control-sm"
+                     value="{{ item.notes or '' }}" placeholder="Notes">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm fw-semibold">Save</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+<div class="col-lg-4">
+
+  <!-- Submitter -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white border-bottom py-3">
+      <div class="fw-semibold text-navy small"><i class="bi bi-person me-2"></i>Submitter</div>
+    </div>
+    <div class="card-body py-3 px-4">
+      <div class="fw-semibold">{{ sub.submitter_name }}</div>
+      {% if sub.submitter_company %}<div class="text-muted small">{{ sub.submitter_company }}</div>{% endif %}
+      <a href="mailto:{{ sub.submitter_email }}" class="small text-decoration-none d-block mt-1">{{ sub.submitter_email }}</a>
+      {% if sub.submitter_phone %}<div class="small text-muted">{{ sub.submitter_phone }}</div>{% endif %}
+    </div>
+  </div>
+
+  <!-- Details -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0">
+        <tbody>
+          {% if sub.artist_name %}<tr><td class="text-muted small ps-4">Artist</td><td class="small">{{ sub.artist_name }}</td></tr>{% endif %}
+          {% if sub.venue %}<tr><td class="text-muted small ps-4">Venue</td><td class="small">{{ sub.venue }}</td></tr>{% endif %}
+          {% if sub.label %}<tr><td class="text-muted small ps-4">Label</td><td class="small">{{ sub.label }}</td></tr>{% endif %}
+          {% if sub.publisher %}<tr><td class="text-muted small ps-4">Publisher</td><td class="small">{{ sub.publisher }}</td></tr>{% endif %}
+          <tr><td class="text-muted small ps-4">Territory</td><td class="small">{{ sub.territory_label }}</td></tr>
+          <tr><td class="text-muted small ps-4">Token</td><td class="small font-monospace" style="font-size:.72rem;">{{ sub.token }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Payment -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white border-bottom py-3">
+      <div class="fw-semibold text-navy small"><i class="bi bi-credit-card me-2"></i>Payment</div>
+    </div>
+    <div class="card-body py-3 px-4">
+      <div class="fw-bold fs-5 text-navy mb-1">{{ sub.price_display }}</div>
+      <div class="text-muted small mb-3">{{ sub.pricing_tier_info.label }}</div>
+      <form method="POST" action="{{ url_for('admin_set_payment', sub_id=sub.id) }}" class="d-flex gap-2">
+        <select name="payment_status" class="form-select form-select-sm">
+          {% for val in ['pending','invoiced','paid','waived'] %}
+          <option value="{{ val }}" {% if sub.payment_status==val %}selected{% endif %}>{{ val.title() }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-outline-dark flex-shrink-0">Set</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Setlist -->
+  {% if sub.setlist_list %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white border-bottom py-3">
+      <div class="fw-semibold text-navy small"><i class="bi bi-music-note-list me-2"></i>Music / Content</div>
+    </div>
+    <div class="card-body py-2 px-4" style="max-height:220px; overflow-y:auto;">
+      {% for s in sub.setlist_list %}
+      <div class="d-flex gap-2 py-1 border-bottom small">
+        <span class="text-muted" style="min-width:1.4rem;">{{ loop.index }}.</span><span>{{ s }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if sub.notes %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white border-bottom py-3">
+      <div class="fw-semibold text-navy small"><i class="bi bi-chat me-2"></i>Submitter Notes</div>
+    </div>
+    <div class="card-body py-3 px-4 small text-muted">{{ sub.notes }}</div>
+  </div>
+  {% endif %}
+
+</div>
+</div>
+{% endblock %}

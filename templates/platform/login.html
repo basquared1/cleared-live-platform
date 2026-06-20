@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Platform Login — Cleared.live{% endblock %}
+{% block navbar %}{% endblock %}
+{% block container_class %}container py-5{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+<div class="col-sm-10 col-md-6 col-lg-4">
+  <div class="text-center mb-4">
+    <div class="fw-bold fs-4 text-navy mb-1">Cleared<span class="text-warning">.</span>live</div>
+    <div class="text-muted small">Platform BA Login</div>
+  </div>
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <h5 class="fw-bold text-navy mb-4">Sign in to your platform</h5>
+      <form method="POST">
+        <div class="mb-3">
+          <label class="form-label fw-semibold small">Username</label>
+          <input type="text" name="username" class="form-control" autofocus required>
+        </div>
+        <div class="mb-4">
+          <label class="form-label fw-semibold small">Password</label>
+          <input type="password" name="password" class="form-control" required>
+        </div>
+        <div class="d-grid">
+          <button type="submit" class="btn btn-primary fw-semibold">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="text-center mt-3 small text-muted">
+    Not a platform user? <a href="{{ url_for('index') }}">Submit a project</a>
+  </div>
+</div>
+</div>
+{% endblock %}

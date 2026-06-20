@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cleared-live-platform",
+      "runtimeExecutable": "/Users/AlexanB1/Library/Python/3.9/bin/flask",
+      "runtimeArgs": ["run", "--port", "5002"],
+      "port": 5002
+    }
+  ]
+}

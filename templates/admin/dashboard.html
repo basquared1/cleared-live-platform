@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — Cleared.live{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold" href="{{ url_for('admin_dashboard') }}">
+      Cleared<span class="text-warning">.</span>live <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">Admin</span>
+    </a>
+    <div class="ms-auto d-flex gap-2">
+      <a href="{{ url_for('admin_submissions') }}" class="btn btn-sm btn-outline-dark">All Submissions</a>
+      <a href="{{ url_for('admin_new_platform') }}" class="btn btn-sm btn-primary">+ New Platform</a>
+      <a href="{{ url_for('admin_logout') }}" class="btn btn-sm btn-outline-secondary">Logout</a>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block content %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="stat-number text-navy">{{ platforms|length }}</div>
+      <div class="text-muted small mt-1"><i class="bi bi-building me-1"></i>Platforms</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="stat-number text-navy">{{ total_submissions }}</div>
+      <div class="text-muted small mt-1"><i class="bi bi-inbox me-1"></i>Total Submissions</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="stat-number text-success">{{ total_cleared }}</div>
+      <div class="text-muted small mt-1"><i class="bi bi-check-circle me-1"></i>Cleared</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="stat-number text-warning">{{ total_submissions - total_cleared }}</div>
+      <div class="text-muted small mt-1"><i class="bi bi-hourglass me-1"></i>In Progress</div>
+    </div>
+  </div>
+</div>
+
+<!-- Platforms -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+    <h6 class="fw-bold text-navy mb-0">Connected Platforms</h6>
+    <a href="{{ url_for('admin_new_platform') }}" class="btn btn-sm btn-primary">+ Add Platform</a>
+  </div>
+  {% if platforms %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-4">Platform</th>
+          <th>Tier</th>
+          <th>Submissions</th>
+          <th>Cleared</th>
+          <th>API Key</th>
+          <th>Submit URL</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in platforms %}
+        <tr>
+          <td class="ps-4">
+            <div class="fw-semibold" style="color:{{ p.primary_color }};">{{ p.name }}</div>
+            <div class="text-muted small">{{ p.ba_contact_name or '—' }}</div>
+          </td>
+          <td>
+            <span class="badge
+              {% if p.tier == 'enterprise' %}bg-warning text-dark
+              {% elif p.tier == 'standard' %}bg-primary
+              {% else %}bg-secondary{% endif %} small">
+              {{ p.tier_label }}
+            </span>
+          </td>
+          <td class="fw-semibold">{{ p.total_count }}</td>
+          <td class="text-success fw-semibold">{{ p.cleared_count }}</td>
+          <td>
+            <code class="small text-muted" style="font-size:.72rem;">{{ p.api_key[:20] }}…</code>
+          </td>
+          <td>
+            <a href="{{ url_for('submit', platform_slug=p.slug) }}" target="_blank"
+               class="small text-decoration-none text-muted">
+              /submit/{{ p.slug }} <i class="bi bi-box-arrow-up-right ms-1"></i>
+            </a>
+          </td>
+          <td class="pe-3">
+            <a href="{{ url_for('admin_submissions') }}?platform={{ p.id }}"
+               class="btn btn-sm btn-outline-primary">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-5 text-muted">
+    No platforms yet. <a href="{{ url_for('admin_new_platform') }}">Add your first platform.</a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Recent submissions -->
+{% if recent %}
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+    <h6 class="fw-bold text-navy mb-0">Recent Submissions</h6>
+    <a href="{{ url_for('admin_submissions') }}" class="btn btn-sm btn-outline-dark">View All</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-4">Project</th>
+          <th>Platform</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Submitted</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sub in recent %}
+        <tr>
+          <td class="ps-4">
+            <div class="fw-semibold small">{{ sub.title }}</div>
+            <div class="text-muted" style="font-size:.78rem;">{{ sub.submitter_name }}</div>
+          </td>
+          <td class="small" style="color:{{ sub.platform.primary_color }}; font-weight:600;">{{ sub.platform.name }}</td>
+          <td><span class="badge bg-light text-dark border small">{{ sub.project_type_label }}</span></td>
+          <td><span class="badge bg-{{ sub.status_color }} small">{{ sub.status_label }}</span></td>
+          <td class="text-muted small">{{ sub.created_at.strftime('%b %d') }}</td>
+          <td class="pe-3">
+            <a href="{{ url_for('admin_submission', sub_id=sub.id) }}" class="btn btn-sm btn-outline-secondary">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

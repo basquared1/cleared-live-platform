@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}New Platform — Cleared.live Admin{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold" href="{{ url_for('admin_dashboard') }}">
+      Cleared<span class="text-warning">.</span>live <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">Admin</span>
+    </a>
+    <div class="ms-auto d-flex gap-2">
+      <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-outline-dark">
+        <i class="bi bi-arrow-left me-1"></i>Dashboard
+      </a>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block container_class %}container py-5{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-8">
+  <h3 class="fw-bold text-navy mb-4">Add New Platform</h3>
+  <form method="POST">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-light border-0 py-3">
+        <div class="fw-semibold text-navy small">Platform Identity</div>
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">Platform Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" required placeholder="e.g. Amazon Live">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">URL Slug <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text text-muted small">/submit/</span>
+              <input type="text" name="slug" class="form-control" required placeholder="amazon-live">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">Logo Text</label>
+            <input type="text" name="logo_text" class="form-control" placeholder="e.g. Amazon">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">Brand Color</label>
+            <div class="input-group">
+              <input type="color" name="primary_color" class="form-control form-control-color" value="#0d3b6e">
+              <input type="text" class="form-control form-control-sm" placeholder="#FF9900" style="max-width:90px;">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">Tier</label>
+            <select name="tier" class="form-select">
+              <option value="trial">Trial</option>
+              <option value="standard" selected>Standard</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-light border-0 py-3">
+        <div class="fw-semibold text-navy small">BA Contact & Access</div>
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">BA Contact Name</label>
+            <input type="text" name="ba_contact_name" class="form-control" placeholder="Patrick Yemidijian">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">BA Contact Email</label>
+            <input type="email" name="ba_contact_email" class="form-control" placeholder="patrick@amazon.com">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">BA Login Username</label>
+            <input type="text" name="ba_username" class="form-control" placeholder="amazon_ba">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">BA Login Password</label>
+            <input type="password" name="ba_password" class="form-control" placeholder="Set initial password">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-light border-0 py-3">
+        <div class="fw-semibold text-navy small">Webhook (optional)</div>
+      </div>
+      <div class="card-body p-4">
+        <div class="mb-3">
+          <label class="form-label fw-semibold small">Webhook URL</label>
+          <input type="url" name="webhook_url" class="form-control" placeholder="https://api.yourplatform.com/clearance-webhook">
+          <div class="form-text">We'll POST to this URL when a project is fully cleared. Signed with HMAC-SHA256.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-light border-0 py-3">
+        <div class="fw-semibold text-navy small">Accepted Content Types</div>
+      </div>
+      <div class="card-body p-4">
+        <div class="d-flex flex-wrap gap-3">
+          {% for key, label in project_type_labels.items() %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="accepted_types"
+                   value="{{ key }}" id="at_{{ key }}" checked>
+            <label class="form-check-label small" for="at_{{ key }}">{{ label }}</label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-3">
+      <button type="submit" class="btn btn-primary fw-semibold px-4">Create Platform</button>
+      <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+</div>
+{% endblock %}

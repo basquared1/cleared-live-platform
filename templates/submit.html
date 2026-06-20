@@ -1,0 +1,574 @@
+{% extends "base.html" %}
+{% block title %}Submit to {{ platform.name }} — Cleared.live{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4" style="max-width:900px;">
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
+      Cleared<span class="text-warning">.</span>live
+    </a>
+    <div class="ms-auto">
+      <span class="badge rounded-pill px-3 py-2 fw-semibold" style="background:{{ platform.primary_color }};color:#fff;">
+        Submitting to {{ platform.name }}
+      </span>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block container_class %}container py-5{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+<div class="col-lg-8">
+
+  <!-- Header -->
+  <div class="text-center mb-5">
+    <div class="fw-bold fs-4 mb-1" style="color:{{ platform.primary_color }};">{{ platform.name }}</div>
+    <h2 class="fw-bold text-navy mb-2">Rights Clearance Submission</h2>
+    <p class="text-muted mb-0">Tell us about your project. We handle all the legal clearance work — you just provide the details below.</p>
+  </div>
+
+  <!-- What is clearance? banner -->
+  <div class="alert border-0 mb-4 py-3 px-4" style="background:#eef3fb;">
+    <div class="d-flex gap-3 align-items-start">
+      <i class="bi bi-info-circle-fill text-primary fs-5 mt-1 flex-shrink-0"></i>
+      <div class="small">
+        <strong>New to rights clearance?</strong> Rights clearance is the legal process of getting written permission from everyone who owns a piece of your content — the record label, the songwriter, the venue, the performers. Without it, your content can't be released. <strong>We do this work for you.</strong> Your job right now is just to fill out this form as completely as you can. If you're unsure about something, leave it blank — we'll research it.
+      </div>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('submit', platform_slug=platform.slug) }}" id="submitForm">
+
+    <!-- ───── STEP 1: Project Type ───── -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 mb-1">
+          <div class="step-pill">1</div>
+          <div>
+            <div class="fw-bold text-navy">What kind of project is this?</div>
+          </div>
+        </div>
+        <p class="text-muted small ms-5 mb-4">Choose the category that best matches your content. This determines which rights we need to clear.</p>
+
+        <div class="row g-3" id="typeCards">
+          {% set type_meta = {
+            'live_music':  ('bi-music-note-beamed', 'A filmed concert, festival, or live music event you want to stream or broadcast.'),
+            'documentary': ('bi-camera-reels',      'A long-form non-fiction film or series about real events, people, or subjects.'),
+            'unscripted':  ('bi-tv',                'Reality TV, competition shows, talk shows, travel series — any unscripted format.'),
+            'social':      ('bi-phone',             'Short-form content for TikTok, Instagram, YouTube Shorts, or similar platforms.'),
+            'ugc':         ('bi-people',            'Content created by fans, audiences, or third parties that you want to license and use.'),
+          } %}
+          {% for key, label in project_type_labels.items() %}
+          {% if key in platform.accepted_types_list %}
+          {% set icon, desc = type_meta.get(key, ('bi-file', '')) %}
+          <div class="col-6 col-md-4">
+            <input type="radio" class="btn-check" name="project_type" id="type_{{ key }}" value="{{ key }}"
+                   {% if key == 'live_music' %}checked{% endif %}>
+            <label class="btn btn-outline-secondary w-100 py-3 px-3 text-start type-card h-100" for="type_{{ key }}">
+              <i class="bi {{ icon }} d-block fs-4 mb-1 text-navy"></i>
+              <span class="small fw-semibold d-block">{{ label }}</span>
+              <span class="type-desc text-muted d-block mt-1" style="font-size:.73rem; line-height:1.35;">{{ desc }}</span>
+            </label>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+
+        <div class="mt-3 ms-1">
+          <span class="text-muted small"><i class="bi bi-question-circle me-1"></i>Not sure which to pick? Choose the closest match — you can clarify in the notes field below.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── STEP 2: Project Details ───── -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 mb-1">
+          <div class="step-pill">2</div>
+          <div>
+            <div class="fw-bold text-navy">Project Details</div>
+          </div>
+        </div>
+        <p class="text-muted small ms-5 mb-4">Fill in what you know. <strong>Starred fields are required.</strong> For everything else, if you're unsure, leave it blank — we'll research what we need.</p>
+
+        <!-- Project Title -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+            Project Title <span class="text-danger">*</span>
+            <button type="button" class="btn-info-bubble"
+                    data-bs-toggle="popover"
+                    data-bs-title="Project Title"
+                    data-bs-content="Give your project a descriptive name that includes the artist or show and what it is. Good example: 'Taylor Swift — Eras Tour Amazon Live Special'. This is how it will appear in your tracking link and in our system.">
+              <i class="bi bi-info-circle"></i>
+            </button>
+          </label>
+          <input type="text" name="title" class="form-control" required
+                 placeholder="e.g. Taylor Swift — Eras Tour Live Special">
+        </div>
+
+        <!-- ── Live Music Fields ── -->
+        <div id="fields_live_music">
+          <div class="field-group-label">About the Artist & Event</div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Artist / Performer Name
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Artist / Performer Name"
+                  data-bs-content="The main recording artist or headliner. We use this to find the right record label and publishing rights holder. Include the full legal name if different from the stage name.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="artist_name" class="form-control" placeholder="e.g. Taylor Swift">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Event Name
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Event Name"
+                  data-bs-content="The specific name of the concert, show, or event — including which night if it's a multi-night run. Example: 'Eras Tour — Los Angeles Night 2'.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="event_name" class="form-control" placeholder="e.g. Eras Tour — LA Night 1">
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Venue
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Venue"
+                  data-bs-content="The full name and city of the venue. Venues often have exclusive broadcast deals and their own filming restrictions. We need to verify the venue has no conflicting agreements before clearance can proceed.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="venue" class="form-control" placeholder="e.g. SoFi Stadium, Los Angeles">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Event Date
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Event Date"
+                  data-bs-content="The date(s) of the performance or filming. This helps us verify contracts and check for conflicting rights windows. Format: YYYY-MM-DD or a range.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="event_date" class="form-control" placeholder="e.g. 2026-08-15">
+            </div>
+          </div>
+
+          <div class="field-group-label">About the Rights Holders</div>
+          <div class="alert border-0 py-2 px-3 mb-3 small" style="background:#f8f9fa; border-left:3px solid #dee2e6 !important;">
+            <i class="bi bi-lightbulb text-warning me-1"></i>
+            <strong>Don't know the label or publisher?</strong> That's okay — leave it blank. We'll research it. If you do know, entering it here speeds up the process significantly.
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Record Label
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Record Label"
+                  data-bs-content="The label that owns the master recording rights — meaning they own the actual recorded performances. This is usually printed on the album (e.g. 'Republic Records', 'Sony Music', 'Atlantic'). If the artist is independent, enter 'Independent'.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="label" class="form-control" placeholder="e.g. Republic Records / UMG">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Music Publisher(s)
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Music Publisher"
+                  data-bs-content="The publisher controls the songwriting rights — the melody and lyrics. This is separate from the label. For example, Taylor Swift's label is Republic Records, but her publishing is through Sony Music Publishing and her own company. If you don't know, leave this blank.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="publisher" class="form-control" placeholder="e.g. Sony Music Publishing">
+            </div>
+          </div>
+
+          <div class="field-group-label">The Setlist</div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+              Setlist <span class="text-muted fw-normal">(one song per line)</span>
+              <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                data-bs-title="Setlist"
+                data-bs-content="List every song that will appear in the content, one per line. This is critical — each song may have different rights holders, and we need to clear each one individually. Be as complete as possible. If songs were performed but won't be in the final cut, note that in the Notes field.">
+                <i class="bi bi-info-circle"></i></button>
+            </label>
+            <textarea name="setlist" class="form-control" rows="5"
+                      placeholder="Anti-Hero&#10;Shake It Off&#10;Blank Space&#10;Love Story&#10;..."></textarea>
+            <div class="form-text"><i class="bi bi-exclamation-circle me-1"></i>Each song needs separate clearance. The more complete your setlist, the faster we can start.</div>
+          </div>
+        </div>
+
+        <!-- ── Documentary Fields ── -->
+        <div id="fields_documentary" class="d-none">
+          <div class="field-group-label">About the Production</div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Production Company
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Production Company"
+                  data-bs-content="The company producing the film or series. This is the entity that will sign distribution agreements and own the underlying rights.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="production_company" class="form-control" placeholder="e.g. XYZ Productions LLC">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Director
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Director"
+                  data-bs-content="The credited director. Some clearance agreements and E&O insurance applications require this.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="director" class="form-control" placeholder="e.g. Jane Smith">
+            </div>
+          </div>
+          <div class="field-group-label">Music & Archival Content</div>
+          <div class="alert border-0 py-2 px-3 mb-3 small" style="background:#f8f9fa; border-left:3px solid #dee2e6 !important;">
+            <i class="bi bi-lightbulb text-warning me-1"></i>
+            <strong>Every piece of music needs clearance</strong> — even background music, brief clips, or music playing from a radio. List everything you can.
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+              Music / Songs Used <span class="text-muted fw-normal">(one per line)</span>
+              <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                data-bs-title="Music in Your Documentary"
+                data-bs-content="List every song that appears in your film — featured, background, or incidental. Include the song title, artist, and publisher if known. Example: 'Blue (Da Ba Dee) — Eiffel 65 — Bliss Corporation'. If you used a music library, list the library name.">
+                <i class="bi bi-info-circle"></i></button>
+            </label>
+            <textarea name="setlist" class="form-control" rows="4"
+                      placeholder="Song Title — Artist — Publisher (if known)&#10;Blue (Da Ba Dee) — Eiffel 65&#10;..."></textarea>
+          </div>
+        </div>
+
+        <!-- ── Unscripted Fields ── -->
+        <div id="fields_unscripted" class="d-none">
+          <div class="field-group-label">About the Show</div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Show / Series Title
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Show / Series Title"
+                  data-bs-content="The official title of the show or series, including the season or episode if applicable.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="event_name" class="form-control" placeholder="e.g. The Amazing Race Season 40, Ep 1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Production Company
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Production Company"
+                  data-bs-content="The company producing the show. This is who will sign participant releases and distribution agreements.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="production_company" class="form-control" placeholder="e.g. Bunim-Murray Productions">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+              Music Used <span class="text-muted fw-normal">(one per line)</span>
+              <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                data-bs-title="Music in Your Show"
+                data-bs-content="Every song in your show needs clearance — including scene music, montage tracks, and background music. List everything you know. If you used a library like Musicbed or Artlist, note that.">
+                <i class="bi bi-info-circle"></i></button>
+            </label>
+            <textarea name="setlist" class="form-control" rows="3"
+                      placeholder="Song Title — Artist&#10;Eye of the Tiger — Survivor&#10;..."></textarea>
+          </div>
+        </div>
+
+        <!-- ── Social / UGC Fields ── -->
+        <div id="fields_social" class="d-none">
+          <div class="field-group-label">About the Content</div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Campaign / Content Name
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Campaign Name"
+                  data-bs-content="A descriptive name for this campaign or content piece. Example: 'Coca-Cola Summer 2026 TikTok Series' or 'Nike Air Max Launch Reel'.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="event_name" class="form-control" placeholder="e.g. Summer 2026 Brand Campaign">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+                Brand / Agency
+                <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                  data-bs-title="Brand / Agency"
+                  data-bs-content="The brand being promoted and/or the agency managing the campaign. Both may need to be listed in clearance agreements.">
+                  <i class="bi bi-info-circle"></i></button>
+              </label>
+              <input type="text" name="production_company" class="form-control" placeholder="e.g. Coca-Cola / WPP">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+              Music / Content Used
+              <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                data-bs-title="Music / Content Used"
+                data-bs-content="Any music, video clips, photos, or other third-party content that appears in your posts. Even a 3-second audio clip needs a license. List everything.">
+                <i class="bi bi-info-circle"></i></button>
+            </label>
+            <textarea name="setlist" class="form-control" rows="3"
+                      placeholder="Song Title — Artist&#10;Or describe the content (e.g. 'user-submitted dance videos', 'stock footage from Pond5')"></textarea>
+          </div>
+        </div>
+
+        <!-- ── Shared: Territory + Intended Use ── -->
+        <div class="field-group-label">Distribution</div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+              Territory
+              <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                data-bs-title="Territory"
+                data-bs-content="Where in the world will this content be available? Wider distribution requires more complex clearance. Start with the most likely territory — we can expand later if needed.">
+                <i class="bi bi-info-circle"></i></button>
+            </label>
+            <select name="territory" class="form-select">
+              {% for key, label in territory_labels.items() %}
+              <option value="{{ key }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-8">
+            <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+              Intended Use
+              <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                data-bs-title="Intended Use"
+                data-bs-content="Where and how will this content be distributed? This directly affects which licenses are required. Check all that apply — it's better to clear more than you need upfront than to need to re-clear later.">
+                <i class="bi bi-info-circle"></i></button>
+              <span class="text-muted fw-normal">(check all that apply)</span>
+            </label>
+            <div class="d-flex flex-wrap gap-2 mt-1">
+              {% for key, label in intended_use_options %}
+              <div class="form-check form-check-inline m-0">
+                <input class="form-check-input" type="checkbox" name="intended_use" value="{{ key }}" id="use_{{ key }}">
+                <label class="form-check-label small" for="use_{{ key }}">{{ label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="mb-0">
+          <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+            Additional Notes
+            <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+              data-bs-title="Additional Notes"
+              data-bs-content="This is your chance to tell us anything unusual about the project. Hard deadlines? Existing relationships with the label or publisher? Prior clearances already in place? Content being released in multiple formats? The more context you give us, the faster we can work.">
+              <i class="bi bi-info-circle"></i></button>
+          </label>
+          <textarea name="notes" class="form-control" rows="3"
+                    placeholder="Hard deadlines, prior clearances already in place, existing relationships with rights holders, anything else we should know..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── STEP 3: Your Info ───── -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 mb-1">
+          <div class="step-pill">3</div>
+          <div>
+            <div class="fw-bold text-navy">Your Contact Information</div>
+          </div>
+        </div>
+        <p class="text-muted small ms-5 mb-4">We'll send your tracking link to this email. No account needed — you track progress via a private link.</p>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+              Your Name <span class="text-danger">*</span>
+              <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                data-bs-title="Your Name"
+                data-bs-content="The name of the person submitting this request and who should receive updates. This doesn't have to be the artist — it can be a manager, label rep, attorney, or production coordinator.">
+                <i class="bi bi-info-circle"></i></button>
+            </label>
+            <input type="text" name="submitter_name" class="form-control" required placeholder="First Last">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+              Company / Organization
+              <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                data-bs-title="Company"
+                data-bs-content="Your employer, management company, law firm, or production company — whichever is most relevant. This is optional but helps us address agreements correctly.">
+                <i class="bi bi-info-circle"></i></button>
+            </label>
+            <input type="text" name="submitter_company" class="form-control" placeholder="Management co., production company, label...">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+              Email <span class="text-danger">*</span>
+              <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                data-bs-title="Email Address"
+                data-bs-content="Your private tracking link and any requests for additional information will be sent here. Use an email you check regularly.">
+                <i class="bi bi-info-circle"></i></button>
+            </label>
+            <input type="email" name="submitter_email" class="form-control" required placeholder="you@company.com">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small d-flex align-items-center gap-2">
+              Phone <span class="text-muted fw-normal">(optional)</span>
+              <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+                data-bs-title="Phone Number"
+                data-bs-content="Optional. We may call if something is time-sensitive and we need a quick answer from you.">
+                <i class="bi bi-info-circle"></i></button>
+            </label>
+            <input type="tel" name="submitter_phone" class="form-control" placeholder="+1 (555) 000-0000">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── STEP 4: Pricing ───── -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 mb-1">
+          <div class="step-pill">4</div>
+          <div>
+            <div class="fw-bold text-navy">Clearance Tier</div>
+          </div>
+        </div>
+        <p class="text-muted small ms-5 mb-4">Select based on your project's complexity. <strong>Not sure? Choose Standard</strong> — we'll confirm the right tier after reviewing your submission and adjust if needed. An invoice is sent after review.</p>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <input type="radio" class="btn-check" name="pricing_tier" id="tier_basic" value="basic">
+            <label class="btn btn-outline-secondary w-100 h-100 text-start p-3" for="tier_basic">
+              <div class="fw-bold text-navy fs-5">$500</div>
+              <div class="fw-semibold small mt-1">Basic</div>
+              <div class="text-muted mt-2" style="font-size:.78rem;"><strong>Up to 5 clearance items.</strong> Best for: a single social post, one UGC piece, or a simple one-song license.</div>
+            </label>
+          </div>
+          <div class="col-md-4">
+            <input type="radio" class="btn-check" name="pricing_tier" id="tier_standard" value="standard" checked>
+            <label class="btn btn-outline-secondary w-100 h-100 text-start p-3" for="tier_standard">
+              <div class="d-flex align-items-center gap-2">
+                <div class="fw-bold text-navy fs-5">$1,000</div>
+                <span class="badge bg-primary small">Most common</span>
+              </div>
+              <div class="fw-semibold small mt-1">Standard</div>
+              <div class="text-muted mt-2" style="font-size:.78rem;"><strong>6–15 clearance items.</strong> Best for: concert films, documentaries, unscripted episodes, music videos, short series.</div>
+            </label>
+          </div>
+          <div class="col-md-4">
+            <input type="radio" class="btn-check" name="pricing_tier" id="tier_complex" value="complex">
+            <label class="btn btn-outline-secondary w-100 h-100 text-start p-3" for="tier_complex">
+              <div class="fw-bold text-navy fs-5">$2,000</div>
+              <div class="fw-semibold small mt-1">Complex</div>
+              <div class="text-muted mt-2" style="font-size:.78rem;"><strong>16+ clearance items.</strong> Best for: major label artists, multi-territory deals, archival-heavy films, or projects with a large setlist.</div>
+            </label>
+          </div>
+        </div>
+        <div class="small text-muted px-1"><i class="bi bi-shield-check me-1 text-success"></i>You won't be charged until we've reviewed your submission and confirmed the right tier. Invoice is sent by email.</div>
+      </div>
+    </div>
+
+    <!-- ───── Clearance Preview ───── -->
+    <div class="card border-0 shadow-sm mb-4" id="clearancePreview">
+      <div class="card-header bg-light border-0 py-3 d-flex align-items-center justify-content-between">
+        <div class="fw-semibold text-navy small">
+          <i class="bi bi-list-check me-2"></i>Clearance items we'll work on for you
+        </div>
+        <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
+          data-bs-title="What are clearance items?"
+          data-bs-content="These are the specific legal permissions we need to obtain before your content can be released. Each item requires written consent from a different party. We handle all the outreach, negotiation, and documentation — your job is just to submit this form.">
+          <i class="bi bi-info-circle"></i> <span class="small">What are these?</span>
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush" id="clearanceList">
+          <!-- populated by JS -->
+        </ul>
+        <div class="px-4 py-3 small text-muted border-top">
+          <i class="bi bi-clock me-1"></i>Once submitted, our BA team typically begins outreach within 1–2 business days.
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── Submit Button ───── -->
+    <div class="d-grid gap-2">
+      <button type="submit" class="btn btn-primary btn-lg fw-semibold py-3">
+        <i class="bi bi-send me-2"></i>Submit for Clearance
+      </button>
+      <div class="text-center text-muted small">
+        <i class="bi bi-lock me-1"></i>You'll receive a private tracking link by email instantly. No account needed. Invoice sent after review.
+      </div>
+    </div>
+
+  </form>
+</div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const TEMPLATES = {{ clearance_templates | tojson }};
+
+// Plain-English explanation for every possible clearance item
+const ITEM_HELP = {
+  promoter_consent:    "The concert promoter controls who can film at their events. Even if you booked the artist directly, we still need written permission from the promoter before any camera rolls.",
+  label_waiver:        "The record label owns the rights to the artist's recorded performances. We need their written approval before any filmed performance can be released — this is often the longest step.",
+  publishing:          "Song rights are separate from recording rights. The music publisher (who represents the songwriters) must also approve the use. A song can have multiple publishers if it has multiple writers.",
+  performer_release:   "Every artist and performer on camera must sign a release giving you the right to use their image, voice, and likeness in this specific project.",
+  venue_license:       "Venues often have exclusive broadcast deals. We need written permission from the venue to confirm they're allowing filming and that there are no conflicting exclusivity agreements.",
+  crowd_release:       "When streaming to the public, you need legal protection for filming audience members. This is typically handled via signage at the event plus a blanket release agreement.",
+  platform_agreement:  "The final agreement with the platform ({{ platform.name }}) defining exactly what rights are granted, for how long, in which territories, and on what terms.",
+  sync_license:        "A sync license gives you permission to use a song — its melody and lyrics — in your film. Every piece of music needs one, even if it plays briefly in the background.",
+  master_license:      "The master recording license covers the actual recorded performance you hear. This is usually needed alongside a sync license — they cover different rights (the song vs. the recording of the song).",
+  footage_rights:      "Any pre-existing video clips, news footage, or historical recordings require separate clearance from whoever owns them — a news network, a film studio, or an archive.",
+  photo_rights:        "Photographs and still images have their own copyright. Every image that appears in your film needs written permission from the photographer or rights holder.",
+  interview_releases:  "Every person who appears on camera in an interview must sign a release. This protects you if they later claim misrepresentation or want to block the film from distribution.",
+  location_releases:   "Filming at identifiable private locations — restaurants, homes, offices — requires written permission from the property owner.",
+  trademark_clearance: "Logos, brand names, and products that appear prominently on camera may require clearance, especially if their placement could imply endorsement.",
+  eo_documentation:    "Errors & Omissions (E&O) insurance is required by virtually every major distributor. It protects against lawsuits claiming you used someone's material without permission. We help you document the clearances needed to obtain it.",
+  music_clearance:     "Every song in your show — scene music, montage tracks, background music — needs both a sync license (for the song) and a master license (for the recording). We handle both.",
+  talent_releases:     "Every participant, contestant, or recurring on-camera person must sign a comprehensive release before filming begins. This covers their image, likeness, name, and story.",
+  appearance_releases: "Anyone whose face, voice, or likeness appears — even briefly or in the background — needs a signed release. This includes bystanders filmed in public if they're identifiable.",
+  brand_clearance:     "Products, logos, and brand names that appear on camera may need clearance if featured in a way that implies endorsement or affiliation.",
+  social_clearance:    "If show participants post about the production on their own social media, you may need rights to use that user-generated content. This agreement covers that.",
+  music_license:       "Any music in your social content needs a license — even a 3-second audio clip in a TikTok or a background track in an Instagram Reel.",
+  performer_consent:   "Anyone who performs or appears featured in the content must provide written consent for the specific use you intend — platform, territory, and duration matter.",
+  ugc_clearance:       "If your campaign uses content created by fans or third parties (remixes, reaction videos, user submissions), you need explicit rights to each piece. This can't be assumed from a like or a comment.",
+  content_license:     "A formal license granting you the right to use, modify, and distribute the specific content in your campaign.",
+  platform_terms:      "Each social platform has specific rules about content — music licenses, UGC, and commercial use all have platform-specific requirements. This confirms your content meets them.",
+};
+
+function updateFields() {
+  const type = document.querySelector('input[name="project_type"]:checked')?.value || 'live_music';
+
+  // Show/hide field groups
+  document.getElementById('fields_live_music').classList.toggle('d-none', type !== 'live_music');
+  document.getElementById('fields_documentary').classList.toggle('d-none', type !== 'documentary');
+  document.getElementById('fields_unscripted').classList.toggle('d-none', type !== 'unscripted');
+  const socialEl = document.getElementById('fields_social');
+  if (socialEl) socialEl.classList.toggle('d-none', type !== 'social' && type !== 'ugc');
+
+  // Update clearance preview with descriptions
+  const items = TEMPLATES[type] || [];
+  const list = document.getElementById('clearanceList');
+  list.innerHTML = items.map((item, i) => {
+    const help = ITEM_HELP[item.key] || '';
+    return `
+      <li class="list-group-item py-3">
+        <div class="d-flex align-items-start gap-3">
+          <span class="badge bg-light text-dark border mt-1" style="min-width:22px; font-size:.72rem;">${i+1}</span>
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="small fw-semibold">${item.label}</span>
+              <span class="badge bg-warning text-dark small">Pending</span>
+            </div>
+            ${help ? `<div class="text-muted mt-1" style="font-size:.75rem;">${help}</div>` : ''}
+          </div>
+        </div>
+      </li>
+    `;
+  }).join('');
+}
+
+document.querySelectorAll('input[name="project_type"]').forEach(r => r.addEventListener('change', updateFields));
+document.addEventListener('DOMContentLoaded', updateFields);
+</script>
+{% endblock %}

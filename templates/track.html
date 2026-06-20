@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+{% block title %}Clearance Status — {{ sub.title }}{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4" style="max-width:900px;">
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">Cleared<span class="text-warning">.</span>live</a>
+    <div class="ms-auto">
+      <span class="badge rounded-pill px-3 py-2" style="background:{{ sub.platform.primary_color }};color:#fff;">
+        {{ sub.platform.name }}
+      </span>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block container_class %}container py-5{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-7">
+
+  <!-- Header -->
+  <div class="mb-4">
+    <div class="small text-muted mb-1">Clearance Status</div>
+    <h2 class="fw-bold text-navy mb-1">{{ sub.title }}</h2>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <span class="badge bg-{{ sub.status_color }} px-3 py-2">{{ sub.status_label }}</span>
+      <span class="badge bg-light text-dark border">{{ sub.project_type_label }}</span>
+      {% if sub.artist_name %}<span class="text-muted small">{{ sub.artist_name }}</span>{% endif %}
+      {% if sub.event_date %}<span class="text-muted small">· {{ sub.event_date }}</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- What does my status mean? -->
+  <div class="alert border-0 mb-4 py-3 px-4
+    {% if sub.status == 'cleared' %}alert-success
+    {% elif sub.status == 'in_clearance' %}alert-warning
+    {% elif sub.status == 'in_review' %}alert-info
+    {% elif sub.status == 'rejected' %}alert-danger
+    {% else %}alert-secondary{% endif %}"
+    style="border-left-width:4px !important; border-left-style:solid !important;">
+    <div class="d-flex gap-3 align-items-start">
+      <i class="bi {% if sub.status == 'cleared' %}bi-check-circle-fill
+        {% elif sub.status == 'in_clearance' %}bi-arrow-repeat
+        {% elif sub.status == 'in_review' %}bi-eye
+        {% elif sub.status == 'rejected' %}bi-x-circle-fill
+        {% else %}bi-inbox{% endif %} fs-5 mt-1 flex-shrink-0"></i>
+      <div class="small">
+        {% if sub.status == 'submitted' %}
+          <strong>Received — pending review.</strong> Your submission has been received by {{ sub.platform.name }}'s business affairs team. They will review your project details within 1–2 business days and begin clearance outreach.
+        {% elif sub.status == 'in_review' %}
+          <strong>Under review.</strong> The BA team is reviewing your submission details and verifying rights holder information before starting outreach. You'll see items move to "In Progress" as work begins.
+        {% elif sub.status == 'in_clearance' %}
+          <strong>Clearance in progress.</strong> The team is actively contacting rights holders and working through your clearance items. Some items may clear quickly; others (like major label waivers) can take longer. You'll see this page update as each item is resolved.
+        {% elif sub.status == 'cleared' %}
+          <strong>Fully cleared — you're good to go.</strong> Every rights holder has signed off. Your content has been released on {{ sub.platform.name }}.
+          {% if sub.cleared_at %} Cleared on {{ sub.cleared_at.strftime('%B %d, %Y') }}.{% endif %}
+        {% elif sub.status == 'rejected' %}
+          <strong>Not approved.</strong> There was an issue with this submission. Please contact <a href="mailto:clear@cleared.live">clear@cleared.live</a> for details.
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Overall progress -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-semibold text-navy">Overall Clearance Progress</div>
+        <div class="fw-bold fs-5 {% if sub.progress_pct == 100 %}text-success{% else %}text-navy{% endif %}">
+          {{ sub.progress_pct }}%
+        </div>
+      </div>
+      <div class="progress mb-3" style="height:10px; border-radius:8px;">
+        <div class="progress-bar {% if sub.progress_pct == 100 %}bg-success{% elif sub.progress_pct > 0 %}bg-warning{% else %}bg-secondary{% endif %}"
+             style="width:{{ sub.progress_pct }}%; border-radius:8px; transition:width .6s ease;"></div>
+      </div>
+      <div class="small text-muted">
+        {{ sub.clearance_items|selectattr('is_done')|list|length }} of {{ sub.clearance_items|length }} items complete
+        {% if sub.blocking_items %}
+          · <strong>{{ sub.blocking_items|length }}</strong> still pending
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Clearance items -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-light border-0 py-3 d-flex align-items-center justify-content-between">
+      <div class="fw-semibold text-navy small">
+        <i class="bi bi-list-check me-2"></i>Clearance Items
+      </div>
+      <!-- Status legend -->
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="badge bg-warning text-dark small">Pending</span>
+        <span class="badge bg-info text-white small">In Progress</span>
+        <span class="badge bg-success small">Cleared</span>
+        <span class="badge bg-secondary small">Waived</span>
+      </div>
+    </div>
+
+    <!-- What do these statuses mean? -->
+    <div class="px-4 py-3 border-bottom" style="background:#fafbfc;">
+      <div class="small text-muted">
+        <button class="btn btn-link btn-sm p-0 text-muted text-decoration-none" type="button"
+                data-bs-toggle="collapse" data-bs-target="#statusLegend">
+          <i class="bi bi-question-circle me-1"></i>What do these statuses mean?
+        </button>
+        <div class="collapse mt-2" id="statusLegend">
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <div class="d-flex gap-2 align-items-start">
+                <span class="badge bg-warning text-dark mt-1 flex-shrink-0">Pending</span>
+                <span style="font-size:.78rem;">Not yet started. The team has identified this item and will contact the rights holder soon.</span>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="d-flex gap-2 align-items-start">
+                <span class="badge bg-info text-white mt-1 flex-shrink-0">In Progress</span>
+                <span style="font-size:.78rem;">Outreach has begun. We've contacted the rights holder and are awaiting their response or signature.</span>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="d-flex gap-2 align-items-start">
+                <span class="badge bg-success mt-1 flex-shrink-0">Cleared</span>
+                <span style="font-size:.78rem;">Written permission received and on file. This item is done.</span>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="d-flex gap-2 align-items-start">
+                <span class="badge bg-secondary mt-1 flex-shrink-0">Waived / N/A</span>
+                <span style="font-size:.78rem;">Not required for this project, or the rights holder has confirmed no license is needed.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body p-0">
+      {% for item in sub.clearance_items %}
+      <div class="tracker-item mx-3 my-2 {% if item.is_done %}done{% elif item.status == 'in_progress' %}active{% endif %}">
+        <div class="d-flex align-items-start gap-3">
+          <i class="bi {{ item.status_icon }} fs-5 mt-1 flex-shrink-0
+            {% if item.status == 'cleared' %}text-success
+            {% elif item.status == 'in_progress' %}text-info
+            {% elif item.status == 'waived' %}text-secondary
+            {% elif item.status == 'n_a' %}text-muted
+            {% else %}text-warning{% endif %}"></i>
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+              <span class="fw-semibold small">{{ item.item_label }}</span>
+              <span class="badge bg-{{ item.status_color }} {% if item.status_color == 'light' %}text-dark border{% endif %} small">
+                {{ item.status_label }}
+              </span>
+              {% if item.cleared_at %}
+              <span class="text-muted" style="font-size:.72rem;">· {{ item.cleared_at.strftime('%b %d') }}</span>
+              {% endif %}
+            </div>
+            {% if item.party_name %}
+            <div class="text-muted" style="font-size:.78rem;"><i class="bi bi-person me-1"></i>{{ item.party_name }}</div>
+            {% endif %}
+            {% if item.notes and item.status != 'pending' %}
+            <div class="text-muted mt-1" style="font-size:.78rem;">{{ item.notes }}</div>
+            {% endif %}
+
+            <!-- Plain-English explanation (collapsed by default) -->
+            <div class="mt-1">
+              <button class="btn btn-link btn-sm p-0 text-muted text-decoration-none item-explain-btn"
+                      type="button" data-bs-toggle="collapse"
+                      data-bs-target="#explain-{{ item.id }}" style="font-size:.73rem;">
+                <i class="bi bi-info-circle me-1"></i>What is this?
+              </button>
+              <div class="collapse mt-1" id="explain-{{ item.id }}">
+                <div class="small text-muted p-2 rounded" style="background:#f8f9fa; font-size:.76rem; line-height:1.5;">
+                  {% if item.item_key == 'promoter_consent' %}
+                    The concert promoter controls who is allowed to film at their event. Even if you booked the artist directly, we still need the promoter's written permission before any cameras roll. Without this, the footage can't be used — no matter what other approvals are in place.
+                  {% elif item.item_key == 'label_waiver' %}
+                    The record label owns the rights to the artist's performances and recordings. A label waiver is their written sign-off allowing this specific project to proceed. Major labels (UMG, Sony, WME) have formal approval processes — this is often the most time-consuming step.
+                  {% elif item.item_key == 'publishing' %}
+                    Song rights are separate from recording rights. The music publisher represents the songwriters and controls the right to use the underlying composition (melody + lyrics). A song can have multiple publishers if multiple writers contributed to it.
+                  {% elif item.item_key == 'performer_release' %}
+                    Every artist and performer who appears on camera must sign a release form giving you the right to use their image, voice, and likeness in this specific project. This is standard practice and protects both you and them.
+                  {% elif item.item_key == 'venue_license' %}
+                    Venues often have exclusive deals with specific broadcast partners. We contact the venue directly to confirm they have no conflicting agreements and to obtain their written permission to use the filmed footage.
+                  {% elif item.item_key == 'crowd_release' %}
+                    When distributing content to the public, you need legal protection for any audience members filmed. This is typically handled via posted signage at the event plus a blanket crowd release agreement, which we coordinate with the venue and promoter.
+                  {% elif item.item_key == 'platform_agreement' %}
+                    The formal distribution agreement with {{ sub.platform.name }}. This defines exactly what rights are granted, for how long, in which territories, on what terms, and at what fee. This is the final document before your content goes live.
+                  {% elif item.item_key == 'sync_license' %}
+                    A sync license gives you permission to use a song — its melody and lyrics — in your project. Every piece of music requires one, even background music or brief clips. "Sync" refers to synchronizing music to video.
+                  {% elif item.item_key == 'master_license' %}
+                    The master recording license covers the actual recorded performance you can hear on the track. A sync license covers the song itself; the master license covers that specific recording of it. You usually need both — from different rights holders.
+                  {% elif item.item_key == 'footage_rights' %}
+                    Any pre-existing video clips, news footage, or historical recordings require separate clearance from whoever owns them — a news network, a production company, a film studio, or an archive. We identify the rights holder for each clip and obtain written permission.
+                  {% elif item.item_key == 'photo_rights' %}
+                    Photographs and still images have their own copyright, separate from the subjects in them. Every image that appears in your project needs written permission from the photographer or their agency.
+                  {% elif item.item_key == 'interview_releases' %}
+                    Every person who appears on camera in an interview must sign a release form before the content can be distributed. This protects you legally if they later claim they were misrepresented or try to block the project.
+                  {% elif item.item_key == 'location_releases' %}
+                    Filming at identifiable private locations — someone's home, a restaurant, an office building — requires written permission from the property owner or manager. Even publicly accessible locations may require permits.
+                  {% elif item.item_key == 'trademark_clearance' %}
+                    Logos, brand names, and products that appear prominently on camera may need clearance — especially if their placement could imply that the brand endorses or is affiliated with your project.
+                  {% elif item.item_key == 'eo_documentation' %}
+                    Errors & Omissions (E&O) insurance is required by virtually every major distributor before they'll release content. It protects against claims that you used someone's material without permission. Getting proper clearances is how you qualify for E&O coverage — this item tracks that documentation.
+                  {% elif item.item_key == 'music_clearance' %}
+                    Every song in your show needs both a sync license (for the composition) and a master license (for the recording). We handle outreach to both the publisher and the label for each track.
+                  {% elif item.item_key == 'talent_releases' %}
+                    Every participant, contestant, or recurring on-camera person must sign a comprehensive release before filming begins. The release covers their image, likeness, name, voice, and story for this specific project.
+                  {% elif item.item_key == 'appearance_releases' %}
+                    Anyone whose face, voice, or likeness appears in the content — even briefly in the background — may need a signed release, depending on how identifiable they are and how the content will be distributed.
+                  {% elif item.item_key == 'brand_clearance' %}
+                    Logos, products, and storefronts that appear prominently on camera may need clearance if it looks like the brand is endorsing or affiliated with the show. We review the footage and contact any brands whose clearance is required.
+                  {% elif item.item_key == 'social_clearance' %}
+                    If participants or cast members post about the production on their own social accounts, you may want the right to use that content in promos or recaps. This agreement covers rights to that user-generated content from people directly involved in the project.
+                  {% elif item.item_key == 'music_license' %}
+                    Any music in your social content needs a license — even a 3-second audio clip used as background in a TikTok or Reel. Many platforms have blanket deals for their own native audio, but original or licensed tracks need separate clearance.
+                  {% elif item.item_key == 'performer_consent' %}
+                    Anyone who performs or appears featured in the content — not just in the background — must provide written consent for the specific way you're using it. Platform, territory, and duration of use all matter and must be specified.
+                  {% elif item.item_key == 'ugc_clearance' %}
+                    If your campaign uses content created by fans, followers, or third parties — remixes, reaction videos, user submissions — you need explicit rights to each piece. A like, a share, or a "we love it!" comment in DMs is not a license.
+                  {% elif item.item_key == 'content_license' %}
+                    A formal written license granting you the right to use, modify, and distribute the specific content in your campaign, for the intended platform, territory, and duration.
+                  {% elif item.item_key == 'platform_terms' %}
+                    Each social platform has specific content policies around music, UGC, and commercial use. This step confirms your content is structured to comply with those platform-specific rules before it's published.
+                  {% else %}
+                    This clearance item is specific to your project. The BA team will provide details as they begin work on it.
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      <div class="pb-2"></div>
+    </div>
+  </div>
+
+  <!-- Project details -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-light border-0 py-3">
+      <div class="fw-semibold text-navy small"><i class="bi bi-info-circle me-2"></i>Your Submission</div>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0">
+        <tbody>
+          <tr><td class="text-muted small ps-4" style="width:40%;">Submitted to</td><td class="small">{{ sub.platform.name }}</td></tr>
+          <tr><td class="text-muted small ps-4">Submitted by</td><td class="small">{{ sub.submitter_name }}{% if sub.submitter_company %} · {{ sub.submitter_company }}{% endif %}</td></tr>
+          {% if sub.venue %}<tr><td class="text-muted small ps-4">Venue</td><td class="small">{{ sub.venue }}</td></tr>{% endif %}
+          {% if sub.label %}<tr><td class="text-muted small ps-4">Label</td><td class="small">{{ sub.label }}</td></tr>{% endif %}
+          <tr><td class="text-muted small ps-4">Territory</td><td class="small">{{ sub.territory_label }}</td></tr>
+          <tr><td class="text-muted small ps-4">Submitted</td><td class="small">{{ sub.created_at.strftime('%B %d, %Y') }}</td></tr>
+          <tr>
+            <td class="text-muted small ps-4">Payment</td>
+            <td class="small">
+              {% if sub.payment_status == 'paid' %}<span class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>Paid</span>
+              {% elif sub.payment_status == 'invoiced' %}<span class="text-warning fw-semibold"><i class="bi bi-envelope me-1"></i>Invoice sent — please pay to avoid delays</span>
+              {% elif sub.payment_status == 'waived' %}<span class="text-secondary">Waived</span>
+              {% else %}<span class="text-muted">Invoice pending — you'll receive it by email</span>{% endif %}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if sub.setlist_list %}
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-light border-0 py-3">
+      <div class="fw-semibold text-navy small">
+        <i class="bi bi-music-note-list me-2"></i>
+        {% if sub.project_type == 'live_music' %}Setlist{% else %}Music / Content{% endif %}
+        <span class="text-muted fw-normal ms-1 small">(each item cleared separately)</span>
+      </div>
+    </div>
+    <div class="card-body py-2 px-4">
+      {% for song in sub.setlist_list %}
+      <div class="d-flex align-items-center gap-2 py-1 border-bottom">
+        <span class="text-muted small" style="min-width:1.5rem;">{{ loop.index }}.</span>
+        <span class="small">{{ song }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Actions -->
+  <div class="d-flex gap-2 flex-wrap mb-3">
+    <button onclick="copyLink()" class="btn btn-outline-dark btn-sm" id="copyBtn">
+      <i class="bi bi-clipboard me-1"></i>Copy tracking link
+    </button>
+    <a href="{{ url_for('submit', platform_slug=sub.platform.slug) }}" class="btn btn-outline-secondary btn-sm">
+      Submit another project
+    </a>
+  </div>
+  <div class="small text-muted">
+    <i class="bi bi-shield-lock me-1"></i>This page is accessible via your private tracking link only. Bookmark it — it's the only way to check your status.<br>
+    Questions or urgent deadline? Email <a href="mailto:clear@cleared.live">clear@cleared.live</a> with your tracking token: <code>{{ sub.token }}</code>
+  </div>
+
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function copyLink() {
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied!';
+    btn.classList.replace('btn-outline-dark', 'btn-success');
+    setTimeout(() => {
+      btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy tracking link';
+      btn.classList.replace('btn-success', 'btn-outline-dark');
+    }, 2500);
+  });
+}
+{% if sub.status != 'cleared' %}
+// Auto-refresh every 60s while not fully cleared
+setTimeout(() => location.reload(), 60000);
+{% endif %}
+</script>
+{% endblock %}

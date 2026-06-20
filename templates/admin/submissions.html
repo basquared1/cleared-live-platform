@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}All Submissions — Cleared.live Admin{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold" href="{{ url_for('admin_dashboard') }}">
+      Cleared<span class="text-warning">.</span>live <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">Admin</span>
+    </a>
+    <div class="ms-auto d-flex gap-2">
+      <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-outline-dark"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
+      <a href="{{ url_for('admin_logout') }}" class="btn btn-sm btn-outline-secondary">Logout</a>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h4 class="fw-bold text-navy mb-0">All Submissions</h4>
+  <span class="text-muted small">{{ subs|length }} total</span>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-4">Project</th>
+          <th>Platform</th>
+          <th class="d-none d-md-table-cell">Type</th>
+          <th>Progress</th>
+          <th>Status</th>
+          <th class="d-none d-md-table-cell">Payment</th>
+          <th class="d-none d-sm-table-cell">Submitted</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sub in subs %}
+        <tr>
+          <td class="ps-4">
+            <div class="fw-semibold small">{{ sub.title }}</div>
+            <div class="text-muted" style="font-size:.75rem;">{{ sub.submitter_name }}{% if sub.submitter_company %} · {{ sub.submitter_company }}{% endif %}</div>
+          </td>
+          <td class="small fw-semibold" style="color:{{ sub.platform.primary_color }};">{{ sub.platform.name }}</td>
+          <td class="d-none d-md-table-cell">
+            <span class="badge bg-light text-dark border small">{{ sub.project_type_label }}</span>
+          </td>
+          <td style="min-width:100px;">
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height:5px; min-width:40px;">
+                <div class="progress-bar {% if sub.progress_pct==100 %}bg-success{% elif sub.progress_pct>0 %}bg-warning{% else %}bg-secondary{% endif %}"
+                     style="width:{{ sub.progress_pct }}%"></div>
+              </div>
+              <small class="text-muted">{{ sub.progress_pct }}%</small>
+            </div>
+          </td>
+          <td><span class="badge bg-{{ sub.status_color }} small">{{ sub.status_label }}</span></td>
+          <td class="d-none d-md-table-cell">
+            <span class="badge {% if sub.payment_status=='paid' %}bg-success-subtle text-success border-success
+              {% elif sub.payment_status=='invoiced' %}bg-warning-subtle text-warning border-warning
+              {% else %}bg-light text-muted border{% endif %} border small">
+              {{ sub.payment_status.title() }}
+            </span>
+          </td>
+          <td class="d-none d-sm-table-cell text-muted small">{{ sub.created_at.strftime('%b %d, %Y') }}</td>
+          <td class="pe-3">
+            <a href="{{ url_for('admin_submission', sub_id=sub.id) }}" class="btn btn-sm btn-outline-secondary">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

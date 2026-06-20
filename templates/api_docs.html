@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}API Documentation — Cleared.live{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-9">
+  <h2 class="fw-bold text-navy mb-1">API Documentation</h2>
+  <p class="text-muted mb-4">REST API for platform integration. Pass your API key in the <code>X-API-Key</code> header.</p>
+
+  {% set endpoints = [
+    ('Public', 'No auth required', [
+      ('GET', '/api/v1/status/{token}', 'Get clearance status for any submission by its tracking token.', '{"token":"abc123","status":"in_clearance","progress_pct":57,"clearance_items":[...]}'),
+    ]),
+    ('Platform (API Key)', 'Pass X-API-Key header', [
+      ('GET', '/api/v1/projects', 'List all submissions for your platform. Filter with ?status= or ?project_type=', '[{"token":"...","title":"...","status":"...","progress_pct":57}]'),
+      ('GET', '/api/v1/projects/{token}', 'Get full detail for one submission including all clearance items.', '{"token":"...","clearance_items":[{"key":"label_waiver","status":"cleared"},...]}'),
+      ('POST', '/api/v1/webhook/test', 'Fire a test event to your registered webhook URL.', '{"sent":true,"url":"https://your-endpoint.com/clearance"}'),
+    ]),
+  ] %}
+
+  {% for group, auth_note, items in endpoints %}
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-light border-0 py-3">
+      <div class="fw-semibold text-navy">{{ group }}</div>
+      <div class="text-muted small">{{ auth_note }}</div>
+    </div>
+    <div class="card-body p-0">
+      {% for method, path, desc, example in items %}
+      <div class="p-4 border-bottom">
+        <div class="d-flex align-items-center gap-3 mb-2">
+          <span class="badge fw-bold px-3 py-2
+            {% if method == 'GET' %}bg-primary{% elif method == 'POST' %}bg-success{% endif %}">
+            {{ method }}
+          </span>
+          <code class="text-navy">{{ path }}</code>
+        </div>
+        <p class="text-muted small mb-2">{{ desc }}</p>
+        <div class="api-block">{{ example }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-light border-0 py-3">
+      <div class="fw-semibold text-navy">Webhook Payload</div>
+      <div class="text-muted small">Fired on clearance_complete, item_updated events</div>
+    </div>
+    <div class="card-body">
+      <div class="api-block">{
+  <span class="key">"event"</span>: <span class="val">"clearance_complete"</span>,
+  <span class="key">"submission_token"</span>: <span class="val">"abc123xyz"</span>,
+  <span class="key">"project_type"</span>: <span class="val">"live_music"</span>,
+  <span class="key">"title"</span>: <span class="val">"Taylor Swift — Eras Tour"</span>,
+  <span class="key">"cleared_at"</span>: <span class="val">"2026-06-19T18:30:00"</span>,
+  <span class="key">"clearance_items"</span>: [
+    { <span class="key">"key"</span>: <span class="val">"label_waiver"</span>, <span class="key">"status"</span>: <span class="val">"cleared"</span> },
+    { <span class="key">"key"</span>: <span class="val">"publishing"</span>, <span class="key">"status"</span>: <span class="val">"cleared"</span> }
+  ]
+}</div>
+      <div class="mt-3 small text-muted">
+        <i class="bi bi-shield-lock me-1"></i>
+        Every webhook includes an <code>X-Cleared-Signature: sha256=...</code> header for verification.
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 bg-navy text-white shadow-sm">
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-2">Need your API key or a webhook URL configured?</h6>
+      <p class="opacity-75 small mb-0">Contact <a href="mailto:clear@cleared.live" class="text-warning">clear@cleared.live</a> — we'll set up your platform account and test the integration before go-live.</p>
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}

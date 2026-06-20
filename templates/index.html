@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Cleared.live — Media Rights Clearance Infrastructure{% endblock %}
+{% block content %}
+
+<!-- Hero -->
+<div class="hero rounded-3 p-5 mb-5">
+  <div class="row align-items-center g-4">
+    <div class="col-lg-7">
+      <div class="small fw-semibold mb-2 opacity-75" style="letter-spacing:.12em;">CLEARED.LIVE PLATFORM</div>
+      <h1 class="display-5 fw-bold mb-3">
+        Rights clearance infrastructure<br>for media platforms.
+      </h1>
+      <p class="lead opacity-90 mb-4">
+        Promoters and producers submit their projects directly to your platform.
+        Your BA team manages every clearance — label waivers, publishing, performer releases,
+        venue licenses — in one workflow. When everything is green, content goes live.
+      </p>
+      <div class="d-flex flex-wrap gap-3">
+        {% for p in platforms %}
+        <a href="{{ url_for('submit', platform_slug=p.slug) }}"
+           class="btn btn-warning fw-semibold px-4">
+          Submit to {{ p.name }} <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+        {% endfor %}
+        <a href="{{ url_for('platform_login') }}" class="btn btn-outline-light px-4">
+          Platform Login <i class="bi bi-box-arrow-in-right ms-1"></i>
+        </a>
+      </div>
+    </div>
+    <div class="col-lg-5 d-none d-lg-block">
+      <!-- Clearance checklist visual -->
+      <div class="card border-0 shadow-lg" style="background:rgba(255,255,255,.08); backdrop-filter:blur(10px);">
+        <div class="card-body p-4">
+          <div class="small fw-semibold text-white opacity-75 mb-3">CLEARANCE PROGRESS</div>
+          {% set demo_items = [
+            ('bi-check-circle-fill text-success', 'Promoter Consent', 'Executed'),
+            ('bi-check-circle-fill text-success', 'Label Waiver', 'Executed'),
+            ('bi-arrow-repeat text-info',          'Publishing Clearance', 'In Progress'),
+            ('bi-clock text-warning',              'Performer Releases', 'Pending'),
+            ('bi-clock text-warning',              'Venue License', 'Pending'),
+          ] %}
+          {% for icon, label, status in demo_items %}
+          <div class="d-flex align-items-center gap-3 mb-3">
+            <i class="bi {{ icon }} fs-5"></i>
+            <div class="flex-grow-1">
+              <div class="text-white small fw-medium">{{ label }}</div>
+            </div>
+            <span class="badge rounded-pill {% if status == 'Executed' %}bg-success{% elif status == 'In Progress' %}bg-info{% else %}bg-warning text-dark{% endif %} small">
+              {{ status }}
+            </span>
+          </div>
+          {% endfor %}
+          <div class="mt-3 pt-3 border-top border-white border-opacity-25">
+            <div class="d-flex justify-content-between align-items-center text-white small mb-1">
+              <span>Overall progress</span><span class="fw-semibold">40%</span>
+            </div>
+            <div class="progress" style="height:6px;">
+              <div class="progress-bar bg-warning" style="width:40%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- How it works -->
+<div class="row g-4 mb-5">
+  <div class="col-12">
+    <h2 class="fw-bold text-navy mb-1">How it works</h2>
+    <p class="text-muted">Three steps from submission to content live.</p>
+  </div>
+  {% set steps = [
+    ('bi-send', '1', 'Submit', 'Promoters and producers fill out a tailored intake form for your platform. Project type, setlist, rights holders, territory — all captured upfront.'),
+    ('bi-shield-check', '2', 'Clear', 'Your BA team works the clearance checklist. AI-assisted drafting, document tracking, and party-by-party status updates. Submitters see live progress.'),
+    ('bi-play-circle', '3', 'Go Live', 'When every item is green, one click releases the project. A webhook fires to your content system automatically — no spreadsheet handoff.'),
+  ] %}
+  {% for icon, num, title, desc in steps %}
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <div class="step-pill">{{ num }}</div>
+          <i class="bi {{ icon }} fs-4 text-navy"></i>
+        </div>
+        <h5 class="fw-bold text-navy mb-2">{{ title }}</h5>
+        <p class="text-muted small mb-0">{{ desc }}</p>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Content types -->
+<div class="card border-0 shadow-sm mb-5">
+  <div class="card-body p-4">
+    <h5 class="fw-bold text-navy mb-3">Every content type. One platform.</h5>
+    <div class="row g-3">
+      {% set types = [
+        ('bi-music-note-beamed', 'Live Music', 'Concerts, tours, festivals — full clearance stack from promoter consent to platform agreement.'),
+        ('bi-camera-reels',      'Documentary', 'Music sync, footage rights, interview releases, E&O documentation.'),
+        ('bi-tv',                'Unscripted / Reality', 'Talent releases, location rights, music clearance, participant social media.'),
+        ('bi-phone',             'Social Media', 'Music licensing, UGC rights, performer consent, brand clearance.'),
+        ('bi-people',            'UGC',          'Content licensing, appearance consent, platform terms compliance.'),
+      ] %}
+      {% for icon, name, desc in types %}
+      <div class="col-sm-6 col-lg-4">
+        <div class="d-flex gap-3 align-items-start">
+          <i class="bi {{ icon }} fs-5 text-navy mt-1"></i>
+          <div>
+            <div class="fw-semibold small">{{ name }}</div>
+            <div class="text-muted" style="font-size:.8rem;">{{ desc }}</div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Pricing -->
+<div class="mb-5">
+  <h2 class="fw-bold text-navy mb-1">Per-project pricing</h2>
+  <p class="text-muted mb-4">Platforms pay per cleared project — or a volume license for high-volume slates.</p>
+  <div class="row g-3">
+    {% for key, tier in pricing_tiers.items() %}
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100 {% if key == 'standard' %}border-2 border-warning{% endif %}">
+        {% if key == 'standard' %}
+        <div class="card-header bg-warning text-dark text-center py-2 small fw-semibold">Most Common</div>
+        {% endif %}
+        <div class="card-body p-4">
+          <div class="fw-bold text-navy fs-5 mb-1">{{ tier.label }}</div>
+          <div class="display-6 fw-bold text-navy mb-2">${{ "{:,}".format(tier.price) }}</div>
+          <div class="text-muted small mb-0">{{ tier.desc }}</div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="col-md-12">
+      <div class="card border-0 bg-navy text-white shadow-sm">
+        <div class="card-body p-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+          <div>
+            <div class="fw-bold fs-5 mb-1">Volume License</div>
+            <div class="opacity-75 small">$500K+/year based on expected project count. Includes dedicated support and SLA.</div>
+          </div>
+          <a href="mailto:clear@cleared.live" class="btn btn-warning fw-semibold">Contact Us</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Platforms -->
+{% if platforms %}
+<div class="mb-5">
+  <h2 class="fw-bold text-navy mb-1">Connected platforms</h2>
+  <p class="text-muted mb-4">Submit your project to any platform below.</p>
+  <div class="row g-3">
+    {% for p in platforms %}
+    <div class="col-sm-6 col-lg-3">
+      <div class="card border-0 shadow-sm text-center p-4 h-100">
+        <div class="fs-4 fw-bold mb-2" style="color:{{ p.primary_color }};">{{ p.logo_text or p.name }}</div>
+        <div class="text-muted small mb-3">{{ p.name }}</div>
+        <a href="{{ url_for('submit', platform_slug=p.slug) }}"
+           class="btn btn-sm btn-outline-dark mt-auto">Submit Project</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

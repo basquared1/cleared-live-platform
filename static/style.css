@@ -1,0 +1,132 @@
+/* Cleared.live Platform — brand styles */
+
+:root {
+  --cl-navy:  #0d3b6e;
+  --cl-navy2: #0a2f58;
+  --cl-gold:  #ffc107;
+  --cl-bg:    #f4f7fb;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--cl-bg) !important;
+}
+
+/* ── Navbar ────────────────────────────────────────── */
+.navbar {
+  background: #fff !important;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06) !important;
+}
+.navbar-brand { color: var(--cl-navy) !important; font-weight: 700; letter-spacing:-.01em; }
+.navbar .nav-link { color: #374151 !important; font-size:.9rem; }
+.navbar .nav-link:hover, .navbar .nav-link.active { color: var(--cl-navy) !important; }
+.navbar .nav-link.active { font-weight: 600; }
+
+/* ── Buttons ───────────────────────────────────────── */
+.btn-primary, .btn-dark {
+  background-color: var(--cl-navy) !important;
+  border-color: var(--cl-navy) !important;
+  color: #fff !important;
+}
+.btn-primary:hover, .btn-dark:hover {
+  background-color: var(--cl-navy2) !important;
+  border-color: var(--cl-navy2) !important;
+}
+.btn-outline-dark { color: var(--cl-navy) !important; border-color: var(--cl-navy) !important; }
+.btn-outline-dark:hover { background-color: var(--cl-navy) !important; color: #fff !important; }
+
+/* ── Cards ─────────────────────────────────────────── */
+.card { border-radius: 10px; }
+.card-header { border-radius: 10px 10px 0 0 !important; }
+
+/* ── Tables ────────────────────────────────────────── */
+.table > :not(caption) > * > * { padding: .75rem 1rem; }
+
+/* ── Badges ────────────────────────────────────────── */
+.badge { font-weight: 500; letter-spacing: .01em; }
+
+/* ── Utilities ─────────────────────────────────────── */
+.text-navy { color: var(--cl-navy) !important; }
+.bg-navy   { background-color: var(--cl-navy) !important; }
+html, body { overflow-x: hidden; max-width: 100%; }
+
+/* ── Platform BA sidebar nav ───────────────────────── */
+.platform-nav .nav-link { color: rgba(255,255,255,.75); padding: .55rem 1rem; border-radius: 6px; font-size:.9rem; }
+.platform-nav .nav-link:hover { color: #fff; background: rgba(255,255,255,.1); }
+.platform-nav .nav-link.active { color: #fff; background: rgba(255,255,255,.18); font-weight:600; }
+
+/* ── Clearance item row ────────────────────────────── */
+.clearance-row { border-left: 4px solid transparent; transition: border-color .15s; }
+.clearance-row.status-cleared   { border-left-color: #198754; }
+.clearance-row.status-in_progress { border-left-color: #0dcaf0; }
+.clearance-row.status-pending   { border-left-color: #ffc107; }
+.clearance-row.status-waived    { border-left-color: #6c757d; }
+.clearance-row.status-n_a       { border-left-color: #dee2e6; }
+
+/* ── Submit form step indicator ────────────────────── */
+.step-pill {
+  display: inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:50%;
+  background: var(--cl-navy); color:#fff;
+  font-size:.75rem; font-weight:700; flex-shrink:0;
+}
+
+/* ── Progress tracker (submitter view) ─────────────── */
+.tracker-item { padding: 1rem 1.25rem; border-radius:8px; background:#fff; margin-bottom:.5rem; border:1px solid #e9ecef; }
+.tracker-item.done  { border-color:#d1fae5; background:#f0fdf4; }
+.tracker-item.active { border-color:#bfdbfe; background:#eff6ff; }
+
+/* ── Hero section ──────────────────────────────────── */
+.hero { background: linear-gradient(135deg, var(--cl-navy) 0%, #1a5fa8 100%); color:#fff; }
+
+/* ── Stat card numbers ─────────────────────────────── */
+.stat-number { font-size:2rem; font-weight:700; line-height:1; }
+
+/* ── Nav tabs ──────────────────────────────────────── */
+.nav-tabs .nav-link { color:#6c757d; border:none; border-bottom:2px solid transparent; padding:.6rem 1rem; font-size:.9rem; }
+.nav-tabs .nav-link:hover { color: var(--cl-navy); border-bottom-color:#dee2e6; }
+.nav-tabs .nav-link.active { color: var(--cl-navy); background:transparent; border-bottom:2px solid var(--cl-navy); font-weight:600; }
+
+/* ── Info bubble button ────────────────────────────── */
+.btn-info-bubble {
+  display: inline-flex; align-items: center; gap: .25rem;
+  background: none; border: none; padding: 0 2px;
+  color: #6c757d; font-size: .78rem; cursor: pointer;
+  line-height: 1; vertical-align: middle;
+  transition: color .15s;
+}
+.btn-info-bubble:hover { color: var(--cl-navy); }
+.btn-info-bubble .bi { font-size: .78rem; }
+
+/* ── Field group labels ────────────────────────────── */
+.field-group-label {
+  font-size: .7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: #9ca3af;
+  padding: .5rem 0 .35rem;
+  margin-top: .5rem; margin-bottom: .25rem;
+  border-top: 1px solid #f0f0f0;
+}
+.field-group-label:first-child { margin-top: 0; border-top: none; }
+
+/* ── Type card improvements ────────────────────────── */
+.type-card { transition: border-color .15s, box-shadow .15s; }
+.type-card:hover { border-color: var(--cl-navy) !important; box-shadow: 0 0 0 1px var(--cl-navy); }
+.btn-check:checked + .type-card {
+  border-color: var(--cl-navy) !important;
+  background: #eef3fb !important;
+  box-shadow: 0 0 0 2px var(--cl-navy);
+}
+.btn-check:checked + .type-card .bi { color: var(--cl-navy) !important; }
+.type-desc { display: block; }
+
+/* ── Clearance item explain button ─────────────────── */
+.item-explain-btn { opacity: .65; transition: opacity .15s; }
+.item-explain-btn:hover { opacity: 1; text-decoration: none !important; }
+
+/* ── API code block ────────────────────────────────── */
+.api-block { background:#0d1117; color:#e6edf3; border-radius:8px; padding:1rem 1.25rem; font-size:.8rem; font-family:'SF Mono',monospace; }
+.api-block .method { color:#7ee787; }
+.api-block .path   { color:#79c0ff; }
+.api-block .key    { color:#ff7b72; }
+.api-block .val    { color:#a5d6ff; }
