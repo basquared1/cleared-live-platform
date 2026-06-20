@@ -56,8 +56,21 @@
             <div class="fw-semibold">AI drafts your agreements</div>
             <div class="opacity-75 mt-1">
               We've already started building clearance agreements for each of your
-              {{ sub.clearance_items|length }} rights holders — music, venue, performer, and any other
-              parties. You'll find drafts waiting in your workspace.
+              {{ sub.clearance_items|length }} rights holders —
+              {% if sub.project_type == 'live_music' %}
+                record label, music publisher, venue, and performers.
+              {% elif sub.project_type == 'documentary' %}
+                archive footage owners, interview subjects, and music licensors.
+              {% elif sub.project_type == 'podcast' %}
+                music licensors, clip owners, and guest release parties.
+              {% elif sub.project_type in ('social', 'ugc') %}
+                music licensors, clip owners, and platform rights holders.
+              {% elif sub.project_type in ('unscripted', 'scripted') %}
+                location owners, talent, music supervisors, and stock footage providers.
+              {% else %}
+                each rights holder identified in your submission.
+              {% endif %}
+              You'll find drafts waiting in your workspace.
             </div>
           </div>
         </div>
