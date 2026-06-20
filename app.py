@@ -642,6 +642,14 @@ def submit(platform_slug):
         threading.Thread(target=_auto_draft_agent, args=(sub.id,), daemon=True).start()
         return redirect(url_for("submit_confirm", token=sub.token))
 
+    # Public guidelines: keyed by project_type, only approved + show_to_submitters=True
+    public_guidelines = {
+        g.project_type: g.public_content
+        for g in ClearanceGuideline.query.filter_by(
+            platform_id=platform.id, status="approved", show_to_submitters=True
+        ).all()
+        if g.public_content
+    }
     return render_template(
         "submit.html",
         platform=platform,
@@ -650,6 +658,7 @@ def submit(platform_slug):
         territory_labels=TERRITORY_LABELS,
         intended_use_options=INTENDED_USE_OPTIONS,
         clearance_templates=CLEARANCE_TEMPLATES,
+        public_guidelines=public_guidelines,
     )
 
 
@@ -1235,6 +1244,8 @@ def platform_guideline_detail(project_type):
                 g = ClearanceGuideline(platform_id=user.platform_id, project_type=project_type)
                 db.session.add(g)
             g.content = request.form.get("content", "").strip()
+            g.public_content = request.form.get("public_content", "").strip()
+            g.show_to_submitters = request.form.get("show_to_submitters") == "1"
             g.status = "draft"
             db.session.commit()
             flash("Guidelines saved as draft.", "success")
@@ -1259,6 +1270,20 @@ def platform_guideline_detail(project_type):
         project_type_label=PROJECT_TYPE_LABELS[project_type],
         clearance_items=CLEARANCE_TEMPLATES.get(project_type, []),
     )
+
+
+# ---------------------------------------------------------------------------
+# Legal pages (public)
+# ---------------------------------------------------------------------------
+
+@app.route("/privacy")
+def privacy_policy():
+    return render_template("privacy.html")
+
+
+@app.route("/terms")
+def terms_of_service():
+    return render_template("terms.html")
 
 
 # ---------------------------------------------------------------------------
@@ -1350,16 +1375,18 @@ def migrate_db_cmd():
         try:
             conn.execute(sa_text("""
                 CREATE TABLE IF NOT EXISTS clearance_guidelines (
-                    id           SERIAL PRIMARY KEY,
-                    platform_id  INTEGER NOT NULL REFERENCES platforms(id),
-                    project_type VARCHAR(30) NOT NULL,
-                    content      TEXT,
-                    status       VARCHAR(20) DEFAULT 'draft',
-                    approved_by  VARCHAR(100),
-                    approved_at  TIMESTAMP,
-                    version      INTEGER DEFAULT 1,
-                    created_at   TIMESTAMP DEFAULT NOW(),
-                    updated_at   TIMESTAMP DEFAULT NOW(),
+                    id                 SERIAL PRIMARY KEY,
+                    platform_id        INTEGER NOT NULL REFERENCES platforms(id),
+                    project_type       VARCHAR(30) NOT NULL,
+                    content            TEXT,
+                    public_content     TEXT,
+                    show_to_submitters BOOLEAN DEFAULT FALSE,
+                    status             VARCHAR(20) DEFAULT 'draft',
+                    approved_by        VARCHAR(100),
+                    approved_at        TIMESTAMP,
+                    version            INTEGER DEFAULT 1,
+                    created_at         TIMESTAMP DEFAULT NOW(),
+                    updated_at         TIMESTAMP DEFAULT NOW(),
                     UNIQUE(platform_id, project_type)
                 )
             """))
@@ -1368,6 +1395,17 @@ def migrate_db_cmd():
         except Exception as exc:
             conn.rollback()
             print(f"  clearance_guidelines: {exc}")
+        # Add public columns to existing clearance_guidelines table
+        for col_name, col_type in [("public_content", "TEXT"), ("show_to_submitters", "BOOLEAN DEFAULT FALSE")]:
+            try:
+                conn.execute(sa_text(
+                    f"ALTER TABLE clearance_guidelines ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                ))
+                conn.commit()
+                print(f"  clearance_guidelines.{col_name} OK")
+            except Exception as exc:
+                conn.rollback()
+                print(f"  clearance_guidelines.{col_name}: {exc}")
     print("Migration complete.")
 
 

@@ -383,7 +383,9 @@ class ClearanceGuideline(db.Model):
     id           = db.Column(db.Integer, primary_key=True)
     platform_id  = db.Column(db.Integer, db.ForeignKey("platforms.id"), nullable=False)
     project_type = db.Column(db.String(30), nullable=False)   # live_music | documentary | etc.
-    content      = db.Column(db.Text)
+    content           = db.Column(db.Text)           # internal BA view
+    public_content    = db.Column(db.Text)           # shown to submitters
+    show_to_submitters= db.Column(db.Boolean, default=False)
     status       = db.Column(db.String(20), default="draft")  # draft | approved
     approved_by  = db.Column(db.String(100))
     approved_at  = db.Column(db.DateTime)

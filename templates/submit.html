@@ -488,6 +488,36 @@
       </div>
     </div>
 
+    <!-- ───── Submitter Guidelines (if published by BA) ───── -->
+    {% if public_guidelines %}
+    <div id="guidelinesPanel" class="mb-3" style="display:none;">
+      <div class="card border-0 shadow-sm" style="border-left:4px solid #0d3b6e !important;">
+        <div class="card-header bg-white border-bottom d-flex align-items-center gap-2">
+          <i class="bi bi-book text-navy"></i>
+          <span class="fw-semibold small">Clearance Preparation Guide</span>
+          <span class="badge bg-secondary ms-1" style="font-size:.7rem;">{{ platform.name }}</span>
+        </div>
+        <div class="card-body" style="font-size:.875rem; line-height:1.7; white-space:pre-wrap;" id="guidelinesContent"></div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ───── Terms Checkbox ───── -->
+    <div class="card border-0 shadow-sm mb-3 p-3" style="background:#f8f9fa;">
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="agreeTerms" name="agree_terms" value="1" required>
+        <label class="form-check-label small" for="agreeTerms">
+          I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>. I understand that submitting this form does not create an attorney-client relationship and that {{ platform.name }} Business Affairs is acting as the rights clearance coordinator, not as my attorney.
+        </label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="agreeAuthority" name="agree_authority" value="1" required>
+        <label class="form-check-label small" for="agreeAuthority">
+          I confirm that I am authorized to submit this project on behalf of the production entity listed above, and that the information I have provided is accurate to the best of my knowledge.
+        </label>
+      </div>
+    </div>
+
     <!-- ───── Submit Button ───── -->
     <div class="d-grid gap-2">
       <button type="submit" class="btn btn-primary btn-lg fw-semibold py-3">
@@ -495,6 +525,10 @@
       </button>
       <div class="text-center text-muted small">
         <i class="bi bi-lock me-1"></i>You'll receive a private tracking link by email instantly. No account needed. Invoice sent after review.
+      </div>
+      <div class="text-center small" style="color:#888; font-size:.75rem;">
+        <strong>Not Legal Advice.</strong> This platform facilitates rights clearance coordination. It does not provide legal advice and does not create an attorney-client relationship.
+        <a href="/terms" target="_blank" class="text-muted">Terms</a> &middot; <a href="/privacy" target="_blank" class="text-muted">Privacy</a>
       </div>
     </div>
 
@@ -570,5 +604,22 @@ function updateFields() {
 
 document.querySelectorAll('input[name="project_type"]').forEach(r => r.addEventListener('change', updateFields));
 document.addEventListener('DOMContentLoaded', updateFields);
+
+{% if public_guidelines %}
+const publicGuidelines = {{ public_guidelines | tojson }};
+function updateGuidelines() {
+  const type = document.querySelector('input[name="project_type"]:checked')?.value || 'live_music';
+  const panel = document.getElementById('guidelinesPanel');
+  const content = document.getElementById('guidelinesContent');
+  if (publicGuidelines[type]) {
+    content.textContent = publicGuidelines[type];
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+document.querySelectorAll('input[name="project_type"]').forEach(r => r.addEventListener('change', updateGuidelines));
+document.addEventListener('DOMContentLoaded', updateGuidelines);
+{% endif %}
 </script>
 {% endblock %}
