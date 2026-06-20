@@ -1409,5 +1409,54 @@ def migrate_db_cmd():
     print("Migration complete.")
 
 
+@app.cli.command("seed-guidelines")
+def seed_guidelines_cmd():
+    """AI-generate clearance guidelines for all project types across all platforms.
+    Run once from Render shell after setting ANTHROPIC_API_KEY. Safe to re-run —
+    skips any project type that already has approved guidelines."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        print("ANTHROPIC_API_KEY not set — cannot generate guidelines.")
+        return
+
+    platforms = Platform.query.filter_by(is_active=True).all()
+    project_types = list(PROJECT_TYPE_LABELS.keys())
+
+    for platform in platforms:
+        print(f"\n=== {platform.name} ===")
+        for ptype in project_types:
+            existing = ClearanceGuideline.query.filter_by(
+                platform_id=platform.id, project_type=ptype, status="approved"
+            ).first()
+            if existing:
+                print(f"  {ptype}: already approved — skipping")
+                continue
+
+            item_labels = [t["label"] for t in CLEARANCE_TEMPLATES.get(ptype, [])]
+            print(f"  {ptype}: generating...", end="", flush=True)
+            try:
+                content = call_claude(
+                    _GUIDELINE_SYSTEM,
+                    _guideline_user_prompt(ptype, platform.name, item_labels),
+                    max_tokens=4000,
+                )
+                g = ClearanceGuideline.query.filter_by(
+                    platform_id=platform.id, project_type=ptype
+                ).first()
+                if not g:
+                    g = ClearanceGuideline(platform_id=platform.id, project_type=ptype)
+                    db.session.add(g)
+                g.content = content
+                g.status = "approved"
+                g.approved_by = "seed-guidelines"
+                g.approved_at = datetime.utcnow()
+                g.version = 1
+                db.session.commit()
+                print(" done")
+            except Exception as e:
+                print(f" FAILED: {e}")
+
+    print("\nGuideline seeding complete.")
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=5002)

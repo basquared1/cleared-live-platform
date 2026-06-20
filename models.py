@@ -18,6 +18,7 @@ PROJECT_TYPE_LABELS = {
     "live_music":  "Live Music / Concert",
     "documentary": "Documentary / Film",
     "unscripted":  "Unscripted / Reality TV",
+    "podcast":     "Podcast / Audio",
     "social":      "Social Media Campaign",
     "ugc":         "User-Generated Content",
 }
@@ -56,6 +57,14 @@ CLEARANCE_TEMPLATES = {
         {"key": "performer_consent",  "label": "Performer / Talent Consent", "priority": 2},
         {"key": "ugc_clearance",      "label": "UGC Rights Clearance",       "priority": 3},
         {"key": "brand_clearance",    "label": "Brand / Trademark Clearance","priority": 4},
+    ],
+    "podcast": [
+        {"key": "guest_release",       "label": "Guest / Interview Release",          "priority": 1},
+        {"key": "music_license",       "label": "Background Music License",           "priority": 2},
+        {"key": "cohost_agreement",    "label": "Co-Host Agreement",                  "priority": 3},
+        {"key": "sponsor_agreement",   "label": "Sponsor / Ad Read Agreement",        "priority": 4},
+        {"key": "sample_clearance",    "label": "Audio Sample / Clip Clearance",      "priority": 5},
+        {"key": "distributor_license", "label": "Platform Distribution License",      "priority": 6},
     ],
     "ugc": [
         {"key": "content_license",    "label": "Content License",           "priority": 1},
