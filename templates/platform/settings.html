@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Form Settings — {{ platform.name }}{% endblock %}
+{% block title %}Clearance Requirements — {{ platform.name }}{% endblock %}
 {% block navbar %}
 <nav class="navbar navbar-expand-lg">
   <div class="container-fluid px-4">
@@ -10,7 +10,7 @@
     <div class="ms-auto d-flex align-items-center gap-3">
       <a href="{{ url_for('platform_guidelines') }}" class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1"><i class="bi bi-book"></i> Guidelines</a>
       <a href="{{ url_for('platform_invites') }}" class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1"><i class="bi bi-envelope-check"></i> Invites</a>
-      <a href="{{ url_for('platform_settings') }}" class="btn btn-sm btn-primary d-none d-md-inline-flex align-items-center gap-1"><i class="bi bi-sliders"></i> Form Settings</a>
+      <a href="{{ url_for('platform_settings') }}" class="btn btn-sm btn-primary d-none d-md-inline-flex align-items-center gap-1"><i class="bi bi-sliders"></i> Clearance Requirements</a>
       <a href="{{ url_for('platform_logout') }}" class="btn btn-sm btn-outline-secondary">Logout</a>
     </div>
   </div>
