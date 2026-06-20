@@ -176,25 +176,65 @@
 
           <!-- AI Draft Agreement -->
           {% if item.ai_draft %}
-          <div class="mb-3">
-            <button class="btn btn-link btn-sm p-0 text-decoration-none text-primary fw-semibold"
-                    type="button" data-bs-toggle="collapse" data-bs-target="#draft-{{ item.id }}">
-              <i class="bi bi-stars me-1"></i>AI Draft Agreement
-              <i class="bi bi-chevron-down ms-1" style="font-size:.7rem;"></i>
-            </button>
-            <div class="collapse mt-2" id="draft-{{ item.id }}">
-              <div class="card border-0" style="background:#f0f4ff;">
-                <div class="card-body p-3">
-                  <div style="white-space:pre-wrap;font-family:Georgia,serif;font-size:.78rem;line-height:1.6;max-height:280px;overflow-y:auto;">{{ item.ai_draft }}</div>
-                  <div class="mt-2">
-                    <button type="button" class="btn btn-sm btn-outline-primary"
-                            onclick="downloadDraft('draft-text-{{ item.id }}', '{{ item.item_label | replace("'","") | replace("/","") }}.txt')">
-                      <i class="bi bi-download me-1"></i>Download Draft (.txt)
-                    </button>
-                    <span id="draft-text-{{ item.id }}" class="d-none">{{ item.ai_draft | replace("`","'") }}</span>
-                  </div>
-                </div>
+          <div class="mb-3" id="draft-section-{{ item.id }}">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="bi bi-stars text-warning"></i>
+              <span class="fw-semibold small text-navy">AI Draft Agreement</span>
+              <button class="btn btn-link btn-sm p-0 text-decoration-none text-primary ms-auto"
+                      type="button" onclick="toggleDraft({{ item.id }})">
+                <span id="draft-toggle-{{ item.id }}">Show <i class="bi bi-chevron-down"></i></span>
+              </button>
+            </div>
+
+            <div id="draft-panel-{{ item.id }}" style="display:none;">
+
+              <!-- Variable fill fields (auto-detected) -->
+              <div id="var-fields-{{ item.id }}" class="mb-3 p-3 rounded" style="background:#fffbea; border:1px solid #f5c842;">
+                <div class="small fw-semibold text-navy mb-2"><i class="bi bi-pencil-square me-1"></i>Fill in the blanks</div>
+                <div id="var-inputs-{{ item.id }}" class="row g-2"></div>
               </div>
+
+              <!-- Draft preview (read mode) -->
+              <div id="draft-preview-{{ item.id }}"
+                   style="white-space:pre-wrap;font-family:Georgia,serif;font-size:.78rem;line-height:1.7;
+                          max-height:320px;overflow-y:auto;background:#f8f9ff;padding:1rem;border-radius:.5rem;border:1px solid #dde;">
+              </div>
+
+              <!-- Edit mode (textarea) -->
+              <textarea id="draft-edit-{{ item.id }}"
+                        style="display:none;width:100%;font-family:Georgia,serif;font-size:.78rem;
+                               line-height:1.7;min-height:320px;padding:1rem;border-radius:.5rem;
+                               border:1px solid #aab;resize:vertical;"></textarea>
+
+              <!-- Raw source (hidden, used as base) -->
+              <textarea id="draft-source-{{ item.id }}" class="d-none">{{ item.ai_draft }}</textarea>
+
+              <!-- Actions -->
+              <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        id="edit-btn-{{ item.id }}"
+                        onclick="enterEditMode({{ item.id }})">
+                  <i class="bi bi-pencil me-1"></i>Edit Full Draft
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary d-none"
+                        id="preview-btn-{{ item.id }}"
+                        onclick="exitEditMode({{ item.id }})">
+                  <i class="bi bi-eye me-1"></i>Preview
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary"
+                        onclick="downloadFilled({{ item.id }}, '{{ item.item_label | replace("'","") | replace("/","_") }}')">
+                  <i class="bi bi-download me-1"></i>Download (.txt)
+                </button>
+                <form method="POST" action="{{ url_for('track_item_save_draft', token=sub.token, item_id=item.id) }}"
+                      id="save-form-{{ item.id }}" class="d-inline">
+                  <input type="hidden" name="draft_text" id="save-input-{{ item.id }}">
+                  <button type="button" class="btn btn-sm btn-primary fw-semibold"
+                          onclick="saveDraft({{ item.id }})">
+                    <i class="bi bi-floppy me-1"></i>Save Draft
+                  </button>
+                </form>
+              </div>
+
             </div>
           </div>
           {% endif %}
@@ -359,6 +399,114 @@ function downloadDraft(spanId, filename) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+// ── Draft editor ─────────────────────────────────────────────────────────────
+
+function toggleDraft(id) {
+  const panel = document.getElementById('draft-panel-' + id);
+  const toggle = document.getElementById('draft-toggle-' + id);
+  const shown = panel.style.display !== 'none';
+  panel.style.display = shown ? 'none' : 'block';
+  toggle.innerHTML = shown ? 'Show <i class="bi bi-chevron-down"></i>' : 'Hide <i class="bi bi-chevron-up"></i>';
+  if (!shown) initDraft(id);
+}
+
+function getRawDraft(id) {
+  return document.getElementById('draft-source-' + id).value;
+}
+
+function getFilledDraft(id) {
+  // Start from edit textarea if in edit mode, else from source
+  const editEl = document.getElementById('draft-edit-' + id);
+  let text = editEl.style.display !== 'none'
+    ? editEl.value
+    : getRawDraft(id);
+  // Apply variable substitutions
+  const inputs = document.querySelectorAll('#var-inputs-' + id + ' input');
+  inputs.forEach(inp => {
+    if (inp.value.trim()) {
+      const escaped = inp.dataset.varname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      text = text.replaceAll(inp.dataset.varname, inp.value.trim());
+    }
+  });
+  return text;
+}
+
+function renderPreview(id) {
+  const text = getFilledDraft(id);
+  const preview = document.getElementById('draft-preview-' + id);
+  // Highlight any remaining unfilled brackets
+  const highlighted = text.replace(/\[[^\]]+\]/g, m =>
+    `<mark style="background:#fff3cd;padding:0 2px;border-radius:2px;">${m}</mark>`
+  );
+  preview.innerHTML = highlighted.replace(/\n/g, '<br>');
+}
+
+function initDraft(id) {
+  const raw = getRawDraft(id);
+  // Detect unique [BRACKET] variables
+  const matches = [...new Set(raw.match(/\[[^\]]+\]/g) || [])];
+  const container = document.getElementById('var-inputs-' + id);
+  container.innerHTML = '';
+  if (matches.length === 0) {
+    document.getElementById('var-fields-' + id).style.display = 'none';
+  } else {
+    matches.forEach(varname => {
+      const col = document.createElement('div');
+      col.className = 'col-12 col-md-6';
+      const label = varname.slice(1, -1); // strip brackets
+      col.innerHTML = `
+        <label class="form-label small fw-semibold mb-1" style="font-size:.75rem;">${label}</label>
+        <input type="text" class="form-control form-control-sm"
+               data-varname="${varname}"
+               placeholder="${label}"
+               oninput="renderPreview(${id})">
+      `;
+      container.appendChild(col);
+    });
+  }
+  renderPreview(id);
+}
+
+function enterEditMode(id) {
+  const editEl  = document.getElementById('draft-edit-' + id);
+  const preview = document.getElementById('draft-preview-' + id);
+  editEl.value  = getFilledDraft(id);
+  editEl.style.display   = 'block';
+  preview.style.display  = 'none';
+  document.getElementById('edit-btn-' + id).classList.add('d-none');
+  document.getElementById('preview-btn-' + id).classList.remove('d-none');
+  // Disable var inputs while editing raw text
+  document.querySelectorAll('#var-inputs-' + id + ' input').forEach(i => i.disabled = true);
+}
+
+function exitEditMode(id) {
+  const editEl  = document.getElementById('draft-edit-' + id);
+  const preview = document.getElementById('draft-preview-' + id);
+  // Promote edits back to source so var-fill still works
+  document.getElementById('draft-source-' + id).value = editEl.value;
+  editEl.style.display   = 'none';
+  preview.style.display  = 'block';
+  document.getElementById('edit-btn-' + id).classList.remove('d-none');
+  document.getElementById('preview-btn-' + id).classList.add('d-none');
+  document.querySelectorAll('#var-inputs-' + id + ' input').forEach(i => i.disabled = false);
+  renderPreview(id);
+}
+
+function downloadFilled(id, filename) {
+  const text = getFilledDraft(id);
+  const blob = new Blob([text], {type: 'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename + '.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function saveDraft(id) {
+  document.getElementById('save-input-' + id).value = getFilledDraft(id);
+  document.getElementById('save-form-' + id).submit();
 }
 
 function copyOutreach(elId, btn) {
