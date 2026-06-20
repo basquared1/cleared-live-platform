@@ -1315,6 +1315,11 @@ def admin_delete_platform(platform_id):
     if p.total_count > 0:
         flash(f"Cannot delete '{name}' — it has {p.total_count} submissions. Deactivate it instead.", "danger")
         return redirect(url_for("admin_dashboard"))
+    # Remove dependent records before deleting the platform
+    Invite.query.filter_by(platform_id=p.id).delete()
+    ClearanceGuideline.query.filter_by(platform_id=p.id).delete()
+    WebhookDelivery.query.filter_by(platform_id=p.id).delete()
+    PlatformUser.query.filter_by(platform_id=p.id).delete()
     db.session.delete(p)
     db.session.commit()
     flash(f"Platform '{name}' deleted.", "success")
