@@ -525,47 +525,94 @@
       <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
         <div class="fw-semibold text-navy small">
           <i class="bi bi-music-note-list me-2"></i>Songs &amp; Publishing
-          {% if sub.songs %}<span class="badge bg-light text-dark border ms-1">{{ sub.songs|length }}</span>{% endif %}
+          {% if sub.songs %}<span class="badge bg-light text-dark border ms-1">{{ sub.songs|length }} songs</span>{% endif %}
         </div>
+        <span class="badge bg-light text-muted border" style="font-size:.65rem;">Read-only — submitter manages</span>
       </div>
       {% if not sub.songs %}
       <div class="card-body py-3 px-4 text-muted small">
         AI is researching the setlist — check back in ~60 seconds, or submitter can trigger it from their workspace.
       </div>
       {% else %}
-      <div class="table-responsive">
-        <table class="table table-sm align-middle mb-0">
-          <thead class="table-light">
-            <tr>
-              <th class="ps-3" style="width:2rem;">#</th>
-              <th>Title</th>
-              <th>Writer(s)</th>
-              <th>Publisher</th>
-              <th style="width:5rem;">PRO</th>
-              <th style="width:6rem;">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for song in sub.songs %}
-            <tr>
-              <td class="ps-3 text-muted small">{{ loop.index }}</td>
-              <td>
-                <span class="small fw-semibold">{{ song.title }}</span>
-                {% if song.is_cover %}<span class="badge bg-light text-dark border ms-1" style="font-size:.65rem;">Cover</span>{% endif %}
-                {% if song.confidence == 'low' %}<span class="text-warning ms-1" title="Low confidence — verify"><i class="bi bi-exclamation-triangle-fill" style="font-size:.7rem;"></i></span>{% endif %}
-              </td>
-              <td class="small text-muted">{{ song.writer or '—' }}</td>
-              <td class="small text-muted">{{ song.publisher or '—' }}</td>
-              <td class="small text-muted">{{ song.pro or '—' }}</td>
-              <td>
-                <span class="badge {% if song.status == 'cleared' %}bg-success{% elif song.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %} small">
-                  {{ (song.status or 'pending').title() }}
-                </span>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="p-3">
+        {% for song in sub.songs %}
+        {% set sidx = loop.index0 %}
+        {% set writers = song.writers if song.writers is defined else [] %}
+        {% set split_sum = writers | sum(attribute='split_pct') %}
+        {% set dt = song.deal_terms if song.deal_terms is defined else {} %}
+        <div class="mb-3 pb-3 {% if not loop.last %}border-bottom{% endif %}">
+          <!-- Song title row -->
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="text-muted small">#{{ loop.index }}</span>
+            <span class="fw-semibold small">{{ song.title }}</span>
+            {% if song.is_cover %}
+            <span class="badge bg-light text-dark border" style="font-size:.65rem;">
+              Cover{% if song.original_artist %} — {{ song.original_artist }}{% endif %}
+            </span>
+            {% endif %}
+            {% if song.confidence == 'low' %}
+            <span class="badge bg-warning text-dark" style="font-size:.65rem;" title="Low confidence — verify">
+              <i class="bi bi-exclamation-triangle"></i> Low confidence
+            </span>
+            {% endif %}
+            <span class="badge {% if song.status == 'cleared' %}bg-success{% elif song.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %} small ms-auto">
+              {{ (song.status or 'pending').replace('_', ' ').title() }}
+            </span>
+          </div>
+
+          <!-- Writers -->
+          {% if writers %}
+          <table class="table table-sm align-middle mb-1" style="font-size:.8rem;">
+            <thead class="table-light">
+              <tr>
+                <th>Writer</th>
+                <th>Publisher</th>
+                <th style="width:5rem;">PRO</th>
+                <th style="width:5rem;">Split %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for w in writers %}
+              <tr>
+                <td>{{ w.name or '—' }}</td>
+                <td class="text-muted">{{ w.publisher or '—' }}</td>
+                <td class="text-muted">{{ w.pro or '—' }}</td>
+                <td>
+                  {{ w.split_pct }}%
+                  {% if loop.last and writers|length > 1 %}
+                    {% if split_sum == 100 %}
+                    <i class="bi bi-check-circle text-success ms-1" title="Splits sum to 100%"></i>
+                    {% else %}
+                    <i class="bi bi-exclamation-triangle text-danger ms-1" title="Splits sum to {{ split_sum }}%, should be 100%"></i>
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="text-muted small fst-italic ms-2 mb-1">No writers on file</div>
+          {% endif %}
+
+          <!-- Deal terms summary (if set) -->
+          {% if dt and (dt.fee or dt.fee_type or dt.territory or dt.term or dt.media_rights) %}
+          <div class="mt-1 ps-2 border-start border-2 border-warning" style="font-size:.78rem;">
+            <span class="text-muted fw-semibold">Deal:</span>
+            {% if dt.fee %}<span class="ms-1">${{ dt.fee }}</span>{% endif %}
+            {% if dt.fee_type %}<span class="ms-1 text-muted">{{ dt.fee_type }}</span>{% endif %}
+            {% if dt.territory %}<span class="ms-1 badge bg-light text-dark border">{{ dt.territory }}</span>{% endif %}
+            {% if dt.term %}<span class="ms-1 badge bg-light text-dark border">{{ dt.term }}</span>{% endif %}
+            {% if dt.mfn %}<span class="ms-1 badge bg-info text-dark">MFN</span>{% endif %}
+            {% if dt.media_rights %}
+            <span class="ms-1 text-muted">· {{ dt.media_rights | join(', ') }}</span>
+            {% endif %}
+            {% if dt.notes %}<div class="text-muted fst-italic mt-1">{{ dt.notes }}</div>{% endif %}
+          </div>
+          {% endif %}
+
+        </div>
+        {% endfor %}
       </div>
       <div class="px-3 py-2 border-top small text-muted">
         <i class="bi bi-info-circle me-1"></i>Publisher data is AI-researched. Verify via ASCAP/BMI before issuing clearances.

@@ -884,12 +884,15 @@ def _ai_fill_songs(sub_id):
             f"Task:\n"
             f"1. If no setlist is provided, use your knowledge to identify the most likely setlist "
             f"for this event (or a typical recent setlist for this artist). Mark confidence: high/medium/low.\n"
-            f"2. For each song, identify: songwriter(s), publishing company, PRO (ASCAP/BMI/SESAC/SOCAN), "
+            f"2. For each song, identify all songwriters (there may be multiple co-writers), "
+            f"each writer's publishing company, PRO (ASCAP/BMI/SESAC/SOCAN/PRS), split percentage, "
             f"and whether it is a cover (if so, note the original artist).\n"
             f"3. Return ONLY a JSON array. No prose. Each element:\n"
-            f'{{"title": str, "writer": str, "publisher": str, "pro": str, '
-            f'"split_pct": number (100 if sole writer), "is_cover": bool, '
-            f'"original_artist": str or null, "confidence": "high"|"medium"|"low", "status": "pending"}}\n'
+            f'{{"title": str, '
+            f'"writers": [{{"name": str, "publisher": str, "pro": str, "split_pct": number}}], '
+            f'"is_cover": bool, "original_artist": str or null, '
+            f'"confidence": "high"|"medium"|"low", "status": "pending"}}\n'
+            f"For co-written songs include multiple writer objects. Split percentages must sum to 100.\n"
             f"Return the array only."
         )
         try:
@@ -907,6 +910,13 @@ def _ai_fill_songs(sub_id):
                 if text.endswith("```"):
                     text = text[:-3].strip()
             songs = json.loads(text)
+            # Ensure each song has deal_terms
+            default_deal = {"fee": None, "fee_type": None, "territory": None,
+                            "term": None, "mfn": False, "cue_sheet_days": 30,
+                            "media_rights": [], "notes": ""}
+            for s in songs:
+                if "deal_terms" not in s:
+                    s["deal_terms"] = dict(default_deal)
             sub.songs_save(songs)
             # If setlist was blank, populate it from AI result
             if not sub.setlist:
@@ -915,6 +925,49 @@ def _ai_fill_songs(sub_id):
             app.logger.info(f"AI songs filled for submission {sub_id}: {len(songs)} songs")
         except Exception as e:
             app.logger.error(f"AI song fill failed for sub {sub_id}: {e}")
+
+
+def _ai_fill_song_writers(sub_id, idx):
+    """Background: fill writers for a single song by index."""
+    import json
+    with app.app_context():
+        sub = Submission.query.get(sub_id)
+        if not sub:
+            return
+        songs = sub.songs
+        if idx < 0 or idx >= len(songs):
+            return
+        song = songs[idx]
+        title = song.get("title", "Unknown")
+        artist = sub.artist_name or "Unknown"
+        prompt = (
+            f"You are a music rights research assistant.\n"
+            f"Find the songwriter(s), publishing company/companies, and PRO for this song:\n"
+            f"Song: \"{title}\" by {artist}\n\n"
+            f"Return ONLY a JSON array of writer objects. No prose:\n"
+            f'[{{"name": str, "publisher": str, "pro": "ASCAP"|"BMI"|"SESAC"|"SOCAN"|"PRS", "split_pct": number}}]\n'
+            f"Split percentages must sum to 100. Include all co-writers."
+        )
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=app.config.get("ANTHROPIC_API_KEY"))
+            resp = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            text = resp.content[0].text.strip()
+            if text.startswith("```"):
+                text = "\n".join(text.split("\n")[1:])
+                if text.endswith("```"):
+                    text = text[:-3].strip()
+            writers = json.loads(text)
+            songs[idx]["writers"] = writers
+            sub.songs_save(songs)
+            db.session.commit()
+            app.logger.info(f"AI writers filled for song idx {idx} in sub {sub_id}")
+        except Exception as e:
+            app.logger.error(f"AI writer fill failed for sub {sub_id} idx {idx}: {e}")
 
 
 @app.route("/track/<token>/ai-fill-songs", methods=["POST"])
@@ -928,19 +981,27 @@ def track_ai_fill_songs(token):
 
 @app.route("/track/<token>/songs/add", methods=["POST"])
 def track_song_add(token):
-    import json
     sub = Submission.query.filter_by(token=token).first_or_404()
     songs = sub.songs
+    writer_name = request.form.get("writer_name", "").strip()
+    writer_entry = {
+        "name":      writer_name,
+        "publisher": request.form.get("publisher", "").strip(),
+        "pro":       request.form.get("pro", "").strip(),
+        "split_pct": 100,
+    }
     songs.append({
         "title":          request.form.get("title", "").strip(),
-        "writer":         request.form.get("writer", "").strip(),
-        "publisher":      request.form.get("publisher", "").strip(),
-        "pro":            request.form.get("pro", "").strip(),
-        "split_pct":      100,
+        "writers":        [writer_entry] if writer_name else [],
         "is_cover":       request.form.get("is_cover") == "1",
         "original_artist": request.form.get("original_artist", "").strip() or None,
         "confidence":     "manual",
         "status":         "pending",
+        "deal_terms": {
+            "fee": None, "fee_type": None, "territory": None,
+            "term": None, "mfn": False, "cue_sheet_days": 30,
+            "media_rights": [], "notes": ""
+        },
     })
     sub.songs_save(songs)
     db.session.commit()
@@ -960,22 +1021,101 @@ def track_song_delete(token, idx):
 
 @app.route("/track/<token>/songs/update/<int:idx>", methods=["POST"])
 def track_song_update(token, idx):
-    import json
     sub = Submission.query.filter_by(token=token).first_or_404()
     songs = sub.songs
     if 0 <= idx < len(songs):
-        songs[idx].update({
-            "title":          request.form.get("title", songs[idx].get("title", "")),
-            "writer":         request.form.get("writer", ""),
-            "publisher":      request.form.get("publisher", ""),
-            "pro":            request.form.get("pro", ""),
-            "split_pct":      int(request.form.get("split_pct", 100)),
-            "is_cover":       request.form.get("is_cover") == "1",
-            "original_artist": request.form.get("original_artist", "") or None,
-            "status":         request.form.get("status", songs[idx].get("status", "pending")),
-        })
+        songs[idx]["title"]         = request.form.get("title", songs[idx].get("title", ""))
+        songs[idx]["is_cover"]      = request.form.get("is_cover") == "1"
+        songs[idx]["original_artist"] = request.form.get("original_artist", "") or None
+        songs[idx]["status"]        = request.form.get("status", songs[idx].get("status", "pending"))
         sub.songs_save(songs)
         db.session.commit()
+    return redirect(url_for("track", token=token) + "#songs-section")
+
+
+@app.route("/track/<token>/songs/<int:idx>/writer/add", methods=["POST"])
+def track_song_writer_add(token, idx):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    songs = sub.songs
+    if 0 <= idx < len(songs):
+        writer = {
+            "name":      request.form.get("writer_name", "").strip(),
+            "publisher": request.form.get("publisher", "").strip(),
+            "pro":       request.form.get("pro", "").strip(),
+            "split_pct": int(request.form.get("split_pct", 0) or 0),
+        }
+        songs[idx].setdefault("writers", []).append(writer)
+        sub.songs_save(songs)
+        db.session.commit()
+    return redirect(url_for("track", token=token) + "#songs-section")
+
+
+@app.route("/track/<token>/songs/<int:idx>/writer/<int:widx>/delete", methods=["POST"])
+def track_song_writer_delete(token, idx, widx):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    songs = sub.songs
+    if 0 <= idx < len(songs):
+        writers = songs[idx].get("writers", [])
+        if 0 <= widx < len(writers):
+            writers.pop(widx)
+            songs[idx]["writers"] = writers
+            sub.songs_save(songs)
+            db.session.commit()
+    return redirect(url_for("track", token=token) + "#songs-section")
+
+
+@app.route("/track/<token>/songs/<int:idx>/ai-fill-writers", methods=["POST"])
+def track_song_ai_fill_writers(token, idx):
+    import threading
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    songs = sub.songs
+    title = songs[idx].get("title", "this song") if 0 <= idx < len(songs) else "this song"
+    threading.Thread(target=_ai_fill_song_writers, args=(sub.id, idx), daemon=True).start()
+    flash(f"AI filling writers for \"{title}\" — refresh in ~15 seconds.", "info")
+    return redirect(url_for("track", token=token) + "#songs-section")
+
+
+@app.route("/track/<token>/songs/<int:idx>/deal-terms", methods=["POST"])
+def track_song_deal_terms(token, idx):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    songs = sub.songs
+    if 0 <= idx < len(songs):
+        songs[idx]["deal_terms"] = {
+            "fee":           request.form.get("fee") or None,
+            "fee_type":      request.form.get("fee_type") or None,
+            "territory":     request.form.get("territory") or None,
+            "term":          request.form.get("term") or None,
+            "mfn":           request.form.get("mfn") == "1",
+            "cue_sheet_days": int(request.form.get("cue_sheet_days", 30) or 30),
+            "media_rights":  request.form.getlist("media_rights"),
+            "notes":         request.form.get("notes", ""),
+        }
+        sub.songs_save(songs)
+        db.session.commit()
+    return redirect(url_for("track", token=token) + "#songs-section")
+
+
+@app.route("/track/<token>/songs/bulk-deal-terms", methods=["POST"])
+def track_song_bulk_deal_terms(token):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    terms = {
+        "fee":           request.form.get("fee") or None,
+        "fee_type":      request.form.get("fee_type") or None,
+        "territory":     request.form.get("territory") or None,
+        "term":          request.form.get("term") or None,
+        "mfn":           request.form.get("mfn") == "1",
+        "cue_sheet_days": int(request.form.get("cue_sheet_days", 30) or 30),
+        "media_rights":  request.form.getlist("media_rights"),
+        "notes":         request.form.get("notes", ""),
+    }
+    sub.deal_terms_save(terms)
+    if request.form.get("apply_to_all") == "1":
+        songs = sub.songs
+        for s in songs:
+            s["deal_terms"] = dict(terms)
+        sub.songs_save(songs)
+    db.session.commit()
+    flash("Bulk deal terms saved.", "success")
     return redirect(url_for("track", token=token) + "#songs-section")
 
 
@@ -2081,6 +2221,16 @@ def migrate_db_cmd():
         except Exception as exc:
             conn.rollback()
             print(f"  submissions.songs_json: {exc}")
+        # Add deal_terms_json to submissions
+        try:
+            conn.execute(sa_text(
+                "ALTER TABLE submissions ADD COLUMN IF NOT EXISTS deal_terms_json TEXT"
+            ))
+            conn.commit()
+            print("  submissions.deal_terms_json OK")
+        except Exception as exc:
+            conn.rollback()
+            print(f"  submissions.deal_terms_json: {exc}")
     print("Migration complete.")
 
 

@@ -315,17 +315,22 @@
   <!-- Songs & Publishing (live_music only) -->
   {% if sub.project_type == 'live_music' %}
   <div class="card border-0 shadow-sm mb-4" id="songs-section">
+    <!-- Header -->
     <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
       <div class="fw-semibold text-navy small">
         <i class="bi bi-music-note-list me-2"></i>Songs &amp; Publishing
         {% if sub.songs %}<span class="badge bg-light text-dark border ms-1">{{ sub.songs|length }} songs</span>{% endif %}
       </div>
-      <div class="d-flex gap-2">
+      <div class="d-flex flex-wrap gap-2">
         <form method="POST" action="{{ url_for('track_ai_fill_songs', token=sub.token) }}">
           <button type="submit" class="btn btn-sm btn-outline-warning fw-semibold">
-            <i class="bi bi-stars me-1"></i>{% if sub.songs %}Re-research{% else %}AI Find Setlist &amp; Publishers{% endif %}
+            <i class="bi bi-stars me-1"></i>{% if sub.songs %}Re-research All{% else %}AI Find Setlist &amp; Publishers{% endif %}
           </button>
         </form>
+        <button class="btn btn-sm btn-outline-secondary" type="button"
+                data-bs-toggle="collapse" data-bs-target="#bulk-deal-panel">
+          <i class="bi bi-list-check me-1"></i>Bulk Deal Terms
+        </button>
         <button class="btn btn-sm btn-outline-primary" type="button"
                 data-bs-toggle="collapse" data-bs-target="#add-song-form">
           <i class="bi bi-plus me-1"></i>Add Song
@@ -333,18 +338,99 @@
       </div>
     </div>
 
+    <!-- Bulk Deal Terms panel -->
+    <div class="collapse" id="bulk-deal-panel">
+      <form method="POST" action="{{ url_for('track_song_bulk_deal_terms', token=sub.token) }}"
+            class="p-3 border-bottom bg-light">
+        <div class="fw-semibold small mb-2 text-muted">Bulk Deal Terms — apply to all songs at once</div>
+        <div class="row g-2 mb-2">
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Fee ($)</label>
+            <input type="number" name="fee" class="form-control form-control-sm"
+                   value="{{ sub.deal_terms.fee or '' }}" placeholder="e.g. 500">
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Fee Type</label>
+            <select name="fee_type" class="form-select form-select-sm">
+              <option value="">—</option>
+              {% for ft in ['Flat Fee', 'Per Song', 'Step Deal', 'Gratis'] %}
+              <option {% if sub.deal_terms.fee_type == ft %}selected{% endif %}>{{ ft }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Territory</label>
+            <select name="territory" class="form-select form-select-sm">
+              <option value="">—</option>
+              {% for t in ['Worldwide', 'US Only', 'North America', 'excluding theatrical'] %}
+              <option {% if sub.deal_terms.territory == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Term</label>
+            <select name="term" class="form-select form-select-sm">
+              <option value="">—</option>
+              {% for tm in ['Perpetuity', '5 Years', '3 Years', '2 Years', '1 Year'] %}
+              <option {% if sub.deal_terms.term == tm %}selected{% endif %}>{{ tm }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="row g-2 mb-2 align-items-center">
+          <div class="col-auto">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="mfn" value="1" id="bulk_mfn"
+                     {% if sub.deal_terms.mfn %}checked{% endif %}>
+              <label class="form-check-label small" for="bulk_mfn">MFN (Most Favored Nations)</label>
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Cue Sheet Days</label>
+            <input type="number" name="cue_sheet_days" class="form-control form-control-sm"
+                   value="{{ sub.deal_terms.cue_sheet_days or 30 }}" min="1">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold mb-1">Media Rights</label>
+          <div class="d-flex flex-wrap gap-3">
+            {% set bulk_mr = sub.deal_terms.media_rights or [] %}
+            {% for mr in ['Theatrical', 'Streaming', 'TV/Broadcast', 'Home Video', 'Social Media', 'All Media', 'All Media excl. Theatrical & Advertising'] %}
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" name="media_rights" value="{{ mr }}"
+                     id="bulk_mr_{{ loop.index }}" {% if mr in bulk_mr %}checked{% endif %}>
+              <label class="form-check-label small" for="bulk_mr_{{ loop.index }}">{{ mr }}</label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold mb-1">Notes</label>
+          <textarea name="notes" class="form-control form-control-sm" rows="2"
+                    placeholder="Deal context, special conditions...">{{ sub.deal_terms.notes or '' }}</textarea>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" name="apply_to_all" value="1" class="btn btn-sm btn-warning fw-semibold">
+            Apply to All Songs
+          </button>
+          <button type="submit" class="btn btn-sm btn-outline-secondary">Save Bulk Terms Only</button>
+        </div>
+      </form>
+    </div>
+
     <!-- Add song form -->
     <div class="collapse" id="add-song-form">
       <form method="POST" action="{{ url_for('track_song_add', token=sub.token) }}"
             class="p-3 border-bottom bg-light">
+        <div class="fw-semibold small mb-2 text-muted">Add Song</div>
         <div class="row g-2 align-items-end">
           <div class="col-12 col-md-3">
             <label class="form-label small fw-semibold mb-1">Song Title *</label>
             <input type="text" name="title" class="form-control form-control-sm" required>
           </div>
           <div class="col-12 col-md-3">
-            <label class="form-label small fw-semibold mb-1">Writer(s)</label>
-            <input type="text" name="writer" class="form-control form-control-sm" placeholder="e.g. Noah Kahan">
+            <label class="form-label small fw-semibold mb-1">Writer Name</label>
+            <input type="text" name="writer_name" class="form-control form-control-sm" placeholder="e.g. Noah Kahan">
           </div>
           <div class="col-12 col-md-3">
             <label class="form-label small fw-semibold mb-1">Publisher</label>
@@ -361,17 +447,18 @@
             <button type="submit" class="btn btn-sm btn-primary w-100">Add</button>
           </div>
         </div>
-        <div class="mt-2">
-          <div class="form-check form-check-inline">
+        <div class="mt-2 d-flex align-items-center gap-2">
+          <div class="form-check">
             <input class="form-check-input" type="checkbox" name="is_cover" value="1" id="is_cover_add">
             <label class="form-check-label small" for="is_cover_add">Cover song</label>
           </div>
-          <input type="text" name="original_artist" class="form-control form-control-sm d-inline-block ms-2"
+          <input type="text" name="original_artist" class="form-control form-control-sm"
                  placeholder="Original artist" style="max-width:180px;">
         </div>
       </form>
     </div>
 
+    <!-- Empty state -->
     {% if not sub.songs %}
     <div class="text-center py-5 text-muted">
       <i class="bi bi-stars fs-2 d-block mb-2 text-warning opacity-50"></i>
@@ -379,104 +466,230 @@
       or add songs manually above.</div>
     </div>
     {% else %}
-    <div class="table-responsive">
-      <table class="table table-sm align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th class="ps-3" style="width:2rem;">#</th>
-            <th>Title</th>
-            <th class="d-none d-md-table-cell">Writer(s)</th>
-            <th class="d-none d-md-table-cell">Publisher</th>
-            <th class="d-none d-sm-table-cell" style="width:5rem;">PRO</th>
-            <th style="width:5rem;">Status</th>
-            <th style="width:3rem;"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for song in sub.songs %}
-          <tr id="song-row-{{ loop.index0 }}">
-            <td class="ps-3 text-muted small">{{ loop.index }}</td>
-            <td>
-              <span class="fw-semibold small">{{ song.title }}</span>
-              {% if song.is_cover %}
-              <span class="badge bg-light text-dark border ms-1" style="font-size:.65rem;">
-                Cover{% if song.original_artist %} — {{ song.original_artist }}{% endif %}
-              </span>
-              {% endif %}
-              {% if song.confidence == 'low' %}
-              <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;" title="AI-researched, low confidence — verify">
-                <i class="bi bi-exclamation-triangle"></i>
-              </span>
-              {% endif %}
-            </td>
-            <td class="d-none d-md-table-cell small text-muted">{{ song.writer or '—' }}</td>
-            <td class="d-none d-md-table-cell small text-muted">{{ song.publisher or '—' }}</td>
-            <td class="d-none d-sm-table-cell small text-muted">{{ song.pro or '—' }}</td>
-            <td>
-              <span class="badge {% if song.status == 'cleared' %}bg-success{% elif song.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %} small">
-                {{ (song.status or 'pending').title() }}
-              </span>
-            </td>
-            <td>
-              <button class="btn btn-link btn-sm p-0 text-muted"
-                      data-bs-toggle="collapse" data-bs-target="#song-edit-{{ loop.index0 }}">
-                <i class="bi bi-pencil"></i>
+
+    <!-- Per-song cards -->
+    <div class="p-3">
+      {% for song in sub.songs %}
+      {% set sidx = loop.index0 %}
+      {% set writers = song.writers if song.writers is defined else [] %}
+      {% set split_sum = writers | sum(attribute='split_pct') %}
+      {% set dt = song.deal_terms if song.deal_terms is defined else {} %}
+      <div class="card border mb-3">
+        <!-- Card header -->
+        <div class="card-header bg-white py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div class="fw-semibold small">
+            <span class="text-muted me-1">#{{ loop.index }}</span>
+            {{ song.title }}
+            {% if song.is_cover %}
+            <span class="badge bg-light text-dark border ms-1" style="font-size:.65rem;">
+              Cover{% if song.original_artist %} — {{ song.original_artist }}{% endif %}
+            </span>
+            {% endif %}
+            {% if song.confidence == 'low' %}
+            <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;" title="Low confidence — verify">
+              <i class="bi bi-exclamation-triangle"></i>
+            </span>
+            {% endif %}
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary py-0" style="font-size:.75rem;"
+                    type="button" data-bs-toggle="collapse"
+                    data-bs-target="#deal-terms-{{ sidx }}">
+              <i class="bi bi-file-text me-1"></i>Deal Terms
+            </button>
+            <form method="POST" action="{{ url_for('track_song_update', token=sub.token, idx=sidx) }}"
+                  class="d-inline">
+              <input type="hidden" name="title" value="{{ song.title }}">
+              <input type="hidden" name="is_cover" value="{{ '1' if song.is_cover else '' }}">
+              <input type="hidden" name="original_artist" value="{{ song.original_artist or '' }}">
+              <select name="status" class="form-select form-select-sm d-inline-block"
+                      style="width:auto;font-size:.75rem;" onchange="this.form.submit()">
+                {% for st in ['pending', 'in_progress', 'cleared'] %}
+                <option value="{{ st }}" {% if song.status == st %}selected{% endif %}>{{ st.replace('_',' ').title() }}</option>
+                {% endfor %}
+              </select>
+            </form>
+            <form method="POST" action="{{ url_for('track_song_delete', token=sub.token, idx=sidx) }}"
+                  onsubmit="return confirm('Remove {{ song.title }}?')">
+              <button type="submit" class="btn btn-sm btn-outline-danger py-0" style="font-size:.75rem;">
+                <i class="bi bi-trash"></i>
               </button>
-            </td>
-          </tr>
-          <!-- Inline edit row -->
-          <tr class="collapse" id="song-edit-{{ loop.index0 }}">
-            <td colspan="7" class="p-3 bg-light">
-              <form method="POST" action="{{ url_for('track_song_update', token=sub.token, idx=loop.index0) }}"
-                    class="row g-2 align-items-end">
-                <input type="hidden" name="title" value="{{ song.title }}">
-                <div class="col-12 col-md-3">
-                  <label class="form-label small mb-1">Writer(s)</label>
-                  <input type="text" name="writer" class="form-control form-control-sm" value="{{ song.writer or '' }}">
-                </div>
-                <div class="col-12 col-md-3">
-                  <label class="form-label small mb-1">Publisher</label>
-                  <input type="text" name="publisher" class="form-control form-control-sm" value="{{ song.publisher or '' }}">
-                </div>
-                <div class="col-6 col-md-2">
-                  <label class="form-label small mb-1">PRO</label>
-                  <select name="pro" class="form-select form-select-sm">
-                    {% for opt in ['', 'ASCAP', 'BMI', 'SESAC', 'SOCAN', 'PRS'] %}
-                    <option {% if song.pro == opt %}selected{% endif %}>{{ opt if opt else '—' }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="col-6 col-md-2">
-                  <label class="form-label small mb-1">Status</label>
-                  <select name="status" class="form-select form-select-sm">
-                    {% for s in ['pending', 'cleared'] %}
-                    <option value="{{ s }}" {% if song.status == s %}selected{% endif %}>{{ s.title() }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="col-12 col-md-2 d-flex gap-1">
-                  <button type="submit" class="btn btn-sm btn-primary">Save</button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary"
-                          data-bs-toggle="collapse" data-bs-target="#song-edit-{{ loop.index0 }}">Cancel</button>
-                  <form method="POST" action="{{ url_for('track_song_delete', token=sub.token, idx=loop.index0) }}"
-                        onsubmit="return confirm('Remove {{ song.title }}?')" class="d-inline">
-                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card-body p-3">
+          <!-- Writers table -->
+          <table class="table table-sm align-middle mb-2" style="font-size:.82rem;">
+            <thead class="table-light">
+              <tr>
+                <th>Writer</th>
+                <th>Publisher</th>
+                <th style="width:5rem;">PRO</th>
+                <th style="width:5rem;">Split %</th>
+                <th style="width:2.5rem;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if writers %}
+              {% for w in writers %}
+              <tr>
+                <td>{{ w.name or '—' }}</td>
+                <td class="text-muted">{{ w.publisher or '—' }}</td>
+                <td class="text-muted">{{ w.pro or '—' }}</td>
+                <td>{{ w.split_pct }}%</td>
+                <td>
+                  <form method="POST" action="{{ url_for('track_song_writer_delete', token=sub.token, idx=sidx, widx=loop.index0) }}">
+                    <button type="submit" class="btn btn-link btn-sm p-0 text-danger">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
                   </form>
+                </td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr><td colspan="5" class="text-muted small fst-italic">No writers yet</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+
+          <!-- Split validation -->
+          {% if writers|length > 0 %}
+            {% if split_sum == 100 %}
+            <div class="text-success small mb-2"><i class="bi bi-check-circle me-1"></i>Split total: 100%</div>
+            {% elif split_sum > 0 %}
+            <div class="text-danger small mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Split total: {{ split_sum }}% — should equal 100%</div>
+            {% endif %}
+          {% endif %}
+
+          <!-- Add writer + AI fill -->
+          <form method="POST" action="{{ url_for('track_song_writer_add', token=sub.token, idx=sidx) }}"
+                class="row g-2 align-items-end mb-2" id="add-writer-form-{{ sidx }}">
+            <div class="col-12 col-md-4">
+              <input type="text" name="writer_name" class="form-control form-control-sm"
+                     placeholder="Writer name" required>
+            </div>
+            <div class="col-12 col-md-3">
+              <input type="text" name="publisher" class="form-control form-control-sm"
+                     placeholder="Publisher">
+            </div>
+            <div class="col-6 col-md-2">
+              <select name="pro" class="form-select form-select-sm">
+                <option value="">PRO</option>
+                <option>ASCAP</option><option>BMI</option><option>SESAC</option><option>SOCAN</option><option>PRS</option>
+              </select>
+            </div>
+            <div class="col-4 col-md-1">
+              <input type="number" name="split_pct" class="form-control form-control-sm"
+                     placeholder="%" min="1" max="100"
+                     oninput="updateSplitTotal({{ sidx }})">
+            </div>
+            <div class="col-auto">
+              <button type="submit" class="btn btn-sm btn-outline-primary">+ Add Writer</button>
+            </div>
+          </form>
+          <form method="POST" action="{{ url_for('track_song_ai_fill_writers', token=sub.token, idx=sidx) }}"
+                class="d-inline">
+            <button type="submit" class="btn btn-sm btn-outline-warning">
+              <i class="bi bi-stars me-1"></i>AI Fill Writers
+            </button>
+          </form>
+        </div>
+
+        <!-- Per-song deal terms panel -->
+        <div class="collapse" id="deal-terms-{{ sidx }}">
+          <form method="POST" action="{{ url_for('track_song_deal_terms', token=sub.token, idx=sidx) }}"
+                class="p-3 border-top bg-light" style="font-size:.82rem;">
+            <div class="fw-semibold small mb-2 text-muted">Deal Terms — {{ song.title }}</div>
+            <div class="row g-2 mb-2">
+              <div class="col-12 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Fee ($)</label>
+                <input type="number" name="fee" class="form-control form-control-sm"
+                       value="{{ dt.fee or '' }}" placeholder="e.g. 500">
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Fee Type</label>
+                <select name="fee_type" class="form-select form-select-sm">
+                  <option value="">—</option>
+                  {% for ft in ['Flat Fee', 'Per Song', 'Step Deal', 'Gratis'] %}
+                  <option {% if dt.fee_type == ft %}selected{% endif %}>{{ ft }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Territory</label>
+                <select name="territory" class="form-select form-select-sm">
+                  <option value="">—</option>
+                  {% for t in ['Worldwide', 'US Only', 'North America', 'excluding theatrical'] %}
+                  <option {% if dt.territory == t %}selected{% endif %}>{{ t }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Term</label>
+                <select name="term" class="form-select form-select-sm">
+                  <option value="">—</option>
+                  {% for tm in ['Perpetuity', '5 Years', '3 Years', '2 Years', '1 Year'] %}
+                  <option {% if dt.term == tm %}selected{% endif %}>{{ tm }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="row g-2 mb-2 align-items-center">
+              <div class="col-auto">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="mfn" value="1"
+                         id="mfn_{{ sidx }}" {% if dt.mfn %}checked{% endif %}>
+                  <label class="form-check-label small" for="mfn_{{ sidx }}">MFN</label>
                 </div>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small fw-semibold mb-1">Cue Sheet Days</label>
+                <input type="number" name="cue_sheet_days" class="form-control form-control-sm"
+                       value="{{ dt.cue_sheet_days or 30 }}" min="1">
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-semibold mb-1">Media Rights</label>
+              <div class="d-flex flex-wrap gap-3">
+                {% set song_mr = dt.media_rights or [] %}
+                {% for mr in ['Theatrical', 'Streaming', 'TV/Broadcast', 'Home Video', 'Social Media', 'All Media', 'All Media excl. Theatrical & Advertising'] %}
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" name="media_rights" value="{{ mr }}"
+                         id="mr_{{ sidx }}_{{ loop.index }}" {% if mr in song_mr %}checked{% endif %}>
+                  <label class="form-check-label small" for="mr_{{ sidx }}_{{ loop.index }}">{{ mr }}</label>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-semibold mb-1">Notes</label>
+              <textarea name="notes" class="form-control form-control-sm" rows="2"
+                        placeholder="Deal context...">{{ dt.notes or '' }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">Save Deal Terms</button>
+          </form>
+        </div>
+
+      </div>
+      {% endfor %}
     </div>
+
     <div class="px-3 py-2 border-top small text-muted">
       <i class="bi bi-info-circle me-1"></i>
-      Publisher info is AI-researched — verify against ASCAP/BMI database before sending clearance requests.
-      <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;"><i class="bi bi-exclamation-triangle"></i></span> = low confidence.
+      Publisher data is AI-researched — verify via ASCAP/BMI database before sending clearance requests.
     </div>
     {% endif %}
   </div>
+
+  <!-- Split % client-side update script -->
+  <script>
+  function updateSplitTotal(sidx) {
+    // Just a helper — server does the real validation on save
+    var form = document.getElementById('add-writer-form-' + sidx);
+    if (!form) return;
+  }
+  </script>
   {% endif %}
 
   <!-- Project details -->

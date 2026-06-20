@@ -206,6 +206,7 @@ class Submission(db.Model):
     # submitted | in_review | in_clearance | cleared | rejected
     ba_notes            = db.Column(db.Text)    # internal only
     songs_json          = db.Column(db.Text)    # JSON list of song dicts for live_music
+    deal_terms_json     = db.Column(db.Text)    # JSON dict of bulk deal terms
 
     created_at          = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at          = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -226,13 +227,45 @@ class Submission(db.Model):
         if not self.songs_json:
             return []
         try:
-            return json.loads(self.songs_json)
+            raw = json.loads(self.songs_json)
         except Exception:
             return []
+        # Backward compat: convert old single-writer format to writers array
+        converted = []
+        for s in raw:
+            if "writer" in s and "writers" not in s:
+                s = dict(s)
+                writer_entry = {
+                    "name": s.pop("writer", "") or "",
+                    "publisher": s.pop("publisher", "") or "",
+                    "pro": s.pop("pro", "") or "",
+                    "split_pct": s.pop("split_pct", 100),
+                }
+                s["writers"] = [writer_entry] if writer_entry["name"] else []
+            if "deal_terms" not in s:
+                s["deal_terms"] = {
+                    "fee": None, "fee_type": None, "territory": None,
+                    "term": None, "mfn": False, "cue_sheet_days": 30,
+                    "media_rights": [], "notes": ""
+                }
+            converted.append(s)
+        return converted
 
     def songs_save(self, songs_list):
         import json
         self.songs_json = json.dumps(songs_list)
+
+    @property
+    def deal_terms(self):
+        import json
+        try:
+            return json.loads(self.deal_terms_json or "{}")
+        except Exception:
+            return {}
+
+    def deal_terms_save(self, terms_dict):
+        import json
+        self.deal_terms_json = json.dumps(terms_dict)
 
     @property
     def project_type_label(self):
