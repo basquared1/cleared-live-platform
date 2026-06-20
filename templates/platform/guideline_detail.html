@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{{ project_type_label }} Guidelines — {{ platform.name }}{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('platform_dashboard') }}">
+      <span style="color:{{ platform.primary_color }}; font-weight:900; font-size:1.05rem;">{{ platform.logo_text or platform.name }}</span>
+      <span class="text-muted fw-normal" style="font-size:.8rem;">Clearance Portal</span>
+    </a>
+    <div class="ms-auto d-flex align-items-center gap-3">
+      <a href="{{ url_for('platform_guidelines') }}" class="btn btn-sm btn-dark d-none d-md-inline-flex align-items-center gap-1">
+        <i class="bi bi-book"></i> Guidelines
+      </a>
+      <span class="text-muted small d-none d-md-inline">{{ platform_user.username }}</span>
+      <a href="{{ url_for('platform_logout') }}" class="btn btn-sm btn-outline-secondary">Logout</a>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block content %}
+<div class="container-fluid px-4 py-4" style="max-width:960px;">
+
+  <div class="d-flex align-items-center gap-3 mb-3">
+    <a href="{{ url_for('platform_guidelines') }}" class="text-muted text-decoration-none small">
+      <i class="bi bi-arrow-left me-1"></i>All Guidelines
+    </a>
+  </div>
+
+  <div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+      <h4 class="fw-bold mb-1">{{ project_type_label }} — Clearance Guidelines</h4>
+      <div class="text-muted small">
+        {{ clearance_items|length }} clearance item{{ 's' if clearance_items|length != 1 }}:
+        {{ clearance_items | map(attribute='label') | join(', ') }}
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      {% if guideline and guideline.status == 'approved' %}
+        <span class="badge bg-success fs-6 px-3 py-2"><i class="bi bi-check-circle me-1"></i>Approved v{{ guideline.version }}</span>
+      {% elif guideline and guideline.status == 'draft' %}
+        <span class="badge bg-warning text-dark fs-6 px-3 py-2"><i class="bi bi-pencil me-1"></i>Draft</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body d-flex gap-2 flex-wrap align-items-center">
+      <form method="POST" class="d-inline">
+        <input type="hidden" name="action" value="ai_draft">
+        <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+          <i class="bi bi-stars me-1"></i>{% if guideline %}Regenerate AI Draft{% else %}Generate AI Draft{% endif %}
+        </button>
+      </form>
+
+      {% if guideline and guideline.content %}
+      <form method="POST" class="d-inline">
+        <input type="hidden" name="action" value="approve">
+        <button type="submit" class="btn btn-success btn-sm fw-semibold"
+          {% if guideline.status == 'approved' %}disabled{% endif %}>
+          <i class="bi bi-check-circle me-1"></i>
+          {% if guideline.status == 'approved' %}Approved{% else %}Approve &amp; Publish{% endif %}
+        </button>
+      </form>
+      {% endif %}
+
+      <div class="text-muted small ms-auto">
+        {% if guideline and guideline.approved_at %}
+          Last approved by <strong>{{ guideline.approved_by }}</strong> on {{ guideline.approved_at.strftime('%b %d, %Y') }}
+        {% elif guideline and guideline.updated_at %}
+          Last saved {{ guideline.updated_at.strftime('%b %d, %Y') }}
+        {% else %}
+          No guidelines yet — generate an AI draft to get started.
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <form method="POST" id="guidelineForm">
+    <input type="hidden" name="action" value="save">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+        <span class="fw-semibold small text-muted text-uppercase" style="letter-spacing:.05em;">Guidelines Content</span>
+        <button type="submit" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-floppy me-1"></i>Save Draft
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <textarea name="content" id="guidelineContent"
+          class="form-control border-0 rounded-0"
+          style="min-height:600px; font-family: 'Georgia', serif; font-size:.95rem; line-height:1.7; padding:1.5rem; resize:vertical;"
+          placeholder="Generate an AI draft above, or paste your guidelines here...">{{ guideline.content if guideline and guideline.content else '' }}</textarea>
+      </div>
+    </div>
+  </form>
+
+  <!-- Platform rules sidebar note -->
+  <div class="mt-3 p-3 rounded small" style="background:#fff3cd; border:1px solid #ffc107;">
+    <strong><i class="bi bi-shield-check me-1"></i>Platform Rules — applied to all AI drafts:</strong>
+    <ul class="mb-0 mt-1 ps-3">
+      <li>Agreements are between Producer/Submitter and Licensor — platform is never a party</li>
+      <li>Producer/Submitter indemnifies platform from all third-party claims</li>
+      <li>All rights must be assignable to platform without licensor consent</li>
+      <li>Chain of title must be clear and unbroken</li>
+      <li>E&amp;O ($1M/$3M) + CGL ($1M) insurance required; platform as additional insured</li>
+    </ul>
+  </div>
+
+</div>
+{% endblock %}

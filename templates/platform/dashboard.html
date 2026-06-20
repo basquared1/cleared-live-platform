@@ -8,6 +8,10 @@
       <span class="text-muted fw-normal" style="font-size:.8rem;">Clearance Portal</span>
     </a>
     <div class="ms-auto d-flex align-items-center gap-3">
+      <a href="{{ url_for('platform_guidelines') }}"
+         class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
+        <i class="bi bi-book"></i> Guidelines
+      </a>
       <a href="{{ url_for('submit', platform_slug=platform.slug) }}" target="_blank"
          class="btn btn-sm btn-outline-dark d-none d-md-inline-flex align-items-center gap-1">
         <i class="bi bi-box-arrow-up-right"></i> Submission Form

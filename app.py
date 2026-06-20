@@ -26,7 +26,7 @@ def generate_password_hash(s):
 
 from models import (
     db, Platform, Submission, ClearanceItem, SubmissionDocument,
-    WebhookDelivery, PlatformUser, AdminUser,
+    WebhookDelivery, PlatformUser, AdminUser, ClearanceGuideline,
     CLEARANCE_TEMPLATES, PRICING_TIERS, PROJECT_TYPE_LABELS,
     TERRITORY_LABELS, INTENDED_USE_OPTIONS,
 )
@@ -520,6 +520,63 @@ def send_to_docusign(sub, item):
 
 
 # ---------------------------------------------------------------------------
+# Background agents
+# ---------------------------------------------------------------------------
+
+def _auto_draft_agent(sub_id):
+    """Background thread: generate AI drafts for all clearance items on a new submission."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return
+    with app.app_context():
+        sub = Submission.query.get(sub_id)
+        if not sub:
+            return
+        for item in sub.clearance_items:
+            if not item.ai_draft:
+                try:
+                    item.ai_draft = generate_draft(sub, item)
+                except Exception:
+                    pass
+        db.session.commit()
+
+
+def _auto_outreach_agent(item_id):
+    """Background thread: generate and optionally send outreach email when item → in_progress."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return
+    with app.app_context():
+        item = ClearanceItem.query.get(item_id)
+        if not item or item.ai_outreach_body:
+            return
+        sub = item.submission
+        try:
+            body = generate_outreach(sub, item)
+        except Exception:
+            return
+        if not body:
+            return
+        item.ai_outreach_body = body
+
+        # Auto-send via Resend if party email is known
+        party_email = item.party_email
+        if party_email and os.getenv("RESEND_API_KEY"):
+            try:
+                import resend as _resend
+                _resend.api_key = os.getenv("RESEND_API_KEY")
+                _resend.Emails.send({
+                    "from": f"{sub.platform.name} Business Affairs <clearances@cleared.live>",
+                    "to": [party_email],
+                    "subject": f"Clearance Request — {item.item_label} | {sub.title}",
+                    "text": body,
+                })
+                item.ai_outreach_sent_at = datetime.utcnow()
+            except Exception:
+                pass
+
+        db.session.commit()
+
+
+# ---------------------------------------------------------------------------
 # Public — landing
 # ---------------------------------------------------------------------------
 
@@ -579,6 +636,8 @@ def submit(platform_slug):
             ))
 
         db.session.commit()
+        # Auto-draft agent: generate AI drafts in background immediately after submission
+        threading.Thread(target=_auto_draft_agent, args=(sub.id,), daemon=True).start()
         return redirect(url_for("submit_confirm", token=sub.token))
 
     return render_template(
@@ -719,13 +778,17 @@ def platform_update_item(sub_id, item_id):
 
     new_status = request.form.get("status", "")
     if new_status in ("pending", "in_progress", "cleared", "waived", "n_a"):
-        item.status     = new_status
-        item.notes      = request.form.get("notes", item.notes or "").strip() or item.notes
-        item.party_name = request.form.get("party_name", item.party_name or "").strip() or item.party_name
+        item.status      = new_status
+        item.notes       = request.form.get("notes", item.notes or "").strip() or item.notes
+        item.party_name  = request.form.get("party_name", item.party_name or "").strip() or item.party_name
+        item.party_email = request.form.get("party_email", item.party_email or "").strip() or item.party_email
         if new_status in ("cleared", "waived"):
             item.cleared_at = datetime.utcnow()
             item.cleared_by = user.username
         db.session.commit()
+        # Auto-outreach agent: generate (and send if email known) when item moves to in_progress
+        if new_status == "in_progress":
+            threading.Thread(target=_auto_outreach_agent, args=(item.id,), daemon=True).start()
 
         if sub.is_fully_cleared and sub.status not in ("cleared", "rejected"):
             sub.status = "in_clearance"
@@ -1014,7 +1077,7 @@ def platform_ai_draft_all(sub_id):
     sub  = Submission.query.get_or_404(sub_id)
     if sub.platform_id != user.platform_id:
         abort(403)
-    if not _ai_client():
+    if not os.getenv("ANTHROPIC_API_KEY"):
         flash("ANTHROPIC_API_KEY not configured in Render environment.", "danger")
         return redirect(url_for("platform_project", sub_id=sub_id))
     for item in sub.clearance_items:
@@ -1087,6 +1150,114 @@ def platform_docusign(sub_id, item_id):
 
 
 # ---------------------------------------------------------------------------
+# Clearance Guidelines
+# ---------------------------------------------------------------------------
+
+_GUIDELINE_SYSTEM = """You are a senior streaming-platform Business Affairs attorney writing internal clearance guidelines. These guidelines will be read by BA staff when processing incoming clearance submissions. Write in plain English. Be specific, practical, and actionable. No legal boilerplate — these are internal operating instructions, not agreements."""
+
+def _guideline_user_prompt(project_type, platform_name, item_labels):
+    items_list = "\n".join(f"- {l}" for l in item_labels)
+    return (
+        f"Write clearance guidelines for a {platform_name} BA reviewing a **{project_type.replace('_', ' ').title()}** submission.\n\n"
+        f"The clearance items for this project type are:\n{items_list}\n\n"
+        f"For each item write:\n"
+        f"1. What to look for / what rights are needed\n"
+        f"2. Common issues and red flags\n"
+        f"3. Standard deal terms / what to accept vs. push back on\n"
+        f"4. Who the typical counterparty is and how to reach them\n\n"
+        f"Platform rules that apply to ALL agreements on this platform:\n"
+        f"- Agreements are between Producer/Submitter and Licensor — platform is never a party\n"
+        f"- Producer/Submitter indemnifies platform from all third-party claims\n"
+        f"- All rights must be assignable to platform without licensor consent\n"
+        f"- Chain of title must be clear and unbroken\n"
+        f"- E&O ($1M/$3M) + CGL ($1M) insurance required; platform as additional insured\n\n"
+        f"Format with a ## header per clearance item. Be specific, not generic."
+    )
+
+
+@app.route("/platform/guidelines")
+@require_platform
+def platform_guidelines():
+    user = current_platform_user()
+    platform = Platform.query.get(user.platform_id)
+    guidelines = {
+        g.project_type: g
+        for g in ClearanceGuideline.query.filter_by(platform_id=user.platform_id).all()
+    }
+    project_types = list(PROJECT_TYPE_LABELS.items())  # [(key, label), ...]
+    return render_template(
+        "platform/guidelines.html",
+        platform=platform, platform_user=user,
+        guidelines=guidelines, project_types=project_types,
+        clearance_templates=CLEARANCE_TEMPLATES,
+    )
+
+
+@app.route("/platform/guidelines/<project_type>", methods=["GET", "POST"])
+@require_platform
+def platform_guideline_detail(project_type):
+    if project_type not in PROJECT_TYPE_LABELS:
+        abort(404)
+    user = current_platform_user()
+    platform = Platform.query.get(user.platform_id)
+    g = ClearanceGuideline.query.filter_by(
+        platform_id=user.platform_id, project_type=project_type
+    ).first()
+
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        if action == "ai_draft":
+            item_labels = [t["label"] for t in CLEARANCE_TEMPLATES.get(project_type, [])]
+            try:
+                content = call_claude(
+                    _GUIDELINE_SYSTEM,
+                    _guideline_user_prompt(project_type, platform.name, item_labels),
+                    max_tokens=4000,
+                )
+            except Exception as e:
+                flash(f"AI draft failed: {e}", "danger")
+                return redirect(url_for("platform_guideline_detail", project_type=project_type))
+            if not g:
+                g = ClearanceGuideline(platform_id=user.platform_id, project_type=project_type)
+                db.session.add(g)
+            g.content = content
+            g.status = "draft"
+            db.session.commit()
+            flash("AI draft generated. Review and approve when ready.", "success")
+
+        elif action == "save":
+            if not g:
+                g = ClearanceGuideline(platform_id=user.platform_id, project_type=project_type)
+                db.session.add(g)
+            g.content = request.form.get("content", "").strip()
+            g.status = "draft"
+            db.session.commit()
+            flash("Guidelines saved as draft.", "success")
+
+        elif action == "approve":
+            if g and g.content:
+                g.status = "approved"
+                g.approved_by = user.username
+                g.approved_at = datetime.utcnow()
+                g.version = (g.version or 1) + 1
+                db.session.commit()
+                flash("Guidelines approved and published.", "success")
+            else:
+                flash("Nothing to approve — generate or save a draft first.", "warning")
+
+        return redirect(url_for("platform_guideline_detail", project_type=project_type))
+
+    return render_template(
+        "platform/guideline_detail.html",
+        platform=platform, platform_user=user,
+        guideline=g, project_type=project_type,
+        project_type_label=PROJECT_TYPE_LABELS[project_type],
+        clearance_items=CLEARANCE_TEMPLATES.get(project_type, []),
+    )
+
+
+# ---------------------------------------------------------------------------
 # DB init CLI
 # ---------------------------------------------------------------------------
 
@@ -1150,26 +1321,49 @@ def init_db():
 
 @app.cli.command("migrate-db")
 def migrate_db_cmd():
-    """Add AI + DocuSign columns to clearance_items (safe to re-run)."""
-    cols = [
+    """Add new columns and tables (safe to re-run)."""
+    item_cols = [
         ("ai_draft",             "TEXT"),
         ("ai_deal_points",       "TEXT"),
         ("ai_outreach_body",     "TEXT"),
         ("ai_outreach_sent_at",  "TIMESTAMP"),
         ("docusign_envelope_id", "VARCHAR(100)"),
         ("docusign_status",      "VARCHAR(50)"),
+        ("party_email",          "VARCHAR(200)"),
     ]
     with db.engine.connect() as conn:
-        for col_name, col_type in cols:
+        for col_name, col_type in item_cols:
             try:
                 conn.execute(sa_text(
                     f"ALTER TABLE clearance_items ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
                 ))
                 conn.commit()
-                print(f"  + {col_name}")
+                print(f"  clearance_items.{col_name} OK")
             except Exception as exc:
                 conn.rollback()
-                print(f"  ~ {col_name}: {exc}")
+                print(f"  clearance_items.{col_name}: {exc}")
+        # Create clearance_guidelines table if missing
+        try:
+            conn.execute(sa_text("""
+                CREATE TABLE IF NOT EXISTS clearance_guidelines (
+                    id           SERIAL PRIMARY KEY,
+                    platform_id  INTEGER NOT NULL REFERENCES platforms(id),
+                    project_type VARCHAR(30) NOT NULL,
+                    content      TEXT,
+                    status       VARCHAR(20) DEFAULT 'draft',
+                    approved_by  VARCHAR(100),
+                    approved_at  TIMESTAMP,
+                    version      INTEGER DEFAULT 1,
+                    created_at   TIMESTAMP DEFAULT NOW(),
+                    updated_at   TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(platform_id, project_type)
+                )
+            """))
+            conn.commit()
+            print("  clearance_guidelines table OK")
+        except Exception as exc:
+            conn.rollback()
+            print(f"  clearance_guidelines: {exc}")
     print("Migration complete.")
 
 

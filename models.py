@@ -267,6 +267,7 @@ class ClearanceItem(db.Model):
     status        = db.Column(db.String(30), default="pending")
     # pending | in_progress | cleared | waived | n_a
     party_name    = db.Column(db.String(200))
+    party_email   = db.Column(db.String(200))
     assigned_to   = db.Column(db.String(200))
     notes         = db.Column(db.Text)
     cleared_at    = db.Column(db.DateTime)
@@ -374,3 +375,20 @@ class AdminUser(db.Model):
     email         = db.Column(db.String(200))
     password_hash = db.Column(db.String(256), nullable=False)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ClearanceGuideline(db.Model):
+    """One set of clearance guidelines per platform per project type."""
+    __tablename__ = "clearance_guidelines"
+    id           = db.Column(db.Integer, primary_key=True)
+    platform_id  = db.Column(db.Integer, db.ForeignKey("platforms.id"), nullable=False)
+    project_type = db.Column(db.String(30), nullable=False)   # live_music | documentary | etc.
+    content      = db.Column(db.Text)
+    status       = db.Column(db.String(20), default="draft")  # draft | approved
+    approved_by  = db.Column(db.String(100))
+    approved_at  = db.Column(db.DateTime)
+    version      = db.Column(db.Integer, default=1)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at   = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("platform_id", "project_type", name="uq_guideline_platform_type"),)
