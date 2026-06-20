@@ -195,31 +195,47 @@
   </div>
 </div>
 
-<!-- API quick ref -->
+{% if platform.tier == 'enterprise' %}
+<!-- Enterprise: API & Integrations -->
 <div class="card border-0 shadow-sm mt-4">
-  <div class="card-header bg-white border-bottom py-3">
-    <h6 class="fw-bold text-navy mb-0"><i class="bi bi-code-slash me-2"></i>API Quick Reference</h6>
+  <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+    <h6 class="fw-bold text-navy mb-0">
+      <i class="bi bi-plug me-2"></i>API &amp; Integrations
+      <span class="badge bg-warning text-dark ms-2" style="font-size:.65rem;">Enterprise</span>
+    </h6>
   </div>
   <div class="card-body">
-    <div class="row g-3">
-      <div class="col-12 col-md-6">
-        <div class="api-block">
-          <div class="mb-1 opacity-50 small"># Check clearance status (public)</div>
-          <span class="method">GET</span> <span class="path">/api/v1/status/{token}</span>
+    <div class="row g-4 align-items-start">
+      <div class="col-12 col-md-7">
+        <p class="small text-muted mb-3">
+          Your enterprise plan includes direct API access, webhook delivery, and white-glove onboarding.
+          Our team will walk you through setup and test end-to-end before go-live.
+        </p>
+        <ul class="list-unstyled small text-muted mb-0">
+          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>REST API for submission status &amp; retrieval</li>
+          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Webhook delivery to your CMS or rights system</li>
+          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Custom intake form fields</li>
+          <li><i class="bi bi-check-circle-fill text-success me-2"></i>Dedicated onboarding &amp; technical support</li>
+        </ul>
+      </div>
+      <div class="col-12 col-md-5">
+        <div class="border rounded p-3 bg-light">
+          <div class="small fw-semibold mb-2 text-navy">Ready to connect?</div>
+          <p class="small text-muted mb-3">Contact your Cleared.live account manager to schedule your integration setup session.</p>
+          <a href="mailto:brian@blisslegalstudio.com?subject=API Integration Setup — {{ platform.name }}"
+             class="btn btn-sm btn-primary w-100">
+            <i class="bi bi-envelope me-1"></i> Schedule Setup
+          </a>
+          <div class="text-center mt-2">
+            <a href="{{ url_for('api_docs') }}" class="small text-decoration-none text-muted">
+              View API docs <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+          </div>
         </div>
       </div>
-      <div class="col-12 col-md-6">
-        <div class="api-block">
-          <div class="mb-1 opacity-50 small"># List your submissions</div>
-          <span class="method">GET</span> <span class="path">/api/v1/projects</span><br>
-          <span class="key">X-API-Key:</span> <span class="val">{{ platform.api_key }}</span>
-        </div>
-      </div>
-    </div>
-    <div class="mt-3 small text-muted">
-      <a href="{{ url_for('api_docs') }}" class="text-decoration-none">View full API docs <i class="bi bi-arrow-right ms-1"></i></a>
     </div>
   </div>
 </div>
+{% endif %}
 
 {% endblock %}
