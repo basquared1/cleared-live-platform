@@ -13,6 +13,7 @@ import anthropic as _anthropic
 import requests as http_requests
 from docx_builder import build_docx
 from dotenv import load_dotenv
+import click
 from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, jsonify, abort, send_file, Response,
@@ -308,6 +309,27 @@ def _sub_context(sub):
 
 
 def _build_clearance_doc_user_prompt(sub, item):
+    is_label_waiver = (sub.platform.platform_mode == "label_waiver")
+
+    if is_label_waiver:
+        # For label platforms: draft a Conditional Label Waiver
+        return (
+            f"Draft a CONDITIONAL LABEL WAIVER on behalf of {sub.platform.name} (the label).\n\n"
+            f"CONTEXT: The producer/submitter has represented that they have obtained all required clearances "
+            f"for the project below. {sub.platform.name} is issuing this conditional label waiver — not as a "
+            f"full clearance, but conditioned upon: (1) the producer having obtained all required clearances "
+            f"from promoter, publisher, performers, and venue; (2) the producer maintaining E&O and general "
+            f"liability insurance naming {sub.platform.name} as additional insured; and (3) the producer "
+            f"indemnifying {sub.platform.name} from any third-party claim arising from the content.\n\n"
+            f"CLEARANCE ITEM BEING WAIVED: {item.item_label}\n"
+            f"PRODUCER / SUBMITTER: {sub.submitter_company or '[PRODUCTION COMPANY NAME]'}\n\n"
+            f"PROJECT DETAILS:\n{_sub_context(sub)}\n\n"
+            f"Draft the Conditional Label Waiver. It should: state what {sub.platform.name} is waiving "
+            f"and under what conditions; require producer to represent all other clearances are in place; "
+            f"be revocable if producer's representations are false; assign no rights from label to producer "
+            f"beyond the limited waiver; and end with signature blocks for both parties."
+        )
+
     return (
         f"Draft a professional {item.item_label} for the following project.\n\n"
         f"REPRESENTED PARTY: {sub.platform.name} Business Affairs\n\n"
@@ -628,7 +650,12 @@ def submit(platform_slug):
         db.session.add(sub)
         db.session.flush()
 
-        for item_def in CLEARANCE_TEMPLATES.get(ptype, CLEARANCE_TEMPLATES["live_music"]):
+        # Label platforms use a review/waiver template instead of full clearance template
+        if platform.platform_mode == "label_waiver":
+            template_key = "live_music_label"
+        else:
+            template_key = ptype
+        for item_def in CLEARANCE_TEMPLATES.get(template_key, CLEARANCE_TEMPLATES["live_music"]):
             db.session.add(ClearanceItem(
                 submission_id = sub.id,
                 item_key      = item_def["key"],
@@ -1351,23 +1378,51 @@ def init_db():
 
 @app.cli.command("add-platform")
 def add_platform_cmd():
-    """Add Spotify (and any other missing demo platforms) to the live database."""
+    """Add Spotify, Sony, Warner, UMG to the live database (safe to re-run)."""
+    # (name, slug, logo, color, tier, accepted_types, platform_mode)
     demos = [
-        ("Spotify", "spotify", "Spotify", "#1DB954", "enterprise", "live_music,podcast,social,ugc"),
+        ("Spotify",        "spotify",        "Spotify",  "#1DB954", "enterprise", "live_music,podcast,social,ugc", "clearance"),
+        ("Sony Music",     "sony",           "Sony",     "#000000", "enterprise", "live_music",                   "label_waiver"),
+        ("Warner Records", "warner-records", "Warner",   "#0099FF", "enterprise", "live_music",                   "label_waiver"),
+        ("UMG",            "umg-label",      "UMG",      "#003087", "enterprise", "live_music",                   "label_waiver"),
     ]
-    for name, slug, logo, color, tier, accepted in demos:
+    for name, slug, logo, color, tier, accepted, mode in demos:
         if Platform.query.filter_by(slug=slug).first():
             print(f"  {name}: already exists — skipping")
             continue
         p = Platform(
             name=name, slug=slug, logo_text=logo,
-            tier=tier, primary_color=color, accepted_types=accepted,
+            tier=tier, primary_color=color,
+            accepted_types=accepted, platform_mode=mode,
         )
         db.session.add(p)
         db.session.commit()
-        print(f"  {name} created — submit URL: /submit/{slug}")
-        print(f"  Add a BA user via Render shell:")
-        print(f"    python -c \"from app import app, db; from models import PlatformUser, Platform; from werkzeug.security import generate_password_hash; app.app_context().push(); p=Platform.query.filter_by(slug='{slug}').first(); db.session.add(PlatformUser(platform_id=p.id, username='spotify_ba', email='ba@spotify.com', password_hash=generate_password_hash('spotify123'), role='admin')); db.session.commit(); print('done')\"")
+        ba_user = slug.replace("-", "_") + "_ba"
+        ba_pass = slug.replace("-", "_") + "123"
+        print(f"  {name} ({mode}) created — submit URL: /submit/{slug}")
+        print(f"  Create BA login: flask create-ba-user {slug} {ba_user} {ba_pass}")
+
+
+
+@app.cli.command("create-ba-user")
+@click.argument("platform_slug")
+@click.argument("username")
+@click.argument("password")
+def create_ba_user_cmd(platform_slug, username, password):
+    """Create a BA login for a platform. Usage: flask create-ba-user <slug> <username> <password>"""
+    p = Platform.query.filter_by(slug=platform_slug).first()
+    if not p:
+        print(f"Platform '{platform_slug}' not found.")
+        return
+    if PlatformUser.query.filter_by(username=username).first():
+        print(f"User '{username}' already exists.")
+        return
+    db.session.add(PlatformUser(
+        platform_id=p.id, username=username, email=f"{username}@cleared.live",
+        password_hash=generate_password_hash(password), role="admin",
+    ))
+    db.session.commit()
+    print(f"Created {username} for {p.name} — login at /platform/login")
 
 
 @app.cli.command("migrate-db")
@@ -1417,6 +1472,16 @@ def migrate_db_cmd():
         except Exception as exc:
             conn.rollback()
             print(f"  clearance_guidelines: {exc}")
+        # Add platform_mode to platforms table
+        try:
+            conn.execute(sa_text(
+                "ALTER TABLE platforms ADD COLUMN IF NOT EXISTS platform_mode VARCHAR(20) DEFAULT 'clearance'"
+            ))
+            conn.commit()
+            print("  platforms.platform_mode OK")
+        except Exception as exc:
+            conn.rollback()
+            print(f"  platforms.platform_mode: {exc}")
         # Add public columns to existing clearance_guidelines table
         for col_name, col_type in [("public_content", "TEXT"), ("show_to_submitters", "BOOLEAN DEFAULT FALSE")]:
             try:

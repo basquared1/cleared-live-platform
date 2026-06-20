@@ -66,6 +66,15 @@ CLEARANCE_TEMPLATES = {
         {"key": "sample_clearance",    "label": "Audio Sample / Clip Clearance",      "priority": 5},
         {"key": "distributor_license", "label": "Platform Distribution License",      "priority": 6},
     ],
+    # Label waiver mode: label reviews submitter's completed clearances, then issues conditional waiver
+    "live_music_label": [
+        {"key": "promoter_consent_review",   "label": "Promoter Consent — Verify & Review",          "priority": 1},
+        {"key": "publishing_review",         "label": "Publishing Clearance — Verify & Review",       "priority": 2},
+        {"key": "performer_releases_review", "label": "Performer Releases — Verify & Review",         "priority": 3},
+        {"key": "venue_license_review",      "label": "Venue Filming License — Verify & Review",      "priority": 4},
+        {"key": "crowd_release_review",      "label": "Crowd / Audience Release — Verify & Review",   "priority": 5},
+        {"key": "conditional_label_waiver",  "label": "Conditional Label Waiver — Issue",             "priority": 6},
+    ],
     "ugc": [
         {"key": "content_license",    "label": "Content License",           "priority": 1},
         {"key": "music_license",      "label": "Music License",             "priority": 2},
@@ -109,6 +118,7 @@ class Platform(db.Model):
     webhook_url     = db.Column(db.String(500))
     webhook_secret  = db.Column(db.String(100), default=lambda: secrets.token_urlsafe(20))
     tier            = db.Column(db.String(20), default="standard")  # trial | standard | enterprise
+    platform_mode   = db.Column(db.String(20), default="clearance")  # clearance | label_waiver
     is_active       = db.Column(db.Boolean, default=True)
     accepted_types  = db.Column(db.String(300), default="live_music,documentary,unscripted,social,ugc")
     created_at      = db.Column(db.DateTime, default=datetime.utcnow)
