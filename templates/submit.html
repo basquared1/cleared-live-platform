@@ -18,7 +18,7 @@
 {% block content %}
 
 <div class="row justify-content-center">
-<div class="col-lg-8">
+<div class="col-12 col-lg-8">
 
   <!-- Header -->
   <div class="text-center mb-5">
@@ -111,7 +111,7 @@
         <div id="fields_live_music">
           <div class="field-group-label">About the Artist & Event</div>
           <div class="row g-3 mb-3">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Artist / Performer Name
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -121,7 +121,7 @@
               </label>
               <input type="text" name="artist_name" class="form-control" placeholder="e.g. Taylor Swift">
             </div>
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Event Name
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -133,7 +133,7 @@
             </div>
           </div>
           <div class="row g-3 mb-3">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Venue
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -143,7 +143,7 @@
               </label>
               <input type="text" name="venue" class="form-control" placeholder="e.g. SoFi Stadium, Los Angeles">
             </div>
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Event Date
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -161,7 +161,7 @@
             <strong>Don't know the label or publisher?</strong> That's okay — leave it blank. We'll research it. If you do know, entering it here speeds up the process significantly.
           </div>
           <div class="row g-3 mb-3">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Record Label
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -171,7 +171,7 @@
               </label>
               <input type="text" name="label" class="form-control" placeholder="e.g. Republic Records / UMG">
             </div>
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Music Publisher(s)
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -202,7 +202,7 @@
         <div id="fields_documentary" class="d-none">
           <div class="field-group-label">About the Production</div>
           <div class="row g-3 mb-3">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Production Company
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -212,7 +212,7 @@
               </label>
               <input type="text" name="production_company" class="form-control" placeholder="e.g. XYZ Productions LLC">
             </div>
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Director
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -245,7 +245,7 @@
         <div id="fields_unscripted" class="d-none">
           <div class="field-group-label">About the Show</div>
           <div class="row g-3 mb-3">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Show / Series Title
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -255,7 +255,7 @@
               </label>
               <input type="text" name="event_name" class="form-control" placeholder="e.g. The Amazing Race Season 40, Ep 1">
             </div>
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Production Company
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -283,7 +283,7 @@
         <div id="fields_social" class="d-none">
           <div class="field-group-label">About the Content</div>
           <div class="row g-3 mb-3">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Campaign / Content Name
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -293,7 +293,7 @@
               </label>
               <input type="text" name="event_name" class="form-control" placeholder="e.g. Summer 2026 Brand Campaign">
             </div>
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label fw-semibold small d-flex align-items-center gap-2">
                 Brand / Agency
                 <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -320,7 +320,7 @@
         <!-- ── Shared: Territory + Intended Use ── -->
         <div class="field-group-label">Distribution</div>
         <div class="row g-3 mb-3">
-          <div class="col-md-4">
+          <div class="col-12 col-md-4">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">
               Territory
               {% if not platform.form_territory_locked %}
@@ -346,7 +346,7 @@
               </select>
             {% endif %}
           </div>
-          <div class="col-md-8">
+          <div class="col-12 col-md-8">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">
               Intended Use
               {% if not platform.form_intended_use_locked %}
@@ -408,7 +408,7 @@
         </div>
         <p class="text-muted small ms-5 mb-4">We'll send your tracking link to this email. No account needed — you track progress via a private link.</p>
         <div class="row g-3">
-          <div class="col-md-6">
+          <div class="col-12 col-md-6">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">
               Your Name <span class="text-danger">*</span>
               <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -418,7 +418,7 @@
             </label>
             <input type="text" name="submitter_name" class="form-control" required placeholder="First Last" value="{{ invite.name if invite else '' }}">
           </div>
-          <div class="col-md-6">
+          <div class="col-12 col-md-6">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">
               Company / Organization
               <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -428,7 +428,7 @@
             </label>
             <input type="text" name="submitter_company" class="form-control" placeholder="Management co., production company, label...">
           </div>
-          <div class="col-md-6">
+          <div class="col-12 col-md-6">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">
               Email <span class="text-danger">*</span>
               <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
@@ -438,7 +438,7 @@
             </label>
             <input type="email" name="submitter_email" class="form-control" required placeholder="you@company.com" value="{{ invite.email if invite else '' }}">
           </div>
-          <div class="col-md-6">
+          <div class="col-12 col-md-6">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">
               Phone <span class="text-muted fw-normal">(optional)</span>
               <button type="button" class="btn-info-bubble" data-bs-toggle="popover"

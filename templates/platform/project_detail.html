@@ -64,7 +64,7 @@
 <div class="row g-4">
 
   <!-- LEFT: clearance items -->
-  <div class="col-lg-8">
+  <div class="col-12 col-lg-8">
 
     <!-- Progress -->
     <div class="card border-0 shadow-sm mb-4">
@@ -196,7 +196,7 @@
             <form method="POST" action="{{ url_for('platform_update_item', sub_id=sub.id, item_id=item.id) }}"
                   class="card card-body bg-light border-0 p-3">
               <div class="row g-2 mb-2">
-                <div class="col-sm-4">
+                <div class="col-12 col-sm-4">
                   <label class="form-label fw-semibold small mb-1">Status</label>
                   <select name="status" class="form-select form-select-sm">
                     {% for val, lbl in [('pending','Pending'),('in_progress','In Progress'),('under_review','Under Review'),('cleared','Cleared'),('waived','Waived'),('n_a','N/A')] %}
@@ -204,7 +204,7 @@
                     {% endfor %}
                   </select>
                 </div>
-                <div class="col-sm-8">
+                <div class="col-12 col-sm-8">
                   <label class="form-label fw-semibold small mb-1">Rights Holder / Party</label>
                   <input type="text" name="party_name" class="form-control form-control-sm"
                          value="{{ item.party_name or '' }}" placeholder="e.g. Sony Music Publishing">
@@ -299,15 +299,15 @@
         <div class="card-body border-bottom bg-light">
           <form method="POST" action="{{ url_for('platform_upload', sub_id=sub.id) }}" enctype="multipart/form-data">
             <div class="row g-2 align-items-end">
-              <div class="col-sm-4">
+              <div class="col-12 col-sm-4">
                 <label class="form-label small fw-semibold mb-1">Document</label>
                 <input type="file" name="file" class="form-control form-control-sm" required>
               </div>
-              <div class="col-sm-3">
+              <div class="col-12 col-sm-3">
                 <label class="form-label small fw-semibold mb-1">Title</label>
                 <input type="text" name="title" class="form-control form-control-sm" placeholder="Optional">
               </div>
-              <div class="col-sm-3">
+              <div class="col-12 col-sm-3">
                 <label class="form-label small fw-semibold mb-1">Link to Item</label>
                 <select name="clearance_item_id" class="form-select form-select-sm">
                   <option value="">— General —</option>
@@ -316,7 +316,7 @@
                   {% endfor %}
                 </select>
               </div>
-              <div class="col-sm-2">
+              <div class="col-12 col-sm-2">
                 <button type="submit" class="btn btn-primary btn-sm w-100">Upload</button>
               </div>
             </div>
@@ -350,7 +350,7 @@
   </div>
 
   <!-- RIGHT: sidebar -->
-  <div class="col-lg-4">
+  <div class="col-12 col-lg-4">
 
     <!-- Negotiation Positions (internal BA reference) -->
     {% if platform.negotiation_positions %}
@@ -424,6 +424,7 @@
         <div class="fw-semibold text-navy small"><i class="bi bi-info-circle me-2"></i>Project Details</div>
       </div>
       <div class="card-body p-0">
+        <div class="table-responsive">
         <table class="table table-sm mb-0">
           <tbody>
             {% if sub.artist_name %}<tr><td class="text-muted small ps-4">Artist</td><td class="small">{{ sub.artist_name }}</td></tr>{% endif %}
@@ -439,6 +440,7 @@
             <tr><td class="text-muted small ps-4">Submitted</td><td class="small">{{ sub.created_at.strftime('%b %d, %Y') }}</td></tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
 

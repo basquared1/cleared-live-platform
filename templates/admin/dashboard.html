@@ -90,8 +90,18 @@
             </a>
           </td>
           <td class="pe-3">
-            <a href="{{ url_for('admin_submissions') }}?platform={{ p.id }}"
-               class="btn btn-sm btn-outline-primary">View</a>
+            <div class="d-flex gap-1">
+              <a href="{{ url_for('admin_submissions') }}?platform={{ p.id }}"
+                 class="btn btn-sm btn-outline-primary">View</a>
+              <a href="{{ url_for('admin_edit_platform', platform_id=p.id) }}"
+                 class="btn btn-sm btn-outline-secondary">Edit</a>
+              {% if p.total_count == 0 %}
+              <form method="POST" action="{{ url_for('admin_delete_platform', platform_id=p.id) }}"
+                    onsubmit="return confirm('Delete {{ p.name }}? This cannot be undone.')">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+              </form>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}

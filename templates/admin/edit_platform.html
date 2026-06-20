@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ p.name }} — Admin{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold" href="{{ url_for('admin_dashboard') }}">
+      Cleared<span class="text-warning">.</span>live <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">Admin</span>
+    </a>
+    <div class="ms-auto d-flex gap-2">
+      <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-outline-secondary">← Dashboard</a>
+      <a href="{{ url_for('admin_logout') }}" class="btn btn-sm btn-outline-secondary">Logout</a>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h4 class="fw-bold text-navy mb-0">Edit Platform — {{ p.name }}</h4>
+</div>
+
+<form method="POST" class="row g-4" style="max-width:700px;">
+
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold small">Platform Name</label>
+    <input type="text" name="name" class="form-control" value="{{ p.name }}" required>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold small">Slug <span class="text-muted fw-normal">(URL identifier)</span></label>
+    <input type="text" name="slug" class="form-control" value="{{ p.slug }}" required>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold small">Logo Text <span class="text-muted fw-normal">(displayed in portal)</span></label>
+    <input type="text" name="logo_text" class="form-control" value="{{ p.logo_text or '' }}">
+  </div>
+
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold small">Brand Color</label>
+    <div class="input-group">
+      <input type="color" name="primary_color" class="form-control form-control-color" value="{{ p.primary_color }}" style="max-width:60px;">
+      <input type="text" class="form-control" value="{{ p.primary_color }}"
+             oninput="this.previousElementSibling.value=this.value" placeholder="#0d3b6e">
+    </div>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold small">BA Contact Name</label>
+    <input type="text" name="ba_contact_name" class="form-control" value="{{ p.ba_contact_name or '' }}">
+  </div>
+
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold small">BA Contact Email</label>
+    <input type="email" name="ba_contact_email" class="form-control" value="{{ p.ba_contact_email or '' }}">
+  </div>
+
+  <div class="col-12">
+    <label class="form-label fw-semibold small">Webhook URL</label>
+    <input type="url" name="webhook_url" class="form-control" value="{{ p.webhook_url or '' }}" placeholder="https://...">
+  </div>
+
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold small">Tier</label>
+    <select name="tier" class="form-select">
+      {% for val, label in [('trial','Trial'),('standard','Standard'),('enterprise','Enterprise')] %}
+      <option value="{{ val }}" {% if p.tier == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold small">Status</label>
+    <div class="form-check form-switch mt-2">
+      <input class="form-check-input" type="checkbox" name="is_active" id="is_active" value="1"
+             {% if p.is_active %}checked{% endif %}>
+      <label class="form-check-label fw-semibold small" for="is_active">Active</label>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <label class="form-label fw-semibold small">Accepted Content Types</label>
+    <div class="d-flex flex-wrap gap-3">
+      {% for key, label in project_type_labels.items() %}
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="accepted_types" value="{{ key }}"
+               id="at_{{ key }}" {% if key in p.accepted_types_list %}checked{% endif %}>
+        <label class="form-check-label small" for="at_{{ key }}">{{ label }}</label>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="col-12 d-flex gap-2">
+    <button type="submit" class="btn btn-primary fw-semibold px-4">Save Changes</button>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">Cancel</a>
+  </div>
+
+</form>
+{% endblock %}

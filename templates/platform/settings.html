@@ -41,7 +41,7 @@
     <p class="text-muted small mb-3">Select the template that matches your platform type. It will auto-fill the form configuration and negotiation positions below — you can customize before saving.</p>
     <div class="row g-3">
       {% for key, preset in form_presets.items() %}
-      <div class="col-sm-6 col-lg-4">
+      <div class="col-12 col-sm-6 col-lg-4">
         <button type="button" class="btn btn-outline-secondary w-100 text-start p-3 h-100 preset-btn"
                 data-preset="{{ key }}" style="line-height:1.4;">
           <div class="fw-semibold small text-navy">{{ preset.label }}</div>
@@ -63,7 +63,7 @@
 
       <!-- Territory -->
       <div class="row g-3 align-items-end mb-4">
-        <div class="col-md-5">
+        <div class="col-12 col-md-5">
           <label class="form-label fw-semibold small">Default Territory</label>
           <select name="form_territory" id="form_territory" class="form-select">
             <option value="">— No default (submitter chooses) —</option>
@@ -72,7 +72,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
           <div class="form-check form-switch mt-1">
             <input class="form-check-input" type="checkbox" name="form_territory_locked" id="form_territory_locked" value="1"
                    {% if platform.form_territory_locked %}checked{% endif %}>
@@ -118,7 +118,7 @@
                  placeholder="Position name" value="{{ pos.get('label', rank_labels[i]) }}">
         </div>
         <div class="row g-2 mb-2">
-          <div class="col-md-3">
+          <div class="col-12 col-md-3">
             <label class="form-label small text-muted mb-1">Territory</label>
             <select name="pos_{{ i }}_territory" class="form-select form-select-sm pos-territory">
               <option value="">— Select —</option>
@@ -127,7 +127,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-3">
+          <div class="col-12 col-md-3">
             <label class="form-label small text-muted mb-1">Term</label>
             <select name="pos_{{ i }}_term" class="form-select form-select-sm">
               <option value="">— Select —</option>
@@ -136,7 +136,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-6">
+          <div class="col-12 col-md-6">
             <label class="form-label small text-muted mb-1">Intended Uses</label>
             <div class="d-flex flex-wrap gap-2">
               {% for key, label in intended_use_options %}

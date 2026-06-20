@@ -5,7 +5,7 @@
 <!-- Hero -->
 <div class="hero rounded-3 p-5 mb-5">
   <div class="row align-items-center g-4">
-    <div class="col-lg-8">
+    <div class="col-12 col-lg-8">
       <div class="small fw-semibold mb-2 opacity-75" style="letter-spacing:.12em;">CLEARED.LIVE PLATFORM</div>
       <h1 class="display-5 fw-bold mb-3">
         Rights clearance infrastructure<br>for media platforms.
@@ -42,7 +42,7 @@
     ('bi-play-circle', '3', 'Go Live', 'When every item is green, one click releases the project. A webhook fires to your content system automatically — no spreadsheet handoff.'),
   ] %}
   {% for icon, num, title, desc in steps %}
-  <div class="col-md-4">
+  <div class="col-12 col-md-4">
     <div class="card border-0 shadow-sm h-100">
       <div class="card-body p-4">
         <div class="d-flex align-items-center gap-3 mb-3">
@@ -71,7 +71,7 @@
         ('bi-mic',               'Podcasts',     'Guest releases, music clearance, sponsor disclosures, distribution rights.'),
       ] %}
       {% for icon, name, desc in types %}
-      <div class="col-sm-6 col-lg-4">
+      <div class="col-12 col-sm-6 col-lg-4">
         <div class="d-flex gap-3 align-items-start">
           <i class="bi {{ icon }} fs-5 text-navy mt-1"></i>
           <div>
@@ -94,7 +94,7 @@
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body p-4">
       <div class="row align-items-center g-3">
-        <div class="col-lg-8">
+        <div class="col-12 col-lg-8">
           <div class="small fw-semibold text-navy opacity-75 mb-1" style="letter-spacing:.08em;">SUBMITTING THROUGH A CONNECTED PLATFORM</div>
           <h5 class="fw-bold text-navy mb-1">$150 – $300 processing fee</h5>
           <p class="text-muted small mb-0">
@@ -104,7 +104,7 @@
             The clearance itself is covered by the platform.
           </p>
         </div>
-        <div class="col-lg-4 text-lg-end">
+        <div class="col-12 col-lg-4 text-lg-end">
           <button onclick="document.getElementById('platforms').scrollIntoView({behavior:'smooth'})" class="btn btn-outline-dark">Find Your Platform <i class="bi bi-arrow-down ms-1"></i></button>
         </div>
       </div>
@@ -122,7 +122,7 @@
       </p>
       <div class="row g-3">
         {% for key, tier in pricing_tiers.items() %}
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
           <div class="card border-0 shadow-sm h-100 {% if key == 'standard' %}border-2 border-warning{% endif %}">
             {% if key == 'standard' %}
             <div class="card-header bg-warning text-dark text-center py-2 small fw-semibold">Most Common</div>
@@ -163,7 +163,7 @@
   <p class="text-muted mb-4">Submit your project to any platform below.</p>
   <div class="row g-3">
     {% for p in platforms %}
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-12 col-sm-6 col-lg-3">
       <div class="card border-0 shadow-sm text-center p-4 h-100">
         <div class="fs-4 fw-bold mb-2" style="color:{{ p.primary_color }};">{{ p.logo_text or p.name }}</div>
         <div class="text-muted small mb-3">{{ p.name }}</div>

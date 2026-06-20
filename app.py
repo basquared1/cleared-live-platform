@@ -1286,6 +1286,41 @@ def admin_new_platform():
     )
 
 
+@app.route("/admin/platform/<int:platform_id>/edit", methods=["GET", "POST"])
+@require_admin
+def admin_edit_platform(platform_id):
+    p = Platform.query.get_or_404(platform_id)
+    if request.method == "POST":
+        p.name           = request.form.get("name", p.name).strip()
+        p.slug           = request.form.get("slug", p.slug).strip().lower().replace(" ", "-")
+        p.logo_text      = request.form.get("logo_text", "").strip() or None
+        p.primary_color  = request.form.get("primary_color", p.primary_color).strip()
+        p.ba_contact_name  = request.form.get("ba_contact_name", "").strip() or None
+        p.ba_contact_email = request.form.get("ba_contact_email", "").strip() or None
+        p.webhook_url    = request.form.get("webhook_url", "").strip() or None
+        p.tier           = request.form.get("tier", p.tier)
+        p.accepted_types = ",".join(request.form.getlist("accepted_types")) or p.accepted_types
+        p.is_active      = bool(request.form.get("is_active"))
+        db.session.commit()
+        flash(f"Platform '{p.name}' updated.", "success")
+        return redirect(url_for("admin_dashboard"))
+    return render_template("admin/edit_platform.html", p=p, project_type_labels=PROJECT_TYPE_LABELS)
+
+
+@app.route("/admin/platform/<int:platform_id>/delete", methods=["POST"])
+@require_admin
+def admin_delete_platform(platform_id):
+    p = Platform.query.get_or_404(platform_id)
+    name = p.name
+    if p.total_count > 0:
+        flash(f"Cannot delete '{name}' — it has {p.total_count} submissions. Deactivate it instead.", "danger")
+        return redirect(url_for("admin_dashboard"))
+    db.session.delete(p)
+    db.session.commit()
+    flash(f"Platform '{name}' deleted.", "success")
+    return redirect(url_for("admin_dashboard"))
+
+
 @app.route("/admin/submissions")
 @require_admin
 def admin_submissions():
