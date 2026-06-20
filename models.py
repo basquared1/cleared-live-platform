@@ -85,8 +85,8 @@ CLEARANCE_TEMPLATES = {
 
 PRICING_TIERS = {
     "basic":    {"label": "Basic",    "price": 500,  "desc": "Up to 5 clearance items. Single event or content piece."},
-    "standard": {"label": "Standard", "price": 1000, "desc": "6–15 clearance items. Live music or documentary."},
-    "complex":  {"label": "Complex",  "price": 2000, "desc": "16+ items. Major label, multi-territory, or multi-format."},
+    "standard": {"label": "Standard", "price": 1000, "desc": "6–15 clearance items. Most film, series, and live content."},
+    "complex":  {"label": "Complex",  "price": 2000, "desc": "16+ items. Multi-territory, multi-format, or complex rights stacks."},
 }
 
 TERRITORY_LABELS = {
