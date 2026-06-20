@@ -56,6 +56,7 @@
           <th class="small fw-semibold d-none d-md-table-cell">Project Hint</th>
           <th class="small fw-semibold d-none d-sm-table-cell">Sent</th>
           <th class="small fw-semibold">Status</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -71,6 +72,24 @@
             {% else %}
             <span class="badge bg-warning text-dark">Pending</span>
             {% endif %}
+          </td>
+          <td class="pe-3 text-end">
+            <div class="d-flex gap-1 justify-content-end">
+              {% if not inv.is_used %}
+              {% set invite_link = url_for('submit', platform_slug=platform.slug, invite=inv.token, _external=True) %}
+              <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                      onclick="navigator.clipboard.writeText('{{ invite_link }}').then(() => { this.innerHTML='<i class=\'bi bi-check\'></i>'; setTimeout(() => this.innerHTML='<i class=\'bi bi-link-45deg\'></i>', 1500) })"
+                      title="Copy invite link">
+                <i class="bi bi-link-45deg"></i>
+              </button>
+              {% endif %}
+              <form method="POST" action="{{ url_for('platform_delete_invite', invite_id=inv.id) }}"
+                    onsubmit="return confirm('Delete this invite for {{ inv.email }}?')">
+                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" title="Delete invite">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </div>
           </td>
         </tr>
         {% endfor %}

@@ -853,6 +853,17 @@ def platform_send_invite():
     return redirect(url_for("platform_dashboard"))
 
 
+@app.route("/platform/invites/<int:invite_id>/delete", methods=["POST"])
+@require_platform
+def platform_delete_invite(invite_id):
+    user   = current_platform_user()
+    invite = Invite.query.filter_by(id=invite_id, platform_id=user.platform.id).first_or_404()
+    db.session.delete(invite)
+    db.session.commit()
+    flash("Invite deleted.", "success")
+    return redirect(url_for("platform_invites"))
+
+
 @app.route("/platform/invites")
 @require_platform
 def platform_invites():
