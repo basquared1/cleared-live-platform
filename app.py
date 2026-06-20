@@ -839,7 +839,7 @@ def platform_send_invite():
         )
         try:
             _resend.Emails.send({
-                "from": "Cleared.live <clear@cleared.live>",
+                "from": "Cleared.live <clear@blisslegalstudio.com>",  # TODO: swap to clear@cleared.live once domain verified
                 "to": email,
                 "subject": f"You've been invited to submit a clearance request — {user.platform.name}",
                 "html": body,
