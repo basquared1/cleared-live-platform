@@ -1161,6 +1161,65 @@ def platform_reject_item(sub_id, item_id):
     return redirect(url_for("platform_project", sub_id=sub_id))
 
 
+@app.route("/platform/project/<int:sub_id>/add-item", methods=["POST"])
+@require_platform
+def platform_add_item(sub_id):
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    label    = request.form.get("item_label", "").strip()
+    category = request.form.get("item_category", "clearance")  # clearance | document | insurance
+    notes    = request.form.get("item_notes", "").strip()
+    gen_ai   = request.form.get("gen_ai") == "1"
+    if not label:
+        flash("Item label is required.", "danger")
+        return redirect(url_for("platform_project", sub_id=sub_id))
+    # Build a descriptive key from category + label
+    key = f"ba_added_{category}_{label[:40].lower().replace(' ','_')}"
+    max_priority = max((i.priority for i in sub.clearance_items), default=0)
+    item = ClearanceItem(
+        submission_id = sub.id,
+        item_key      = key,
+        item_label    = label,
+        priority      = max_priority + 1,
+        status        = "pending",
+        notes         = notes or None,
+    )
+    db.session.add(item)
+    db.session.commit()
+    if gen_ai:
+        import threading
+        def _draft():
+            with app.app_context():
+                it = ClearanceItem.query.get(item.id)
+                s  = Submission.query.get(sub.id)
+                prompt = (
+                    f"Draft a {category} agreement for: {label}.\n"
+                    f"Project: {s.title} ({s.project_type}) for {s.platform.name}.\n"
+                    f"Territory: {s.territory}. BA notes: {notes or 'none'}.\n"
+                    f"Use [BRACKETS] for party names, dates, and amounts to fill in. "
+                    f"Be concise and legally precise."
+                )
+                try:
+                    import anthropic
+                    client = anthropic.Anthropic(api_key=app.config.get("ANTHROPIC_API_KEY"))
+                    resp = client.messages.create(
+                        model="claude-sonnet-4-6",
+                        max_tokens=1500,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    it.ai_draft = resp.content[0].text
+                    db.session.commit()
+                except Exception as e:
+                    app.logger.error(f"AI draft for custom item failed: {e}")
+        threading.Thread(target=_draft, daemon=True).start()
+        flash(f"'{label}' added — AI draft generating in background (~30 sec).", "success")
+    else:
+        flash(f"'{label}' added to clearance checklist.", "success")
+    return redirect(url_for("platform_project", sub_id=sub_id))
+
+
 @app.route("/platform/project/<int:sub_id>/notes", methods=["POST"])
 @require_platform
 def platform_save_notes(sub_id):
