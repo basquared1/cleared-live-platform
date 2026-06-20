@@ -38,6 +38,7 @@
   </div>
 
   <form method="POST" action="{{ url_for('submit', platform_slug=platform.slug) }}" id="submitForm">
+    <input type="hidden" name="invite_token" value="{{ request.args.get('invite', '') }}">
 
     <!-- ───── STEP 1: Project Type ───── -->
     <div class="card border-0 shadow-sm mb-4">
@@ -387,7 +388,7 @@
                 data-bs-content="The name of the person submitting this request and who should receive updates. This doesn't have to be the artist — it can be a manager, label rep, attorney, or production coordinator.">
                 <i class="bi bi-info-circle"></i></button>
             </label>
-            <input type="text" name="submitter_name" class="form-control" required placeholder="First Last">
+            <input type="text" name="submitter_name" class="form-control" required placeholder="First Last" value="{{ invite.name if invite else '' }}">
           </div>
           <div class="col-md-6">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">
@@ -407,7 +408,7 @@
                 data-bs-content="Your private tracking link and any requests for additional information will be sent here. Use an email you check regularly.">
                 <i class="bi bi-info-circle"></i></button>
             </label>
-            <input type="email" name="submitter_email" class="form-control" required placeholder="you@company.com">
+            <input type="email" name="submitter_email" class="form-control" required placeholder="you@company.com" value="{{ invite.email if invite else '' }}">
           </div>
           <div class="col-md-6">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">

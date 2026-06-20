@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Invites — {{ platform.name }}{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('platform_dashboard') }}">
+      <span style="color:{{ platform.primary_color }}; font-weight:900; font-size:1.05rem;">{{ platform.logo_text or platform.name }}</span>
+      <span class="text-muted fw-normal" style="font-size:.8rem;">Clearance Portal</span>
+    </a>
+    <div class="ms-auto d-flex align-items-center gap-3">
+      <a href="{{ url_for('platform_guidelines') }}"
+         class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
+        <i class="bi bi-book"></i> Guidelines
+      </a>
+      <a href="{{ url_for('platform_dashboard') }}"
+         class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
+        <i class="bi bi-grid"></i> Dashboard
+      </a>
+      <button class="btn btn-sm btn-primary d-none d-md-inline-flex align-items-center gap-1"
+              data-bs-toggle="modal" data-bs-target="#inviteModal">
+        <i class="bi bi-envelope-plus"></i> Invite Submitter
+      </button>
+      <a href="{{ url_for('platform_logout') }}" class="btn btn-sm btn-outline-secondary">Logout</a>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h4 class="fw-bold text-navy mb-0">Submitter Invites</h4>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#inviteModal">
+    <i class="bi bi-envelope-plus me-1"></i>Invite Submitter
+  </button>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+{% if invites %}
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-4 small fw-semibold">Email</th>
+          <th class="small fw-semibold">Name</th>
+          <th class="small fw-semibold d-none d-md-table-cell">Project Hint</th>
+          <th class="small fw-semibold d-none d-sm-table-cell">Sent</th>
+          <th class="small fw-semibold">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invites %}
+        <tr>
+          <td class="ps-4 small">{{ inv.email }}</td>
+          <td class="small text-muted">{{ inv.name or '—' }}</td>
+          <td class="small text-muted d-none d-md-table-cell">{{ inv.project_hint or '—' }}</td>
+          <td class="small text-muted d-none d-sm-table-cell">{{ inv.created_at.strftime('%b %d, %Y') }}</td>
+          <td>
+            {% if inv.is_used %}
+            <span class="badge bg-success">Used</span>
+            {% else %}
+            <span class="badge bg-warning text-dark">Pending</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-envelope display-4 d-block mb-3 opacity-25"></i>
+  <p>No invites sent yet. Use "Invite Submitter" to get started.</p>
+</div>
+{% endif %}
+
+<!-- Invite Submitter Modal -->
+<div class="modal fade" id="inviteModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{{ url_for('platform_send_invite') }}">
+      <div class="modal-content">
+        <div class="modal-header border-0">
+          <h5 class="modal-title fw-bold">Invite a Submitter</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Email <span class="text-danger">*</span></label>
+            <input type="email" name="email" class="form-control" placeholder="producer@studio.com" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Their Name (optional)</label>
+            <input type="text" name="name" class="form-control" placeholder="Jane Smith">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Project Hint (optional)</label>
+            <input type="text" name="project_hint" class="form-control" placeholder="e.g. The After Party — Live at Red Rocks">
+            <div class="form-text">Shown in the invite email so they know what it's for.</div>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary fw-semibold"><i class="bi bi-send me-1"></i>Send Invite</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

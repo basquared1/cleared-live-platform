@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Invitation Required — {{ platform.name }}{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4" style="max-width:900px;">
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
+      Cleared<span class="text-warning">.</span>live
+    </a>
+    <div class="ms-auto">
+      <span class="badge rounded-pill px-3 py-2 fw-semibold" style="background:{{ platform.primary_color }};color:#fff;">
+        {{ platform.name }}
+      </span>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block content %}
+<div class="container py-5 text-center" style="max-width:520px;">
+  <div class="mb-4">
+    <i class="bi bi-envelope-lock display-3 text-muted"></i>
+  </div>
+  <h2 class="fw-bold text-navy mb-2">Invitation Required</h2>
+  <p class="text-muted mb-4">
+    This clearance portal is by invitation only.
+    If you've received an invite email from {{ platform.name }}, please use the link in that email to access the submission form.
+  </p>
+  <p class="text-muted small">
+    Need an invite? Contact <a href="mailto:{{ platform.ba_contact_email or 'clear@cleared.live' }}">{{ platform.ba_contact_email or 'clear@cleared.live' }}</a>.
+  </p>
+</div>
+{% endblock %}

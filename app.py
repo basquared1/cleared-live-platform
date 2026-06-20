@@ -27,7 +27,7 @@ def generate_password_hash(s):
 
 from models import (
     db, Platform, Submission, ClearanceItem, SubmissionDocument,
-    WebhookDelivery, PlatformUser, AdminUser, ClearanceGuideline,
+    WebhookDelivery, PlatformUser, AdminUser, ClearanceGuideline, Invite,
     CLEARANCE_TEMPLATES, PRICING_TIERS, PROJECT_TYPE_LABELS,
     TERRITORY_LABELS, INTENDED_USE_OPTIONS,
 )
@@ -619,6 +619,13 @@ def submit(platform_slug):
     platform = Platform.query.filter_by(slug=platform_slug, is_active=True).first_or_404()
 
     if request.method == "POST":
+        # Invite gate — POST
+        invite_token = request.form.get("invite_token", "").strip()
+        invite = Invite.query.filter_by(token=invite_token, platform_id=platform.id).first()
+        if not invite or invite.is_used:
+            flash("Invalid or already-used invite link. Please request a new invite.", "danger")
+            return redirect(url_for("submit", platform_slug=platform_slug))
+
         ptype    = request.form.get("project_type", "live_music")
         ptier    = request.form.get("pricing_tier", "standard")
         price_c  = PRICING_TIERS.get(ptier, PRICING_TIERS["standard"])["price"] * 100
@@ -665,9 +672,21 @@ def submit(platform_slug):
             ))
 
         db.session.commit()
+
+        # Mark invite as used
+        invite.used_at      = datetime.utcnow()
+        invite.submission_id = sub.id
+        db.session.commit()
+
         # Auto-draft agent: generate AI drafts in background immediately after submission
         threading.Thread(target=_auto_draft_agent, args=(sub.id,), daemon=True).start()
         return redirect(url_for("submit_confirm", token=sub.token))
+
+    # Invite gate — GET
+    invite_token = request.args.get("invite", "").strip()
+    invite = Invite.query.filter_by(token=invite_token, platform_id=platform.id).first() if invite_token else None
+    if not invite or invite.is_used:
+        return render_template("invite_required.html", platform=platform), 403
 
     # Public guidelines: keyed by project_type, only approved + show_to_submitters=True
     public_guidelines = {
@@ -680,6 +699,7 @@ def submit(platform_slug):
     return render_template(
         "submit.html",
         platform=platform,
+        invite=invite,
         pricing_tiers=PRICING_TIERS,
         project_type_labels=PROJECT_TYPE_LABELS,
         territory_labels=TERRITORY_LABELS,
@@ -781,6 +801,64 @@ def platform_login():
             return redirect(url_for("platform_dashboard"))
         flash("Invalid username or password.", "danger")
     return render_template("platform/login.html")
+
+
+@app.route("/platform/invite", methods=["POST"])
+@require_platform
+def platform_send_invite():
+    email        = request.form.get("email", "").strip().lower()
+    name         = request.form.get("name", "").strip()
+    project_hint = request.form.get("project_hint", "").strip()
+
+    if not email:
+        flash("Email is required.", "danger")
+        return redirect(url_for("platform_dashboard"))
+
+    user = current_platform_user()
+    invite = Invite(
+        platform_id  = user.platform.id,
+        email        = email,
+        name         = name or None,
+        project_hint = project_hint or None,
+    )
+    db.session.add(invite)
+    db.session.commit()
+
+    invite_url = url_for("submit", platform_slug=user.platform.slug, invite=invite.token, _external=True)
+
+    resend_key = os.getenv("RESEND_API_KEY")
+    if resend_key:
+        import resend as _resend
+        _resend.api_key = resend_key
+        body = (
+            f"<p>Hi{' ' + name if name else ''},</p>"
+            f"<p>{user.platform.name} has invited you to submit a rights clearance request via Cleared.live.</p>"
+            + (f"<p><strong>Project:</strong> {project_hint}</p>" if project_hint else "")
+            + f'<p><a href="{invite_url}" style="display:inline-block;padding:12px 24px;background:#0d3b6e;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Start Your Clearance Submission</a></p>'
+            + '<p style="color:#999;font-size:12px;">This link is personal to you and can only be used once. If you did not expect this invite, you can ignore this email.</p>'
+        )
+        try:
+            _resend.Emails.send({
+                "from": "Cleared.live <clear@cleared.live>",
+                "to": email,
+                "subject": f"You've been invited to submit a clearance request — {user.platform.name}",
+                "html": body,
+            })
+            flash(f"Invite sent to {email}.", "success")
+        except Exception as e:
+            flash(f"Invite created but email failed: {e}. Share this link manually: {invite_url}", "warning")
+    else:
+        flash(f"Invite created. Share this link with {email}: {invite_url}", "info")
+
+    return redirect(url_for("platform_dashboard"))
+
+
+@app.route("/platform/invites")
+@require_platform
+def platform_invites():
+    user    = current_platform_user()
+    invites = Invite.query.filter_by(platform_id=user.platform.id).order_by(Invite.created_at.desc()).all()
+    return render_template("platform/invites.html", invites=invites, platform=user.platform)
 
 
 @app.route("/platform/logout")
@@ -1597,6 +1675,26 @@ def migrate_db_cmd():
         except Exception as exc:
             conn.rollback()
             print(f"  platforms.platform_mode: {exc}")
+        # Create invites table if missing (invite-only gate)
+        try:
+            conn.execute(sa_text("""
+                CREATE TABLE IF NOT EXISTS invites (
+                    id            SERIAL PRIMARY KEY,
+                    platform_id   INTEGER NOT NULL REFERENCES platforms(id),
+                    email         VARCHAR(200) NOT NULL,
+                    name          VARCHAR(200),
+                    project_hint  VARCHAR(300),
+                    token         VARCHAR(100) UNIQUE NOT NULL,
+                    created_at    TIMESTAMP DEFAULT NOW(),
+                    used_at       TIMESTAMP,
+                    submission_id INTEGER REFERENCES submissions(id)
+                )
+            """))
+            conn.commit()
+            print("  invites table OK")
+        except Exception as exc:
+            conn.rollback()
+            print(f"  invites: {exc}")
         # Add public columns to existing clearance_guidelines table
         for col_name, col_type in [("public_content", "TEXT"), ("show_to_submitters", "BOOLEAN DEFAULT FALSE")]:
             try:

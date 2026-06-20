@@ -399,6 +399,26 @@ class AdminUser(db.Model):
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class Invite(db.Model):
+    __tablename__ = "invites"
+    id            = db.Column(db.Integer, primary_key=True)
+    platform_id   = db.Column(db.Integer, db.ForeignKey("platforms.id"), nullable=False)
+    email         = db.Column(db.String(200), nullable=False)
+    name          = db.Column(db.String(200))           # submitter name (optional hint)
+    project_hint  = db.Column(db.String(300))           # project name hint (optional)
+    token         = db.Column(db.String(100), unique=True, nullable=False, default=_gen_token)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    used_at       = db.Column(db.DateTime)
+    submission_id = db.Column(db.Integer, db.ForeignKey("submissions.id"))
+
+    platform   = db.relationship("Platform", backref="invites")
+    submission = db.relationship("Submission", backref="invite", uselist=False)
+
+    @property
+    def is_used(self):
+        return self.used_at is not None
+
+
 class ClearanceGuideline(db.Model):
     """One set of clearance guidelines per platform per project type."""
     __tablename__ = "clearance_guidelines"
