@@ -19,9 +19,9 @@
         <a href="mailto:clear@cleared.live" class="btn btn-warning fw-semibold px-4">
           Talk to Us <i class="bi bi-arrow-right ms-1"></i>
         </a>
-        <a href="#clear-yourself" class="btn btn-outline-light px-4">
+        <button onclick="document.getElementById('clear-yourself').scrollIntoView({behavior:'smooth'})" class="btn btn-outline-light px-4">
           Clear a Project Yourself <i class="bi bi-arrow-down ms-1"></i>
-        </a>
+        </button>
         <a href="{{ url_for('platform_login') }}" class="btn btn-outline-light px-4">
           Platform Login <i class="bi bi-box-arrow-in-right ms-1"></i>
         </a>
@@ -105,7 +105,7 @@
           </p>
         </div>
         <div class="col-lg-4 text-lg-end">
-          <a href="#platforms" class="btn btn-outline-dark">Find Your Platform <i class="bi bi-arrow-down ms-1"></i></a>
+          <button onclick="document.getElementById('platforms').scrollIntoView({behavior:'smooth'})" class="btn btn-outline-dark">Find Your Platform <i class="bi bi-arrow-down ms-1"></i></button>
         </div>
       </div>
     </div>
