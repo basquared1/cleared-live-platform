@@ -706,6 +706,66 @@ def track(token):
 
 
 # ---------------------------------------------------------------------------
+# Submitter — token-authenticated action routes (no login required)
+# ---------------------------------------------------------------------------
+
+@app.route("/track/<token>/item/<int:item_id>/start", methods=["POST"])
+def track_item_start(token, item_id):
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    item.status = "in_progress"
+    db.session.commit()
+    threading.Thread(target=_auto_outreach_agent, args=(item.id,), daemon=True).start()
+    return redirect(url_for("track", token=token))
+
+
+@app.route("/track/<token>/item/<int:item_id>/upload", methods=["POST"])
+def track_item_upload(token, item_id):
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    f = request.files.get("file")
+    if not f or not f.filename:
+        flash("No file selected.", "warning")
+        return redirect(url_for("track", token=token))
+    doc = SubmissionDocument(
+        submission_id     = sub.id,
+        clearance_item_id = item.id,
+        title             = f.filename,
+        doc_type          = "signed_document",
+        filename          = f.filename,
+        file_data         = f.read(),
+        mimetype          = f.mimetype or "application/octet-stream",
+        uploaded_by       = sub.submitter_name,
+    )
+    db.session.add(doc)
+    db.session.commit()
+    return redirect(url_for("track", token=token))
+
+
+@app.route("/track/<token>/item/<int:item_id>/submit-review", methods=["POST"])
+def track_item_submit_review(token, item_id):
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    item.status = "under_review"
+    db.session.commit()
+    # If all items are under_review, cleared, waived, or n_a — move submission to in_clearance
+    all_done = all(
+        i.status in ("under_review", "cleared", "waived", "n_a")
+        for i in sub.clearance_items
+    )
+    if all_done and sub.status not in ("cleared", "rejected"):
+        sub.status = "in_clearance"
+        db.session.commit()
+    return redirect(url_for("track", token=token))
+
+
+# ---------------------------------------------------------------------------
 # Platform BA — auth
 # ---------------------------------------------------------------------------
 
@@ -841,6 +901,57 @@ def platform_update_item(sub_id, item_id):
             "all_cleared": sub.is_fully_cleared,
         })
 
+    return redirect(url_for("platform_project", sub_id=sub_id))
+
+
+@app.route("/platform/project/<int:sub_id>/item/<int:item_id>/approve", methods=["POST"])
+@require_platform
+def platform_approve_item(sub_id, item_id):
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub_id:
+        abort(403)
+    item.status     = "cleared"
+    item.cleared_at = datetime.utcnow()
+    item.cleared_by = user.username
+    db.session.commit()
+
+    deliver_webhook(user.platform_id, sub.id, "item_updated", {
+        "event": "item_updated",
+        "submission_token": sub.token,
+        "item_key": item.item_key,
+        "item_status": item.status,
+        "progress_pct": sub.progress_pct,
+        "all_cleared": sub.is_fully_cleared,
+    })
+
+    if sub.is_fully_cleared and sub.status not in ("cleared", "rejected"):
+        sub.status     = "cleared"
+        sub.cleared_at = datetime.utcnow()
+        db.session.commit()
+        deliver_webhook(user.platform_id, sub.id, "clearance_complete", clearance_payload(sub))
+
+    return redirect(url_for("platform_project", sub_id=sub_id))
+
+
+@app.route("/platform/project/<int:sub_id>/item/<int:item_id>/reject", methods=["POST"])
+@require_platform
+def platform_reject_item(sub_id, item_id):
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub_id:
+        abort(403)
+    item.status = "in_progress"
+    reject_note = request.form.get("reject_note", "").strip()
+    if reject_note:
+        item.notes = reject_note
+    db.session.commit()
     return redirect(url_for("platform_project", sub_id=sub_id))
 
 
@@ -1427,7 +1538,11 @@ def create_ba_user_cmd(platform_slug, username, password):
 
 @app.cli.command("migrate-db")
 def migrate_db_cmd():
-    """Add new columns and tables (safe to re-run)."""
+    """Add new columns and tables (safe to re-run).
+
+    ClearanceItem.status now supports: pending | in_progress | under_review | cleared | waived | n_a
+    No DB schema change needed for 'under_review' — it uses the existing VARCHAR status column.
+    """
     item_cols = [
         ("ai_draft",             "TEXT"),
         ("ai_deal_points",       "TEXT"),

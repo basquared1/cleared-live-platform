@@ -284,7 +284,7 @@ class ClearanceItem(db.Model):
     item_label    = db.Column(db.String(300), nullable=False)
     priority      = db.Column(db.Integer, default=99)
     status        = db.Column(db.String(30), default="pending")
-    # pending | in_progress | cleared | waived | n_a
+    # pending | in_progress | under_review | cleared | waived | n_a
     party_name    = db.Column(db.String(200))
     party_email   = db.Column(db.String(200))
     assigned_to   = db.Column(db.String(200))
@@ -305,31 +305,34 @@ class ClearanceItem(db.Model):
     @property
     def status_label(self):
         return {
-            "pending":     "Pending",
-            "in_progress": "In Progress",
-            "cleared":     "Cleared",
-            "waived":      "Waived",
-            "n_a":         "N/A",
+            "pending":      "Pending",
+            "in_progress":  "In Progress",
+            "under_review": "Under Review",
+            "cleared":      "Cleared",
+            "waived":       "Waived",
+            "n_a":          "N/A",
         }.get(self.status, self.status.title())
 
     @property
     def status_color(self):
         return {
-            "pending":     "warning",
-            "in_progress": "info",
-            "cleared":     "success",
-            "waived":      "secondary",
-            "n_a":         "light",
+            "pending":      "warning",
+            "in_progress":  "info",
+            "under_review": "primary",
+            "cleared":      "success",
+            "waived":       "secondary",
+            "n_a":          "light",
         }.get(self.status, "secondary")
 
     @property
     def status_icon(self):
         return {
-            "pending":     "bi-clock",
-            "in_progress": "bi-arrow-repeat",
-            "cleared":     "bi-check-circle-fill",
-            "waived":      "bi-slash-circle",
-            "n_a":         "bi-dash-circle",
+            "pending":      "bi-clock",
+            "in_progress":  "bi-arrow-repeat",
+            "under_review": "bi-hourglass-split",
+            "cleared":      "bi-check-circle-fill",
+            "waived":       "bi-slash-circle",
+            "n_a":          "bi-dash-circle",
         }.get(self.status, "bi-circle")
 
     @property
