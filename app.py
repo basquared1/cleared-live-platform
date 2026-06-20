@@ -1082,10 +1082,12 @@ def platform_ai_draft_all(sub_id):
     if not os.getenv("ANTHROPIC_API_KEY"):
         flash("ANTHROPIC_API_KEY not configured in Render environment.", "danger")
         return redirect(url_for("platform_project", sub_id=sub_id))
+    # Force-regenerate all drafts in background (clears existing so agent rewrites them)
     for item in sub.clearance_items:
-        item.ai_draft = generate_draft(sub, item)
+        item.ai_draft = None
     db.session.commit()
-    flash(f"AI drafts generated for all {len(sub.clearance_items)} clearance items.", "success")
+    threading.Thread(target=_auto_draft_agent, args=(sub.id,), daemon=True).start()
+    flash(f"Regenerating {len(sub.clearance_items)} AI drafts in background — refresh in ~60 seconds.", "info")
     return redirect(url_for("platform_project", sub_id=sub_id))
 
 
