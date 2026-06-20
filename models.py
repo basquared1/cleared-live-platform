@@ -205,6 +205,7 @@ class Submission(db.Model):
     status              = db.Column(db.String(30), default="submitted")
     # submitted | in_review | in_clearance | cleared | rejected
     ba_notes            = db.Column(db.Text)    # internal only
+    songs_json          = db.Column(db.Text)    # JSON list of song dicts for live_music
 
     created_at          = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at          = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -218,6 +219,20 @@ class Submission(db.Model):
         "SubmissionDocument", backref="submission", lazy=True, cascade="all, delete-orphan"
     )
     deliveries = db.relationship("WebhookDelivery", backref="submission", lazy=True)
+
+    @property
+    def songs(self):
+        import json
+        if not self.songs_json:
+            return []
+        try:
+            return json.loads(self.songs_json)
+        except Exception:
+            return []
+
+    def songs_save(self, songs_list):
+        import json
+        self.songs_json = json.dumps(songs_list)
 
     @property
     def project_type_label(self):

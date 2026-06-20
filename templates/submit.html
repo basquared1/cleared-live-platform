@@ -186,15 +186,19 @@
           <div class="field-group-label">The Setlist</div>
           <div class="mb-3">
             <label class="form-label fw-semibold small d-flex align-items-center gap-2">
-              Setlist <span class="text-muted fw-normal">(one song per line)</span>
+              Setlist <span class="text-muted fw-normal">(one song per line — optional)</span>
               <button type="button" class="btn-info-bubble" data-bs-toggle="popover"
                 data-bs-title="Setlist"
-                data-bs-content="List every song that will appear in the content, one per line. This is critical — each song may have different rights holders, and we need to clear each one individually. Be as complete as possible. If songs were performed but won't be in the final cut, note that in the Notes field.">
+                data-bs-content="If you know the setlist, enter it here. If you leave it blank, AI will research the setlist for you based on the artist and event info. You can review and edit the AI-found setlist in your workspace.">
                 <i class="bi bi-info-circle"></i></button>
             </label>
             <textarea name="setlist" class="form-control" rows="5"
-                      placeholder="Anti-Hero&#10;Shake It Off&#10;Blank Space&#10;Love Story&#10;..."></textarea>
-            <div class="form-text"><i class="bi bi-exclamation-circle me-1"></i>Each song needs separate clearance. The more complete your setlist, the faster we can start.</div>
+                      placeholder="Anti-Hero&#10;Shake It Off&#10;Blank Space&#10;Love Story&#10;...&#10;&#10;Leave blank — AI will find the setlist for you."></textarea>
+            <div class="form-text">
+              <i class="bi bi-stars text-warning me-1"></i>
+              <strong>Leave blank</strong> and AI will research the setlist, writers, and publishers automatically.
+              Or enter it yourself if you know it.
+            </div>
           </div>
         </div>
 

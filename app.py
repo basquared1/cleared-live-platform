@@ -746,6 +746,9 @@ def submit(platform_slug):
 
         # Auto-draft agent: generate AI drafts in background immediately after submission
         threading.Thread(target=_auto_draft_agent, args=(sub.id,), daemon=True).start()
+        # For live music: AI finds setlist + publisher info in background
+        if sub.project_type == "live_music":
+            threading.Thread(target=_ai_fill_songs, args=(sub.id,), daemon=True).start()
         return redirect(url_for("submit_confirm", token=sub.token))
 
     # Invite gate — GET
@@ -861,6 +864,119 @@ def track_item_save_draft(token, item_id):
     db.session.commit()
     flash("Draft saved.", "success")
     return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+def _ai_fill_songs(sub_id):
+    """Background: find setlist + writer/publisher info for a live_music submission."""
+    import json, threading
+    with app.app_context():
+        sub = Submission.query.get(sub_id)
+        if not sub or sub.project_type != "live_music":
+            return
+        existing = sub.setlist_list or []
+        prompt = (
+            f"You are a music rights research assistant.\n"
+            f"Artist: {sub.artist_name or 'Unknown'}\n"
+            f"Event: {sub.event_name or sub.title}\n"
+            f"Venue: {sub.venue or 'Unknown'}\n"
+            f"Date: {sub.event_date or 'Unknown'}\n"
+            f"Known setlist (may be empty): {', '.join(existing) if existing else 'not provided'}\n\n"
+            f"Task:\n"
+            f"1. If no setlist is provided, use your knowledge to identify the most likely setlist "
+            f"for this event (or a typical recent setlist for this artist). Mark confidence: high/medium/low.\n"
+            f"2. For each song, identify: songwriter(s), publishing company, PRO (ASCAP/BMI/SESAC/SOCAN), "
+            f"and whether it is a cover (if so, note the original artist).\n"
+            f"3. Return ONLY a JSON array. No prose. Each element:\n"
+            f'{{"title": str, "writer": str, "publisher": str, "pro": str, '
+            f'"split_pct": number (100 if sole writer), "is_cover": bool, '
+            f'"original_artist": str or null, "confidence": "high"|"medium"|"low", "status": "pending"}}\n'
+            f"Return the array only."
+        )
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=app.config.get("ANTHROPIC_API_KEY"))
+            resp = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=4000,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            text = resp.content[0].text.strip()
+            # Strip markdown fences if present
+            if text.startswith("```"):
+                text = "\n".join(text.split("\n")[1:])
+                if text.endswith("```"):
+                    text = text[:-3].strip()
+            songs = json.loads(text)
+            sub.songs_save(songs)
+            # If setlist was blank, populate it from AI result
+            if not sub.setlist:
+                sub.setlist = "\n".join(s["title"] for s in songs)
+            db.session.commit()
+            app.logger.info(f"AI songs filled for submission {sub_id}: {len(songs)} songs")
+        except Exception as e:
+            app.logger.error(f"AI song fill failed for sub {sub_id}: {e}")
+
+
+@app.route("/track/<token>/ai-fill-songs", methods=["POST"])
+def track_ai_fill_songs(token):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    import threading
+    threading.Thread(target=_ai_fill_songs, args=(sub.id,), daemon=True).start()
+    flash("AI is researching your setlist and publisher info — refresh in about 30 seconds.", "info")
+    return redirect(url_for("track", token=token))
+
+
+@app.route("/track/<token>/songs/add", methods=["POST"])
+def track_song_add(token):
+    import json
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    songs = sub.songs
+    songs.append({
+        "title":          request.form.get("title", "").strip(),
+        "writer":         request.form.get("writer", "").strip(),
+        "publisher":      request.form.get("publisher", "").strip(),
+        "pro":            request.form.get("pro", "").strip(),
+        "split_pct":      100,
+        "is_cover":       request.form.get("is_cover") == "1",
+        "original_artist": request.form.get("original_artist", "").strip() or None,
+        "confidence":     "manual",
+        "status":         "pending",
+    })
+    sub.songs_save(songs)
+    db.session.commit()
+    return redirect(url_for("track", token=token) + "#songs-section")
+
+
+@app.route("/track/<token>/songs/delete/<int:idx>", methods=["POST"])
+def track_song_delete(token, idx):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    songs = sub.songs
+    if 0 <= idx < len(songs):
+        songs.pop(idx)
+        sub.songs_save(songs)
+        db.session.commit()
+    return redirect(url_for("track", token=token) + "#songs-section")
+
+
+@app.route("/track/<token>/songs/update/<int:idx>", methods=["POST"])
+def track_song_update(token, idx):
+    import json
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    songs = sub.songs
+    if 0 <= idx < len(songs):
+        songs[idx].update({
+            "title":          request.form.get("title", songs[idx].get("title", "")),
+            "writer":         request.form.get("writer", ""),
+            "publisher":      request.form.get("publisher", ""),
+            "pro":            request.form.get("pro", ""),
+            "split_pct":      int(request.form.get("split_pct", 100)),
+            "is_cover":       request.form.get("is_cover") == "1",
+            "original_artist": request.form.get("original_artist", "") or None,
+            "status":         request.form.get("status", songs[idx].get("status", "pending")),
+        })
+        sub.songs_save(songs)
+        db.session.commit()
+    return redirect(url_for("track", token=token) + "#songs-section")
 
 
 # ---------------------------------------------------------------------------
@@ -1955,6 +2071,16 @@ def migrate_db_cmd():
             except Exception as exc:
                 conn.rollback()
                 print(f"  platforms.{col_name}: {exc}")
+        # Add songs_json to submissions
+        try:
+            conn.execute(sa_text(
+                "ALTER TABLE submissions ADD COLUMN IF NOT EXISTS songs_json TEXT"
+            ))
+            conn.commit()
+            print("  submissions.songs_json OK")
+        except Exception as exc:
+            conn.rollback()
+            print(f"  submissions.songs_json: {exc}")
     print("Migration complete.")
 
 

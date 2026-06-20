@@ -312,6 +312,173 @@
     {% endfor %}
   </div>
 
+  <!-- Songs & Publishing (live_music only) -->
+  {% if sub.project_type == 'live_music' %}
+  <div class="card border-0 shadow-sm mb-4" id="songs-section">
+    <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="fw-semibold text-navy small">
+        <i class="bi bi-music-note-list me-2"></i>Songs &amp; Publishing
+        {% if sub.songs %}<span class="badge bg-light text-dark border ms-1">{{ sub.songs|length }} songs</span>{% endif %}
+      </div>
+      <div class="d-flex gap-2">
+        <form method="POST" action="{{ url_for('track_ai_fill_songs', token=sub.token) }}">
+          <button type="submit" class="btn btn-sm btn-outline-warning fw-semibold">
+            <i class="bi bi-stars me-1"></i>{% if sub.songs %}Re-research{% else %}AI Find Setlist &amp; Publishers{% endif %}
+          </button>
+        </form>
+        <button class="btn btn-sm btn-outline-primary" type="button"
+                data-bs-toggle="collapse" data-bs-target="#add-song-form">
+          <i class="bi bi-plus me-1"></i>Add Song
+        </button>
+      </div>
+    </div>
+
+    <!-- Add song form -->
+    <div class="collapse" id="add-song-form">
+      <form method="POST" action="{{ url_for('track_song_add', token=sub.token) }}"
+            class="p-3 border-bottom bg-light">
+        <div class="row g-2 align-items-end">
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Song Title *</label>
+            <input type="text" name="title" class="form-control form-control-sm" required>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Writer(s)</label>
+            <input type="text" name="writer" class="form-control form-control-sm" placeholder="e.g. Noah Kahan">
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Publisher</label>
+            <input type="text" name="publisher" class="form-control form-control-sm" placeholder="e.g. Sony Music Publishing">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small fw-semibold mb-1">PRO</label>
+            <select name="pro" class="form-select form-select-sm">
+              <option value="">—</option>
+              <option>ASCAP</option><option>BMI</option><option>SESAC</option><option>SOCAN</option><option>PRS</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-1">
+            <button type="submit" class="btn btn-sm btn-primary w-100">Add</button>
+          </div>
+        </div>
+        <div class="mt-2">
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" name="is_cover" value="1" id="is_cover_add">
+            <label class="form-check-label small" for="is_cover_add">Cover song</label>
+          </div>
+          <input type="text" name="original_artist" class="form-control form-control-sm d-inline-block ms-2"
+                 placeholder="Original artist" style="max-width:180px;">
+        </div>
+      </form>
+    </div>
+
+    {% if not sub.songs %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-stars fs-2 d-block mb-2 text-warning opacity-50"></i>
+      <div class="small">Click <strong>AI Find Setlist &amp; Publishers</strong> to auto-populate,<br>
+      or add songs manually above.</div>
+    </div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3" style="width:2rem;">#</th>
+            <th>Title</th>
+            <th class="d-none d-md-table-cell">Writer(s)</th>
+            <th class="d-none d-md-table-cell">Publisher</th>
+            <th class="d-none d-sm-table-cell" style="width:5rem;">PRO</th>
+            <th style="width:5rem;">Status</th>
+            <th style="width:3rem;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for song in sub.songs %}
+          <tr id="song-row-{{ loop.index0 }}">
+            <td class="ps-3 text-muted small">{{ loop.index }}</td>
+            <td>
+              <span class="fw-semibold small">{{ song.title }}</span>
+              {% if song.is_cover %}
+              <span class="badge bg-light text-dark border ms-1" style="font-size:.65rem;">
+                Cover{% if song.original_artist %} — {{ song.original_artist }}{% endif %}
+              </span>
+              {% endif %}
+              {% if song.confidence == 'low' %}
+              <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;" title="AI-researched, low confidence — verify">
+                <i class="bi bi-exclamation-triangle"></i>
+              </span>
+              {% endif %}
+            </td>
+            <td class="d-none d-md-table-cell small text-muted">{{ song.writer or '—' }}</td>
+            <td class="d-none d-md-table-cell small text-muted">{{ song.publisher or '—' }}</td>
+            <td class="d-none d-sm-table-cell small text-muted">{{ song.pro or '—' }}</td>
+            <td>
+              <span class="badge {% if song.status == 'cleared' %}bg-success{% elif song.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %} small">
+                {{ (song.status or 'pending').title() }}
+              </span>
+            </td>
+            <td>
+              <button class="btn btn-link btn-sm p-0 text-muted"
+                      data-bs-toggle="collapse" data-bs-target="#song-edit-{{ loop.index0 }}">
+                <i class="bi bi-pencil"></i>
+              </button>
+            </td>
+          </tr>
+          <!-- Inline edit row -->
+          <tr class="collapse" id="song-edit-{{ loop.index0 }}">
+            <td colspan="7" class="p-3 bg-light">
+              <form method="POST" action="{{ url_for('track_song_update', token=sub.token, idx=loop.index0) }}"
+                    class="row g-2 align-items-end">
+                <input type="hidden" name="title" value="{{ song.title }}">
+                <div class="col-12 col-md-3">
+                  <label class="form-label small mb-1">Writer(s)</label>
+                  <input type="text" name="writer" class="form-control form-control-sm" value="{{ song.writer or '' }}">
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="form-label small mb-1">Publisher</label>
+                  <input type="text" name="publisher" class="form-control form-control-sm" value="{{ song.publisher or '' }}">
+                </div>
+                <div class="col-6 col-md-2">
+                  <label class="form-label small mb-1">PRO</label>
+                  <select name="pro" class="form-select form-select-sm">
+                    {% for opt in ['', 'ASCAP', 'BMI', 'SESAC', 'SOCAN', 'PRS'] %}
+                    <option {% if song.pro == opt %}selected{% endif %}>{{ opt if opt else '—' }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-6 col-md-2">
+                  <label class="form-label small mb-1">Status</label>
+                  <select name="status" class="form-select form-select-sm">
+                    {% for s in ['pending', 'cleared'] %}
+                    <option value="{{ s }}" {% if song.status == s %}selected{% endif %}>{{ s.title() }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-12 col-md-2 d-flex gap-1">
+                  <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary"
+                          data-bs-toggle="collapse" data-bs-target="#song-edit-{{ loop.index0 }}">Cancel</button>
+                  <form method="POST" action="{{ url_for('track_song_delete', token=sub.token, idx=loop.index0) }}"
+                        onsubmit="return confirm('Remove {{ song.title }}?')" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                  </form>
+                </div>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="px-3 py-2 border-top small text-muted">
+      <i class="bi bi-info-circle me-1"></i>
+      Publisher info is AI-researched — verify against ASCAP/BMI database before sending clearance requests.
+      <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;"><i class="bi bi-exclamation-triangle"></i></span> = low confidence.
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <!-- Project details -->
   <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-light border-0 py-3">

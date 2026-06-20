@@ -519,6 +519,61 @@
     </div>
     {% endif %}
 
+    <!-- Songs & Publishing (live_music) -->
+    {% if sub.project_type == 'live_music' %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+        <div class="fw-semibold text-navy small">
+          <i class="bi bi-music-note-list me-2"></i>Songs &amp; Publishing
+          {% if sub.songs %}<span class="badge bg-light text-dark border ms-1">{{ sub.songs|length }}</span>{% endif %}
+        </div>
+      </div>
+      {% if not sub.songs %}
+      <div class="card-body py-3 px-4 text-muted small">
+        AI is researching the setlist — check back in ~60 seconds, or submitter can trigger it from their workspace.
+      </div>
+      {% else %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3" style="width:2rem;">#</th>
+              <th>Title</th>
+              <th>Writer(s)</th>
+              <th>Publisher</th>
+              <th style="width:5rem;">PRO</th>
+              <th style="width:6rem;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for song in sub.songs %}
+            <tr>
+              <td class="ps-3 text-muted small">{{ loop.index }}</td>
+              <td>
+                <span class="small fw-semibold">{{ song.title }}</span>
+                {% if song.is_cover %}<span class="badge bg-light text-dark border ms-1" style="font-size:.65rem;">Cover</span>{% endif %}
+                {% if song.confidence == 'low' %}<span class="text-warning ms-1" title="Low confidence — verify"><i class="bi bi-exclamation-triangle-fill" style="font-size:.7rem;"></i></span>{% endif %}
+              </td>
+              <td class="small text-muted">{{ song.writer or '—' }}</td>
+              <td class="small text-muted">{{ song.publisher or '—' }}</td>
+              <td class="small text-muted">{{ song.pro or '—' }}</td>
+              <td>
+                <span class="badge {% if song.status == 'cleared' %}bg-success{% elif song.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %} small">
+                  {{ (song.status or 'pending').title() }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="px-3 py-2 border-top small text-muted">
+        <i class="bi bi-info-circle me-1"></i>Publisher data is AI-researched. Verify via ASCAP/BMI before issuing clearances.
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- BA Notes (internal) -->
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-header bg-white border-bottom py-3">
