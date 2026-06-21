@@ -1638,7 +1638,7 @@ setTimeout(() => location.reload(), 90000);
   }
 
   function fillBatch(start, soFar) {
-    updateProgress(soFar, TOTAL);
+    updateProgress(Math.min(soFar, TOTAL), TOTAL);
     fetch('{{ url_for("track_fill_next_writers", token=sub.token) }}', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -1646,11 +1646,11 @@ setTimeout(() => location.reload(), 90000);
     })
     .then(r => r.json())
     .then(data => {
-      const nowDone = soFar + data.filled.length;
+      const nowDone = Math.min(soFar + data.filled.length, TOTAL);
       updateProgress(nowDone, TOTAL);
       if (data.done) {
         document.getElementById('writer-progress-text').textContent = 'Done! Reloading…';
-        setTimeout(() => location.reload(), 600);
+        setTimeout(() => location.reload(), 1200);
       } else {
         fillBatch(data.next, nowDone);
       }
