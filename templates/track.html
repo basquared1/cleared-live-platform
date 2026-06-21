@@ -404,9 +404,16 @@
                   <textarea name="notes" class="form-control form-control-sm" rows="2"
                             placeholder="Deal context, special conditions...">{{ idt.notes or '' }}</textarea>
                 </div>
-                <button type="submit" class="btn btn-sm btn-primary fw-semibold">
-                  <i class="bi bi-floppy me-1"></i>Save Deal Terms
-                </button>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                  <button type="submit" class="btn btn-sm btn-primary fw-semibold">
+                    <i class="bi bi-floppy me-1"></i>Save Deal Terms
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-warning"
+                          onclick="suggestDealTerms(this, '{{ item.item_label | replace("'","") }}')">
+                    <i class="bi bi-stars me-1"></i>AI Suggest Fee
+                  </button>
+                  <span></span>
+                </div>
               </form>
             </div>
           </div>
@@ -604,11 +611,16 @@
           <textarea name="notes" class="form-control form-control-sm" rows="2"
                     placeholder="Deal context, special conditions...">{{ sub.deal_terms.notes or '' }}</textarea>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
           <button type="submit" name="apply_to_all" value="1" class="btn btn-sm btn-warning fw-semibold">
             Apply to All Songs
           </button>
           <button type="submit" class="btn btn-sm btn-outline-secondary">Save Bulk Terms Only</button>
+          <button type="button" class="btn btn-sm btn-outline-warning"
+                  onclick="suggestDealTerms(this, 'music publishing rights — all songs')">
+            <i class="bi bi-stars me-1"></i>AI Suggest Fee
+          </button>
+          <span></span>
         </div>
       </form>
     </div>
@@ -924,7 +936,14 @@
               <textarea name="notes" class="form-control form-control-sm" rows="2"
                         placeholder="Deal context...">{{ dt.notes or '' }}</textarea>
             </div>
-            <button type="submit" class="btn btn-sm btn-primary">Save Deal Terms</button>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <button type="submit" class="btn btn-sm btn-primary">Save Deal Terms</button>
+              <button type="button" class="btn btn-sm btn-outline-warning"
+                      onclick="suggestDealTerms(this, '{{ song.title | replace("'","") }} — music publishing')">
+                <i class="bi bi-stars me-1"></i>AI Suggest Fee
+              </button>
+              <span></span>
+            </div>
           </form>
         </div>
 
@@ -1066,6 +1085,58 @@ function applyDealTerms(formEl, pos) {
 
 function applyAllMediaWWPerp(formEl) {
   applyDealTerms(formEl, {territory: 'worldwide', term: 'perpetuity', uses: ['all'], uses_exclude: []});
+}
+
+function suggestDealTerms(btn, itemLabel) {
+  var form = btn.closest('form');
+  var territory = (form.querySelector('[name="territory"]') || {}).value || '';
+  var term = (form.querySelector('[name="term"]') || {}).value || '';
+  var mediaRights = Array.from(form.querySelectorAll('[name="media_rights"]:checked')).map(function(c) { return c.value; });
+  var resultEl = btn.nextElementSibling;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Thinking…';
+  if (resultEl) resultEl.style.display = 'none';
+
+  var body = new URLSearchParams();
+  body.append('territory', territory);
+  body.append('term', term);
+  body.append('item_label', itemLabel || 'music publishing rights');
+  mediaRights.forEach(function(r) { body.append('media_rights', r); });
+
+  fetch('{{ url_for("track_suggest_deal_terms", token=sub.token) }}', {
+    method: 'POST', body: body,
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-stars me-1"></i>AI Suggest Fee';
+    if (data.error) {
+      if (resultEl) { resultEl.style.display = ''; resultEl.innerHTML = '<span class="text-danger small">' + data.error + '</span>'; }
+      return;
+    }
+    var feeInput = form.querySelector('[name="fee"]');
+    var feeTypeSel = form.querySelector('[name="fee_type"]');
+    var notesTA = form.querySelector('[name="notes"]');
+    if (feeInput && data.fee_suggested) feeInput.value = data.fee_suggested;
+    if (feeTypeSel && data.fee_type) feeTypeSel.value = data.fee_type;
+    if (notesTA && data.rationale) {
+      var existing = notesTA.value.trim();
+      notesTA.value = (existing ? existing + '\n\n' : '') + 'AI fee guidance: ' + data.rationale + (data.fee_low && data.fee_high ? ' Range: $' + data.fee_low + '–$' + data.fee_high + '.' : '');
+    }
+    if (resultEl) {
+      resultEl.style.display = '';
+      resultEl.innerHTML = '<div class="mt-2 p-2 rounded small" style="background:#f0fff4;border:1px solid #b7efc5;">'
+        + '<strong>Suggested: $' + data.fee_suggested + ' (' + (data.fee_type || '') + ')</strong>'
+        + ' &nbsp;<span class="text-muted">Range $' + data.fee_low + '–$' + data.fee_high + '</span><br>'
+        + '<span class="text-muted">' + (data.rationale || '') + '</span></div>';
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-stars me-1"></i>AI Suggest Fee';
+  });
 }
 
 function applyPositionByIndex(btn, idx) {

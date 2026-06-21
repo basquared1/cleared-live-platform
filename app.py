@@ -440,15 +440,17 @@ def generate_outreach(sub, item):
     """Generate a clearance outreach email."""
     if not os.getenv("ANTHROPIC_API_KEY"):
         return None
+    salutation = item.party_name if item.party_name else "[Rights Holder]"
     system = (
         f"You are a business affairs professional at {sub.platform.name}. "
         "You draft concise, professional outreach emails to rights holders requesting clearance. "
-        "Never include a subject line. Write 175–225 words."
+        "Never include a subject line. Write 175–225 words. "
+        "Do NOT use placeholder brackets like [Name] or [Rights Holder] — use the actual names provided."
     )
     user = (
         f"Write a professional clearance outreach email requesting a {item.item_label} for:\n"
         f"{_sub_context(sub)}\n\n"
-        f"Start with 'Dear [Rights Holder],'. State exactly what rights are being requested, "
+        f"Start with 'Dear {salutation},'. State exactly what rights are being requested, "
         f"for which project and platform, reference event details, request a response within 5 business days, "
         f"and close professionally from the {sub.platform.name} Business Affairs team."
     )
@@ -928,6 +930,56 @@ def track_item_save_draft(token, item_id):
     db.session.commit()
     flash("Draft saved.", "success")
     return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+@app.route("/track/<token>/suggest-deal-terms", methods=["POST"])
+def track_suggest_deal_terms(token):
+    from flask import jsonify
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        return jsonify({"error": "AI unavailable"}), 503
+
+    territory   = request.form.get("territory", "Worldwide")
+    term        = request.form.get("term", "Perpetuity")
+    media_rights = request.form.getlist("media_rights")
+    item_label  = request.form.get("item_label", "music publishing rights")
+    rights_str  = ", ".join(media_rights) if media_rights else "Streaming"
+
+    system = (
+        "You are a senior music business affairs executive with deep knowledge of music licensing fees. "
+        "Provide practical, market-rate fee guidance. Be specific with ranges. "
+        "Respond ONLY with valid JSON — no markdown, no explanation outside the JSON."
+    )
+    user = (
+        f"Suggest a market-rate licensing fee for the following clearance:\n\n"
+        f"Clearance type: {item_label}\n"
+        f"Project: {sub.title} ({sub.project_type_label})\n"
+        f"Platform: {sub.platform.name} ({sub.platform.tier} tier)\n"
+        f"Artist: {sub.artist_name or 'N/A'}\n"
+        f"Territory: {territory}\n"
+        f"Term: {term}\n"
+        f"Media Rights: {rights_str}\n\n"
+        f"Return JSON with these fields:\n"
+        f"  fee_low: integer (low end of range)\n"
+        f"  fee_high: integer (high end of range)\n"
+        f"  fee_suggested: integer (single recommended number)\n"
+        f"  fee_type: string (one of: Flat Fee, Per Song, Step Deal, Gratis)\n"
+        f"  rationale: string (2-3 sentences explaining the range and key factors)\n\n"
+        f"Base on real-world market rates for this type of clearance. "
+        f"If gratis is appropriate (e.g. promotional, label-to-label), say so with explanation."
+    )
+    raw = call_claude(system, user, max_tokens=400)
+    if not raw:
+        return jsonify({"error": "AI did not respond"}), 500
+    import json as _json
+    try:
+        # Strip any markdown fencing if model adds it
+        clean = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        data = _json.loads(clean)
+        return jsonify(data)
+    except Exception:
+        return jsonify({"error": "Could not parse AI response", "raw": raw}), 500
 
 
 @app.route("/track/<token>/item/<int:item_id>/deal-terms", methods=["POST"])
