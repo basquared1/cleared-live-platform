@@ -1289,7 +1289,8 @@ def _ai_fill_song_writers(sub_id, idx):
         artist = sub.artist_name or "Unknown"
         _pub = _get_publishing_notes(sub)
         publishing_ref = (
-            f"\nVERIFIED PUBLISHING REFERENCE (treat as ground truth):\n{_pub}\n"
+            f"\nVERIFIED PUBLISHING REFERENCE — use this to CORRECT specific writers/publishers "
+            f"mentioned, but still include ALL other credited co-writers for this song:\n{_pub}\n"
             if _pub else ""
         )
         prompt = (
@@ -1300,7 +1301,9 @@ def _ai_fill_song_writers(sub_id, idx):
             f"- List ONLY credited songwriters from BMI/ASCAP/SESAC records.\n"
             f"- Do NOT include featured performers as songwriters. Being on the recording ('feat.') "
             f"is NOT a writer credit.\n"
-            f"- If a VERIFIED PUBLISHING REFERENCE is provided, use those names and publishers exactly.\n"
+            f"- If a VERIFIED PUBLISHING REFERENCE is provided, use it to correct the publisher/PRO "
+            f"for any writers it mentions — but still research and include ALL other credited co-writers "
+            f"not mentioned in the reference. The reference corrects, it does not replace the full writer list.\n"
             f"- If uncertain about co-writers, list only the primary artist at 100% and mark low confidence "
             f"rather than guessing.\n\n"
             f"PUBLISHER FIELD — THIS IS THE MOST IMPORTANT RULE:\n"
