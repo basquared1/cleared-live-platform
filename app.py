@@ -968,33 +968,59 @@ def track_item_ai_suggest_contact(token, item_id):
         return jsonify({"error": "AI unavailable."}), 503
 
     system = (
-        "You are a music and entertainment industry clearance expert with deep knowledge of "
-        "rights clearance departments, licensing contacts, and standard industry email formats. "
+        "You are a music and entertainment industry clearance expert specializing in sync licensing. "
+        "Your job is to identify the correct PUBLISHING ADMINISTRATOR or rights holder that must be "
+        "contacted to obtain sync/master/clearance licenses. "
         "Respond ONLY with valid JSON — no markdown, no explanation outside the JSON."
     )
-    user = (
-        f"For a {item.item_label} clearance request, identify the correct clearance contact at:\n"
-        f"Company: {company}\n"
-        f"Project context: {sub.project_type_label} — {sub.title}\n"
-        f"Platform: {sub.platform.name}\n\n"
-        f"Return JSON with:\n"
-        f"  contact_name: string — department or person name (e.g. 'Licensing Department', 'Music Clearance')\n"
-        f"  contact_email: string — best clearance email for this company and request type\n"
-        f"  confidence: 'high' | 'medium' | 'low'\n"
-        f"  note: string — one sentence on why this contact / any caveat\n\n"
-        f"Use real known contacts where possible (e.g. Live Nation, ASCAP, BMI, major studios, "
-        f"major publishers, PROs, record labels). For unknown companies use standard formats like "
-        f"clearances@company.com or licensing@company.com. Never invent a specific person's name "
-        f"unless you are certain they handle clearances."
-    )
+    # Determine if this is a music clearance item — if so, treat company as artist/song context
+    is_music_item = any(k in (item.item_label or "").lower()
+                        for k in ("sync", "music", "master", "publishing", "song", "track", "record"))
+    if is_music_item:
+        user = (
+            f"Identify the publishing ADMINISTRATOR(S) that handle sync licensing for:\n"
+            f"Artist / Rights Holder: {company}\n"
+            f"Item type: {item.item_label}\n"
+            f"Project: {sub.project_type_label} — {sub.title} on {sub.platform.name}\n\n"
+            f"CRITICAL: Return the major publishing ADMINISTRATOR (Sony Music Publishing, UMPG, "
+            f"Warner Chappell, Kobalt, BMG, etc.) — NOT a personal publishing entity, NOT a record label.\n"
+            f"If the songs are CO-ADMINISTERED by multiple publishers, set co_admins to a list of all.\n\n"
+            f"Return JSON:\n"
+            f"  contact_name: string — sync licensing department name\n"
+            f"  contact_email: string — sync licensing email for the PRIMARY administrator\n"
+            f"  confidence: 'high' | 'medium' | 'low'\n"
+            f"  note: string — identify the administrator(s) and any MFN/co-admin considerations\n"
+            f"  co_admins: array of {{company, contact_email}} for any additional administrators that "
+            f"must ALSO be contacted — empty array [] if single publisher\n\n"
+            f"Examples of known contacts: Sony Music Publishing sync@sonymusic.com, "
+            f"Kobalt Music Publishing synclicensing@kobaltmusic.com, "
+            f"UMPG sync.licensing@umusic.com, Warner Chappell synclicensing@warnerchappell.com"
+        )
+    else:
+        user = (
+            f"For a {item.item_label} clearance request, identify the correct licensing contact at:\n"
+            f"Company: {company}\n"
+            f"Project context: {sub.project_type_label} — {sub.title}\n"
+            f"Platform: {sub.platform.name}\n\n"
+            f"Return JSON:\n"
+            f"  contact_name: string — department or person name\n"
+            f"  contact_email: string — best clearance/licensing email\n"
+            f"  confidence: 'high' | 'medium' | 'low'\n"
+            f"  note: string — one sentence on this contact\n"
+            f"  co_admins: [] (empty — only relevant for music publishing)\n\n"
+            f"Use real known contacts for Live Nation, AEG, major venues, studios, networks. "
+            f"For unknown companies use clearances@company.com or licensing@company.com format."
+        )
     import json as _json
-    raw = call_claude(system, user, max_tokens=300)
+    raw = call_claude(system, user, max_tokens=500)
     if not raw:
         return jsonify({"error": "AI did not respond."}), 500
     try:
         clean = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
         data = _json.loads(clean)
-        # Auto-save to item if high confidence
+        if "co_admins" not in data:
+            data["co_admins"] = []
+        # Auto-save primary contact to item if high confidence
         if data.get("confidence") == "high":
             item.party_company = company
             item.party_name    = data.get("contact_name") or item.party_name
@@ -1266,16 +1292,29 @@ def _ai_fill_song_writers(sub_id, idx):
             if _pub else ""
         )
         prompt = (
-            f"You are a music publishing rights research assistant.\n"
+            f"You are a music publishing rights research assistant specializing in sync licensing clearance.\n"
             f"Song: \"{title}\" by {artist}\n"
             f"{publishing_ref}\n"
-            f"RULES:\n"
+            f"CRITICAL RULES:\n"
             f"- List ONLY credited songwriters from BMI/ASCAP/SESAC records.\n"
             f"- Do NOT include featured performers as songwriters. Being on the recording ('feat.') "
             f"is NOT a writer credit.\n"
             f"- If a VERIFIED PUBLISHING REFERENCE is provided, use those names and publishers exactly.\n"
             f"- If uncertain about co-writers, list only the primary artist at 100% and mark low confidence "
-            f"rather than guessing.\n"
+            f"rather than guessing.\n\n"
+            f"PUBLISHER FIELD — THIS IS THE MOST IMPORTANT RULE:\n"
+            f"- The `publisher` field MUST be the SYNC LICENSING ADMINISTRATOR — the major publishing company "
+            f"that actually issues sync licenses, NOT the songwriter's personal publishing entity.\n"
+            f"- Valid administrators: Sony Music Publishing, Universal Music Publishing Group (UMPG), "
+            f"Warner Chappell Music, Kobalt Music Publishing, BMG Rights Management, Downtown Music Publishing, "
+            f"Concord Music Publishing, ole, Spirit Music Group, SONGS Music Publishing, etc.\n"
+            f"- NEVER return a songwriter's personal pub company (e.g. 'Bro Eye Music', 'Big Machine Records', "
+            f"'Republic Records') — always return the administrator behind it.\n"
+            f"- If a writer's share is CO-ADMINISTERED by two publishers (e.g., 50% Sony / 50% Kobalt), "
+            f"create TWO separate entries for that writer — one per administrator, each with half the split.\n"
+            f"  Example: writer at 50% split, co-admin: [{{'name':'Noah Kahan','publisher':'Sony Music Publishing',"
+            f"'pro':'BMI','split_pct':25}},{{'name':'Noah Kahan','publisher':'Kobalt Music Publishing',"
+            f"'pro':'BMI','split_pct':25}}]\n"
             f"- Use full publisher names (e.g. 'Kobalt Music Publishing', not 'Kobalt').\n\n"
             f"Return ONLY a JSON array — no prose, no markdown:\n"
             f'[{{"name": str, "publisher": str, "pro": "ASCAP"|"BMI"|"SESAC"|"SOCAN"|"PRS", "split_pct": number}}]\n'

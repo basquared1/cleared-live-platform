@@ -1246,6 +1246,23 @@ function aiSuggestContact(itemId, url) {
     if (data.contact_email) document.getElementById('party-email-' + itemId).value = data.contact_email;
 
     var confColor = data.confidence === 'high' ? 'success' : data.confidence === 'medium' ? 'warning' : 'secondary';
+    var coAdmins = data.co_admins || [];
+    var coAdminHtml = '';
+    if (coAdmins.length > 0) {
+      coAdminHtml = '<div class="mt-2 p-2 rounded" style="background:#fff3cd;border:1px solid #ffc107;">'
+        + '<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>'
+        + '<strong>Co-administered — contact ALL publishers:</strong><br>'
+        + '<ul class="mb-0 mt-1 ps-3">'
+        + '<li><strong>' + company + '</strong> &lt;' + (data.contact_email || '') + '&gt; (saved below)</li>'
+        + coAdmins.map(function(ca) {
+            return '<li><strong>' + ca.company + '</strong>'
+              + (ca.contact_email ? ' &lt;' + ca.contact_email + '&gt;' : '')
+              + ' — <em>create a separate clearance item</em></li>';
+          }).join('')
+        + '</ul>'
+        + '<div class="text-muted mt-1" style="font-size:.75rem;">Each publisher issues their own sync license. Submit MFN language to both simultaneously.</div>'
+        + '</div>';
+    }
     resultEl.style.display = '';
     resultEl.innerHTML = '<div class="p-2 rounded small" style="background:#f0fff4;border:1px solid #b7efc5;">'
       + '<span class="badge bg-' + confColor + ' me-2">' + (data.confidence || '') + '</span>'
@@ -1253,7 +1270,8 @@ function aiSuggestContact(itemId, url) {
       + (data.contact_email ? ' &lt;' + data.contact_email + '&gt;' : '')
       + (data.note ? '<br><span class="text-muted">' + data.note + '</span>' : '')
       + (data.confidence !== 'high' ? '<br><span class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Verify before sending — click Save to confirm.</span>' : ' <span class="text-muted small">(auto-saved)</span>')
-      + '</div>';
+      + '</div>'
+      + coAdminHtml;
   })
   .catch(function() {
     btn.disabled = false;
