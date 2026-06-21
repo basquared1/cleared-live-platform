@@ -897,6 +897,9 @@ def track_item_save_draft(token, item_id):
 def _ai_fill_songs(sub_id):
     """Background: find setlist + writer/publisher info for a live_music submission."""
     import json, threading
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        return
     with app.app_context():
         sub = Submission.query.get(sub_id)
         if not sub or sub.project_type != "live_music":
@@ -930,7 +933,7 @@ def _ai_fill_songs(sub_id):
         )
         try:
             import anthropic
-            client = anthropic.Anthropic(api_key=app.config.get("ANTHROPIC_API_KEY"))
+            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
             resp = client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=4000,
@@ -963,6 +966,9 @@ def _ai_fill_songs(sub_id):
 def _ai_fill_song_writers(sub_id, idx):
     """Background: fill writers for a single song by index."""
     import json
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        return
     with app.app_context():
         sub = Submission.query.get(sub_id)
         if not sub:
@@ -983,7 +989,7 @@ def _ai_fill_song_writers(sub_id, idx):
         )
         try:
             import anthropic
-            client = anthropic.Anthropic(api_key=app.config.get("ANTHROPIC_API_KEY"))
+            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
             resp = client.messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=1000,
@@ -1494,7 +1500,7 @@ def platform_add_item(sub_id):
                 )
                 try:
                     import anthropic
-                    client = anthropic.Anthropic(api_key=app.config.get("ANTHROPIC_API_KEY"))
+                    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
                     resp = client.messages.create(
                         model="claude-sonnet-4-6",
                         max_tokens=1500,
