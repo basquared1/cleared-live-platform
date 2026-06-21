@@ -985,13 +985,20 @@ def _ai_fill_songs(sub_id):
             app.logger.error(f"AI setlist phase 1 failed for sub {sub_id}: {e}")
             return
 
-        # ── Phase 2: fill writers per-song (uses publishing reference) ────────
-        songs = sub.songs
-        for idx in range(len(songs)):
+        # Phase 2 is triggered separately — see _ai_fill_all_writers
+
+
+def _ai_fill_all_writers(sub_id):
+    """Background: fill writers for every song sequentially (runs after setlist phase)."""
+    with app.app_context():
+        sub = Submission.query.get(sub_id)
+        if not sub:
+            return
+        for idx in range(len(sub.songs)):
             try:
                 _ai_fill_song_writers(sub_id, idx)
             except Exception as e:
-                app.logger.error(f"Writer fill failed for song {idx} in sub {sub_id}: {e}")
+                app.logger.error(f"Writer fill failed song {idx} sub {sub_id}: {e}")
 
 
 def _ai_fill_song_writers(sub_id, idx):
@@ -1056,7 +1063,11 @@ def _ai_fill_song_writers(sub_id, idx):
 @app.route("/track/<token>/ai-fill-songs", methods=["POST"])
 def track_ai_fill_songs(token):
     sub = Submission.query.filter_by(token=token).first_or_404()
+    # Phase 1 — setlist titles, synchronous (fast, ~3s)
     _ai_fill_songs(sub.id)
+    # Phase 2 — per-song writer research, background (avoids 30s timeout)
+    threading.Thread(target=_ai_fill_all_writers, args=(sub.id,), daemon=False).start()
+    flash("Setlist loaded — writers are filling in. Refresh in ~30 seconds.", "info")
     return redirect(url_for("track", token=token) + "#songs-section")
 
 

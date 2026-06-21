@@ -1039,8 +1039,14 @@ function copyOutreach(elId, btn) {
 }
 
 {% if sub.status not in ('cleared', 'rejected') %}
-// Auto-refresh every 90s while active
+{% set songs_missing_writers = sub.songs | selectattr('writers', 'equalto', []) | list %}
+{% if songs_missing_writers | length > 0 %}
+// Writers still filling — refresh every 20s
+setTimeout(() => location.reload(), 20000);
+{% else %}
+// Standard refresh every 90s
 setTimeout(() => location.reload(), 90000);
+{% endif %}
 {% endif %}
 </script>
 {% endblock %}
