@@ -519,7 +519,7 @@
         <div class="card-header bg-white py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
           <div class="fw-semibold small">
             <span class="text-muted me-1">#{{ loop.index }}</span>
-            {{ song.title }}
+            <span style="color:#0d3b6e; font-weight:700;">{{ song.title }}</span>
             {% if song.is_cover %}
             <span class="badge bg-light text-dark border ms-1" style="font-size:.65rem;">
               Cover{% if song.original_artist %} — {{ song.original_artist }}{% endif %}

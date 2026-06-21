@@ -903,7 +903,7 @@ def _ai_fill_songs(sub_id):
             return
         existing = sub.setlist_list or []
         prompt = (
-            f"You are a music rights research assistant.\n"
+            f"You are a music publishing rights research assistant with deep knowledge of BMI, ASCAP, and publisher databases.\n"
             f"Artist: {sub.artist_name or 'Unknown'}\n"
             f"Event: {sub.event_name or sub.title}\n"
             f"Venue: {sub.venue or 'Unknown'}\n"
@@ -912,16 +912,21 @@ def _ai_fill_songs(sub_id):
             f"Task:\n"
             f"1. If no setlist is provided, use your knowledge to identify the most likely setlist "
             f"for this event (or a typical recent setlist for this artist). Mark confidence: high/medium/low.\n"
-            f"2. For each song, identify all songwriters (there may be multiple co-writers), "
-            f"each writer's publishing company, PRO (ASCAP/BMI/SESAC/SOCAN/PRS), split percentage, "
-            f"and whether it is a cover (if so, note the original artist).\n"
-            f"3. Return ONLY a JSON array. No prose. Each element:\n"
+            f"2. For each song, identify ONLY the actual credited songwriters from official PRO/publisher records "
+            f"(BMI, ASCAP, SESAC). Do NOT confuse featured artists or performers with songwriters. "
+            f"A featured artist on a recording is NOT a songwriter unless they have a verified writer credit. "
+            f"For each confirmed writer include: their publishing administrator (not record label), "
+            f"their PRO affiliation, and their ownership split percentage.\n"
+            f"3. Use the most specific and accurate publisher name available — e.g. 'Kobalt Music Publishing' "
+            f"not just 'Kobalt'; 'PULSE Music Group / Concord' not 'PULSE'; 'Sony Music Publishing (US) LLC' not 'Sony'.\n"
+            f"4. Return ONLY a JSON array. No prose. Each element:\n"
             f'{{"title": str, '
             f'"writers": [{{"name": str, "publisher": str, "pro": str, "split_pct": number}}], '
             f'"is_cover": bool, "original_artist": str or null, '
             f'"confidence": "high"|"medium"|"low", "status": "pending"}}\n'
-            f"For co-written songs include multiple writer objects. Split percentages must sum to 100.\n"
-            f"Return the array only."
+            f"For co-written songs include one object per writer. Split percentages must sum to 100. "
+            f"If you are uncertain about exact splits, distribute evenly among confirmed writers and mark confidence: medium.\n"
+            f"Return the JSON array only — no markdown fences, no explanation."
         )
         try:
             import anthropic
