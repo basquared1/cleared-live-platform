@@ -813,7 +813,18 @@ def submit_confirm(token):
 @app.route("/track/<token>")
 def track(token):
     sub = Submission.query.filter_by(token=token).first_or_404()
-    return render_template("track.html", sub=sub)
+    return render_template("track.html", sub=sub,
+                           publishing_notes=_get_publishing_notes(sub))
+
+
+@app.route("/track/<token>/save-publishing-notes", methods=["POST"])
+def track_save_publishing_notes(token):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    pub = request.form.get("publishing_notes", "").strip()
+    _set_publishing_notes(sub, _get_ba_notes_only(sub), pub)
+    db.session.commit()
+    flash("Publishing reference saved.", "success")
+    return redirect(url_for("track", token=token) + "#songs-section")
 
 
 # ---------------------------------------------------------------------------
