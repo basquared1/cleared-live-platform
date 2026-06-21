@@ -398,7 +398,7 @@ def _build_clearance_doc_user_prompt(sub, item):
 
     return (
         f"Draft a professional {item.item_label} for the following project.\n\n"
-        f"REPRESENTED PARTY: {sub.platform.name} Business Affairs\n\n"
+        f"REPRESENTED PARTY: {sub.submitter_company or sub.submitter_name} on behalf of {sub.platform.name}\n\n"
         f"PROJECT DETAILS:\n{_sub_context(sub)}\n\n"
         f"CLEARANCE ITEM: {item.item_label}\n"
         + (f"Rights Holder / Counterparty: {item.party_name}\n" if item.party_name else "Rights Holder / Counterparty: [RIGHTS HOLDER]\n")
@@ -478,7 +478,8 @@ def generate_outreach(sub, item):
         f"{_sub_context(sub)}\n\n"
         f"Start with 'Dear {salutation},'. State exactly what rights are being requested, "
         f"for which project and platform, reference event details, request a response within 5 business days, "
-        f"and close professionally from the {sub.platform.name} Business Affairs team."
+        f"and close professionally from {sub.submitter_name or sub.submitter_company or 'the clearance team'} "
+        f"({sub.submitter_company or ''}) on behalf of {sub.platform.name}."
     )
     return call_claude(system, user, max_tokens=600)
 
@@ -637,7 +638,7 @@ def send_to_docusign(sub, item):
     envelope = {
         "emailSubject": f"Please sign: {item.item_label} — {sub.title} ({sub.platform.name})",
         "emailBlurb": (
-            f"{sub.platform.name} Business Affairs — {sub.title}\n\n"
+            f"{sub.submitter_name or sub.submitter_company} on behalf of {sub.platform.name} — {sub.title}\n\n"
             "Please review and sign the attached clearance agreement."
         ),
         "documents": [{
@@ -712,7 +713,7 @@ def _auto_outreach_agent(item_id):
                 import resend as _resend
                 _resend.api_key = os.getenv("RESEND_API_KEY")
                 _resend.Emails.send({
-                    "from": f"{sub.platform.name} Business Affairs <clearances@cleared.live>",
+                    "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clearances@cleared.live>",
                     "to": [party_email],
                     "subject": f"Clearance Request — {item.item_label} | {sub.title}",
                     "text": body,
@@ -1586,7 +1587,10 @@ def track_pub_groups_outreach(token):
         f"  Uses: {', '.join(primary.get('uses', ['Streaming']))}\n\n"
         f"Include MFN language if appropriate (this project is clearing rights with multiple publishers simultaneously). "
         f"Request that all songs be covered under one blanket sync license agreement for efficiency. "
-        f"Keep to 3–4 short paragraphs. Professional tone."
+        f"Sign off as {sub.submitter_name or 'Clearance Team'}"
+        + (f", {sub.submitter_company}" if sub.submitter_company else "")
+        + f" on behalf of {sub.platform.name if sub.platform else 'our platform'}. "
+        f"Keep to 3–4 short paragraphs. Professional tone. No markdown formatting."
     )
     raw = call_claude(system, user, max_tokens=800)
     if not raw:
@@ -1616,7 +1620,7 @@ def track_pub_groups_send(token):
     _resend.api_key = os.getenv("RESEND_API_KEY")
     try:
         _resend.Emails.send({
-            "from": f"{sub.platform.name + ' Business Affairs' if sub.platform else 'Cleared.live'} <clearances@cleared.live>",
+            "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clearances@cleared.live>",
             "to": g["contact_email"],
             "subject": f"Sync License Request — {sub.artist_name or sub.title} ({len(g.get('songs',[]))} songs) — {sub.platform.name if sub.platform else ''}",
             "text": g["ai_outreach"],
