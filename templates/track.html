@@ -1045,6 +1045,167 @@
     if (!form) return;
   }
   </script>
+
+  <!-- Publisher Clearance Groups -->
+  <div class="card border-0 shadow-sm mb-4" id="pub-clearance-section">
+    <div class="card-header bg-white border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2 py-3">
+      <div class="fw-bold text-navy d-flex align-items-center gap-2">
+        <i class="bi bi-building text-warning"></i>
+        Publisher Clearance Groups
+        {% if sub.publisher_clearances %}
+          <span class="badge bg-light text-dark border ms-1">{{ sub.publisher_clearances|length }} publishers</span>
+        {% endif %}
+      </div>
+      <form method="POST" action="{{ url_for('track_pub_groups_generate', token=sub.token) }}">
+        <button type="submit" class="btn btn-sm btn-outline-warning fw-semibold">
+          <i class="bi bi-arrow-repeat me-1"></i>
+          {% if sub.publisher_clearances %}Re-generate from Songs{% else %}Generate from Songs{% endif %}
+        </button>
+      </form>
+    </div>
+
+    {% if not sub.publisher_clearances %}
+    <div class="card-body text-center py-4 text-muted small">
+      <i class="bi bi-building fs-3 d-block mb-2 opacity-25"></i>
+      Click "Generate from Songs" to auto-detect publishers from writer data.<br>
+      One outreach email and one blanket license per publisher.
+    </div>
+    {% else %}
+    <div class="card-body p-0">
+      {% for pub_name, g in sub.publisher_clearances.items() %}
+      {% set status_color = {'pending':'secondary','in_progress':'warning','under_review':'info','cleared':'success'}.get(g.get('status','pending'), 'secondary') %}
+      <div class="border-bottom p-3">
+        <!-- Publisher header -->
+        <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-2">
+          <div>
+            <span class="fw-semibold text-navy">{{ pub_name }}</span>
+            {% if g.get('pro') %}<span class="badge bg-light text-dark border ms-2" style="font-size:.7rem;">{{ g.pro }}</span>{% endif %}
+            <span class="badge bg-{{ status_color }} ms-2" style="font-size:.7rem;">{{ g.get('status','pending')|title }}</span>
+          </div>
+          <span class="text-muted small">{{ g.get('songs',[])|length }} song{% if g.get('songs',[])|length != 1 %}s{% endif %}</span>
+        </div>
+
+        <!-- Song list (collapsed) -->
+        <div class="mb-2">
+          <button class="btn btn-link btn-sm p-0 text-decoration-none text-muted" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#pub-songs-{{ loop.index }}">
+            <i class="bi bi-music-note-list me-1"></i>View songs <i class="bi bi-chevron-down"></i>
+          </button>
+          <div class="collapse mt-2" id="pub-songs-{{ loop.index }}">
+            <table class="table table-sm table-borderless mb-0" style="font-size:.78rem;">
+              <thead><tr class="text-muted"><th>Song</th><th>Writer</th><th>Split</th></tr></thead>
+              <tbody>
+                {% for s in g.get('songs', []) %}
+                <tr>
+                  <td class="fw-semibold">{{ s.title }}</td>
+                  <td>{{ s.writer }}</td>
+                  <td>{{ s.split_pct }}%</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Contact -->
+        <div class="mb-2">
+          {% if g.get('contact_email') %}
+          <div class="small text-muted mb-1">
+            <i class="bi bi-envelope me-1"></i>
+            <span class="fw-semibold">{{ g.contact_name or 'Sync Licensing' }}</span>
+            — {{ g.contact_email }}
+          </div>
+          {% endif %}
+          <button class="btn btn-sm btn-outline-secondary" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#pub-contact-{{ loop.index }}">
+            <i class="bi bi-person me-1"></i>{% if g.get('contact_email') %}Edit Contact{% else %}Set Contact{% endif %}
+          </button>
+          <div class="collapse mt-2" id="pub-contact-{{ loop.index }}">
+            <form method="POST" action="{{ url_for('track_pub_groups_contact', token=sub.token) }}"
+                  class="row g-2 align-items-end">
+              <input type="hidden" name="publisher" value="{{ pub_name }}">
+              <div class="col-12 col-sm-4">
+                <label class="form-label small mb-1">Contact name / dept</label>
+                <input type="text" name="contact_name" class="form-control form-control-sm"
+                       value="{{ g.get('contact_name','') }}" placeholder="Sync Licensing Dept">
+              </div>
+              <div class="col-12 col-sm-5">
+                <label class="form-label small mb-1">Email</label>
+                <input type="email" name="contact_email" class="form-control form-control-sm"
+                       value="{{ g.get('contact_email','') }}" placeholder="sync@publisher.com">
+              </div>
+              <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Outreach -->
+        <div class="mb-2 d-flex flex-wrap gap-2 align-items-center">
+          <button class="btn btn-sm btn-warning fw-semibold"
+                  onclick="generatePubOutreach(this, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_outreach', token=sub.token) }}')">
+            <i class="bi bi-stars me-1"></i>{% if g.get('ai_outreach') %}Re-draft Outreach{% else %}Draft Grouped Outreach{% endif %}
+          </button>
+          {% if g.get('ai_outreach') and g.get('contact_email') and not g.get('outreach_sent_at') %}
+          <button class="btn btn-sm btn-primary fw-semibold"
+                  onclick="sendPubOutreach(this, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_send', token=sub.token) }}')">
+            <i class="bi bi-send me-1"></i>Send to {{ pub_name }}
+          </button>
+          {% endif %}
+          {% if g.get('outreach_sent_at') %}
+          <span class="badge bg-success"><i class="bi bi-check2 me-1"></i>Sent</span>
+          {% endif %}
+        </div>
+
+        <!-- Outreach preview -->
+        {% if g.get('ai_outreach') %}
+        <div class="collapse" id="pub-outreach-{{ loop.index }}">
+          <div class="p-2 rounded small" style="background:#f8f9fa;border:1px solid #dee2e6;white-space:pre-wrap;font-family:Georgia,serif;font-size:.76rem;line-height:1.6;max-height:300px;overflow-y:auto;">{{ g.ai_outreach }}</div>
+        </div>
+        <button class="btn btn-link btn-sm p-0 text-decoration-none text-muted mt-1" type="button"
+                data-bs-toggle="collapse" data-bs-target="#pub-outreach-{{ loop.index }}">
+          <i class="bi bi-eye me-1"></i>View / hide draft
+        </button>
+        {% endif %}
+
+        <!-- Log response (show after outreach sent) -->
+        {% if g.get('outreach_sent_at') and not g.get('rh_response') %}
+        <div class="mt-2 p-2 rounded" style="background:#fff3cd;border:1px solid #ffc107;">
+          <div class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Awaiting response — log when received:</div>
+          <form method="POST" action="{{ url_for('track_pub_groups_response', token=sub.token) }}" class="row g-2">
+            <input type="hidden" name="publisher" value="{{ pub_name }}">
+            <div class="col-auto">
+              <select name="rh_response" class="form-select form-select-sm">
+                <option value="">Response…</option>
+                <option value="accepted">Accepted</option>
+                <option value="counter">Counter</option>
+                <option value="declined">Declined</option>
+              </select>
+            </div>
+            <div class="col-12 col-sm-6">
+              <input type="text" name="rh_response_notes" class="form-control form-control-sm" placeholder="Notes…">
+            </div>
+            <div class="col-auto">
+              <button type="submit" class="btn btn-sm btn-outline-secondary">Save</button>
+            </div>
+          </form>
+        </div>
+        {% elif g.get('rh_response') %}
+        <div class="mt-2 small">
+          <span class="badge bg-{{ 'success' if g.rh_response == 'accepted' else 'danger' if g.rh_response == 'declined' else 'warning' }}">
+            {{ g.rh_response|title }}
+          </span>
+          {% if g.get('rh_response_notes') %}<span class="text-muted ms-2">{{ g.rh_response_notes }}</span>{% endif %}
+        </div>
+        {% endif %}
+
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
   {% endif %}
 
   <!-- Project details -->
@@ -1599,6 +1760,35 @@ function copyOutreach(elId, btn) {
       btn.classList.replace('btn-success', 'btn-outline-success');
     }, 2500);
   });
+}
+
+function generatePubOutreach(btn, publisher, url) {
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Drafting…';
+  var body = new URLSearchParams();
+  body.append('publisher', publisher);
+  fetch(url, { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) { alert(data.error); btn.disabled = false; btn.innerHTML = '<i class="bi bi-stars me-1"></i>Draft Grouped Outreach'; return; }
+    location.reload();
+  })
+  .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-stars me-1"></i>Draft Grouped Outreach'; });
+}
+
+function sendPubOutreach(btn, publisher, url) {
+  if (!confirm('Send outreach to ' + publisher + '?')) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending…';
+  var body = new URLSearchParams();
+  body.append('publisher', publisher);
+  fetch(url, { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) { alert(data.error); btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>Send'; return; }
+    location.reload();
+  })
+  .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>Send'; });
 }
 
 {% if sub.status not in ('cleared', 'rejected') %}

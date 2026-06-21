@@ -428,6 +428,32 @@ def _get_ba_notes_only(sub):
     return sub.ba_notes or ""
 
 
+def _compute_publisher_groups(sub):
+    """Scan all songs and group by publishing administrator."""
+    groups = {}
+    for idx, song in enumerate(sub.songs or []):
+        title = song.get("title", f"Song {idx+1}")
+        for w in (song.get("writers") or []):
+            pub = w.get("publisher", "").strip()
+            if not pub:
+                continue
+            if pub not in groups:
+                groups[pub] = {
+                    "publisher": pub,
+                    "pro": w.get("pro", ""),
+                    "songs": [],
+                    "writers_in_group": set(),
+                }
+            entry = {"title": title, "idx": idx, "writer": w.get("name", ""), "split_pct": w.get("split_pct", 0)}
+            if title not in [s["title"] for s in groups[pub]["songs"]]:
+                groups[pub]["songs"].append(entry)
+            groups[pub]["writers_in_group"].add(w.get("name", ""))
+    # Convert sets to lists for JSON serialization
+    for g in groups.values():
+        g["writers_in_group"] = sorted(g["writers_in_group"])
+    return groups
+
+
 def generate_draft(sub, item):
     """Generate full agreement text using the attorney system prompt."""
     if not os.getenv("ANTHROPIC_API_KEY"):
@@ -1489,6 +1515,141 @@ def track_song_ai_fill_writers(token, idx):
     sub = Submission.query.filter_by(token=token).first_or_404()
     _ai_fill_song_writers(sub.id, idx)
     return redirect(url_for("track", token=token) + "#songs-section")
+
+
+@app.route("/track/<token>/pub-groups/generate", methods=["POST"])
+def track_pub_groups_generate(token):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    groups = _compute_publisher_groups(sub)
+    # Merge with existing saved data (preserve contact/outreach/status)
+    existing = sub.publisher_clearances
+    for pub, g in groups.items():
+        saved = existing.get(pub, {})
+        g["contact_name"]     = saved.get("contact_name", "")
+        g["contact_email"]    = saved.get("contact_email", "")
+        g["ai_outreach"]      = saved.get("ai_outreach", "")
+        g["outreach_sent_at"] = saved.get("outreach_sent_at", "")
+        g["rh_response"]      = saved.get("rh_response", "")
+        g["rh_response_notes"]= saved.get("rh_response_notes", "")
+        g["status"]           = saved.get("status", "pending")
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    return redirect(url_for("track", token=token) + "#pub-clearance-section")
+
+
+@app.route("/track/<token>/pub-groups/contact", methods=["POST"])
+def track_pub_groups_contact(token):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    publisher = request.form.get("publisher", "").strip()
+    groups = sub.publisher_clearances
+    if publisher in groups:
+        groups[publisher]["contact_name"]  = request.form.get("contact_name", "").strip()
+        groups[publisher]["contact_email"] = request.form.get("contact_email", "").strip()
+        sub.publisher_clearances_save(groups)
+        db.session.commit()
+    return redirect(url_for("track", token=token) + "#pub-clearance-section")
+
+
+@app.route("/track/<token>/pub-groups/outreach", methods=["POST"])
+def track_pub_groups_outreach(token):
+    from flask import jsonify
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    publisher = request.form.get("publisher", "").strip()
+    groups = sub.publisher_clearances
+    if publisher not in groups:
+        return jsonify({"error": "Publisher group not found"}), 404
+
+    g = groups[publisher]
+    song_list = "\n".join(
+        f"  - \"{s['title']}\" (writer: {s['writer']}, {s['split_pct']}% of song)"
+        for s in g.get("songs", [])
+    )
+    neg = sub.platform.negotiation_positions if sub.platform else {}
+    primary = (neg or [{}])[0] if isinstance(neg, list) else {}
+    system = (
+        "You are a music clearance professional drafting sync license request emails. "
+        "Write professional, concise outreach. Do not use placeholders — write real content."
+    )
+    user = (
+        f"Draft a sync license request email to {publisher}'s sync licensing department.\n\n"
+        f"From: {sub.submitter_name or 'Music Clearance Team'} on behalf of {sub.platform.name if sub.platform else 'our platform'}\n"
+        f"Project: {sub.project_type_label} — {sub.title}\n"
+        f"Artist performing: {sub.artist_name or 'Unknown'}\n"
+        f"Event: {sub.event_name or sub.title}\n"
+        f"Venue: {sub.venue or 'TBD'}\n"
+        f"Date: {sub.event_date or 'TBD'}\n"
+        f"Platform: {sub.platform.name if sub.platform else 'Streaming'}\n\n"
+        f"Songs requesting clearance ({len(g.get('songs', []))} total):\n{song_list}\n\n"
+        f"Deal terms requested:\n"
+        f"  Territory: {primary.get('territory', 'Worldwide')}\n"
+        f"  Term: {primary.get('term', 'Perpetuity')}\n"
+        f"  Uses: {', '.join(primary.get('uses', ['Streaming']))}\n\n"
+        f"Include MFN language if appropriate (this project is clearing rights with multiple publishers simultaneously). "
+        f"Request that all songs be covered under one blanket sync license agreement for efficiency. "
+        f"Keep to 3–4 short paragraphs. Professional tone."
+    )
+    raw = call_claude(system, user, max_tokens=800)
+    if not raw:
+        return jsonify({"error": "AI did not respond"}), 500
+    groups[publisher]["ai_outreach"] = raw
+    groups[publisher]["status"] = "in_progress"
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    return jsonify({"outreach": raw})
+
+
+@app.route("/track/<token>/pub-groups/send", methods=["POST"])
+def track_pub_groups_send(token):
+    from flask import jsonify
+    import resend as _resend
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    publisher = request.form.get("publisher", "").strip()
+    groups = sub.publisher_clearances
+    if publisher not in groups:
+        return jsonify({"error": "Publisher group not found"}), 404
+    g = groups[publisher]
+    if not g.get("contact_email"):
+        return jsonify({"error": "No contact email set for this publisher"}), 400
+    if not g.get("ai_outreach"):
+        return jsonify({"error": "Generate the outreach draft first"}), 400
+
+    _resend.api_key = os.getenv("RESEND_API_KEY")
+    try:
+        _resend.Emails.send({
+            "from": "clearance@cleared.live",
+            "to": g["contact_email"],
+            "subject": f"Sync License Request — {sub.artist_name or sub.title} ({len(g.get('songs',[]))} songs) — {sub.platform.name if sub.platform else ''}",
+            "text": g["ai_outreach"],
+        })
+        from datetime import datetime as _dt
+        groups[publisher]["outreach_sent_at"] = _dt.utcnow().isoformat()
+        groups[publisher]["status"] = "under_review"
+        sub.publisher_clearances_save(groups)
+        db.session.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/track/<token>/pub-groups/response", methods=["POST"])
+def track_pub_groups_response(token):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    publisher = request.form.get("publisher", "").strip()
+    groups = sub.publisher_clearances
+    if publisher not in groups:
+        return redirect(url_for("track", token=token) + "#pub-clearance-section")
+    from datetime import datetime as _dt
+    groups[publisher]["rh_response"]        = request.form.get("rh_response", "")
+    groups[publisher]["rh_response_notes"]  = request.form.get("rh_response_notes", "")
+    groups[publisher]["rh_response_at"]     = _dt.utcnow().isoformat()
+    resp = groups[publisher]["rh_response"]
+    if resp == "accepted":
+        groups[publisher]["status"] = "cleared"
+    elif resp == "declined":
+        groups[publisher]["status"] = "pending"
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    return redirect(url_for("track", token=token) + "#pub-clearance-section")
 
 
 @app.route("/track/<token>/songs/<int:idx>/deal-terms", methods=["POST"])
@@ -2716,6 +2877,15 @@ def migrate_db_cmd():
             except Exception as exc:
                 conn.rollback()
                 print(f"  clearance_items.{col_name}: {exc}")
+        try:
+            conn.execute(sa_text(
+                "ALTER TABLE submissions ADD COLUMN IF NOT EXISTS publisher_clearances_json TEXT"
+            ))
+            conn.commit()
+            print("  submissions.publisher_clearances_json OK")
+        except Exception as exc:
+            conn.rollback()
+            print(f"  submissions.publisher_clearances_json: {exc}")
     print("Migration complete.")
 
 

@@ -207,6 +207,7 @@ class Submission(db.Model):
     ba_notes            = db.Column(db.Text)    # internal only
     songs_json          = db.Column(db.Text)    # JSON list of song dicts for live_music
     deal_terms_json     = db.Column(db.Text)    # JSON dict of bulk deal terms
+    publisher_clearances_json = db.Column(db.Text)  # JSON dict of publisher clearance groups
 
     created_at          = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at          = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -266,6 +267,18 @@ class Submission(db.Model):
     def deal_terms_save(self, terms_dict):
         import json
         self.deal_terms_json = json.dumps(terms_dict)
+
+    @property
+    def publisher_clearances(self):
+        import json as _j
+        try:
+            return _j.loads(self.publisher_clearances_json or '{}')
+        except:
+            return {}
+
+    def publisher_clearances_save(self, data):
+        import json as _j
+        self.publisher_clearances_json = _j.dumps(data)
 
     @property
     def project_type_label(self):
