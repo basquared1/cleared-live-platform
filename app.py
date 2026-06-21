@@ -930,8 +930,8 @@ def track_item_save_draft(token, item_id):
 
 
 def _ai_fill_songs(sub_id):
-    """Background: find setlist + writer/publisher info for a live_music submission."""
-    import json, threading
+    """Phase 1: get setlist titles only. Phase 2: fill writers per-song (uses publishing reference)."""
+    import json
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return
@@ -940,68 +940,58 @@ def _ai_fill_songs(sub_id):
         if not sub or sub.project_type != "live_music":
             return
         existing = sub.setlist_list or []
-        _pub = _get_publishing_notes(sub)
-        publishing_ref = (
-            f"\nVERIFIED PUBLISHING REFERENCE (use this data — it overrides your training data):\n"
-            f"{_pub}\n"
-            if _pub else ""
-        )
-        prompt = (
-            f"You are a music publishing rights research assistant.\n"
+
+        # ── Phase 1: setlist titles only ─────────────────────────────────────
+        setlist_prompt = (
             f"Artist: {sub.artist_name or 'Unknown'}\n"
             f"Event: {sub.event_name or sub.title}\n"
             f"Venue: {sub.venue or 'Unknown'}\n"
             f"Date: {sub.event_date or 'Unknown'}\n"
-            f"Known setlist (may be empty): {', '.join(existing) if existing else 'not provided'}\n"
-            f"{publishing_ref}\n"
-            f"RULES — follow exactly:\n"
-            f"1. List ONLY credited songwriters from official BMI/ASCAP/SESAC records. "
-            f"NEVER include featured performers ('feat.' artists) as songwriters unless they have a "
-            f"verified, separate writer credit. Being on the recording does not make someone a songwriter.\n"
-            f"2. If a VERIFIED PUBLISHING REFERENCE is provided above, treat it as ground truth and use "
-            f"those publisher names, splits, and co-writers exactly. Do not contradict it.\n"
-            f"3. When you are uncertain about co-writers or splits, list only the primary artist and "
-            f"mark confidence: low — do not guess. A wrong name is worse than a missing name.\n"
-            f"4. Use full publisher names: 'Kobalt Music Publishing', 'PULSE Music Group / Concord', "
-            f"'Sony Music Publishing (US) LLC', 'Warner Chappell Music'. Not just 'Kobalt' or 'Sony'.\n"
-            f"5. If no setlist is provided, identify the most likely setlist for this event.\n"
-            f"6. Return ONLY a JSON array — no prose, no markdown fences:\n"
-            f'{{"title": str, '
-            f'"writers": [{{"name": str, "publisher": str, "pro": "ASCAP"|"BMI"|"SESAC"|"SOCAN"|"PRS", "split_pct": number}}], '
-            f'"is_cover": bool, "original_artist": str or null, '
-            f'"confidence": "high"|"medium"|"low", "status": "pending"}}\n'
-            f"Split percentages per song must sum to 100. Distribute evenly when exact splits are unknown."
+            f"Known setlist (may be empty): {', '.join(existing) if existing else 'not provided'}\n\n"
+            f"Return the setlist for this event as a JSON array. Each element:\n"
+            f'{{"title": str, "is_cover": bool, "original_artist": str or null, '
+            f'"confidence": "high"|"medium"|"low", "status": "pending", '
+            f'"writers": [], "deal_terms": {{}}}}\n'
+            f"No writers — just song titles. Return JSON only, no markdown."
         )
         try:
             import anthropic
-            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+            client = anthropic.Anthropic(api_key=api_key)
             resp = client.messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=4000,
-                messages=[{"role": "user", "content": prompt}]
+                max_tokens=2000,
+                messages=[{"role": "user", "content": setlist_prompt}]
             )
             text = resp.content[0].text.strip()
-            # Strip markdown fences if present
             if text.startswith("```"):
                 text = "\n".join(text.split("\n")[1:])
                 if text.endswith("```"):
                     text = text[:-3].strip()
             songs = json.loads(text)
-            # Ensure each song has deal_terms
             default_deal = {"fee": None, "fee_type": None, "territory": None,
                             "term": None, "mfn": False, "cue_sheet_days": 30,
                             "media_rights": [], "notes": ""}
             for s in songs:
-                if "deal_terms" not in s:
+                if "deal_terms" not in s or not s["deal_terms"]:
                     s["deal_terms"] = dict(default_deal)
+                if "writers" not in s:
+                    s["writers"] = []
             sub.songs_save(songs)
-            # If setlist was blank, populate it from AI result
             if not sub.setlist:
                 sub.setlist = "\n".join(s["title"] for s in songs)
             db.session.commit()
-            app.logger.info(f"AI songs filled for submission {sub_id}: {len(songs)} songs")
+            app.logger.info(f"AI setlist phase 1 done for sub {sub_id}: {len(songs)} songs")
         except Exception as e:
-            app.logger.error(f"AI song fill failed for sub {sub_id}: {e}")
+            app.logger.error(f"AI setlist phase 1 failed for sub {sub_id}: {e}")
+            return
+
+        # ── Phase 2: fill writers per-song (uses publishing reference) ────────
+        songs = sub.songs
+        for idx in range(len(songs)):
+            try:
+                _ai_fill_song_writers(sub_id, idx)
+            except Exception as e:
+                app.logger.error(f"Writer fill failed for song {idx} in sub {sub_id}: {e}")
 
 
 def _ai_fill_song_writers(sub_id, idx):
