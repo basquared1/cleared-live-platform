@@ -231,6 +231,40 @@
           </div>
           {% endif %}
 
+          <!-- Outreach sent — log response -->
+          {% if item.ai_outreach_sent_at and not item.rh_response and item.status != 'cleared' %}
+          <div class="ms-5 mt-3 p-3 rounded" style="background:#fff8e1;border:1px solid #f5c842;">
+            <div class="fw-semibold small mb-2 text-navy">
+              <i class="bi bi-envelope-check me-1"></i>Outreach sent {{ item.ai_outreach_sent_at.strftime('%b %d') }}{% if item.party_email %} to {{ item.party_email }}{% endif %} — Log response:
+            </div>
+            <form method="POST" action="{{ url_for('platform_item_log_response', sub_id=sub.id, item_id=item.id) }}">
+              <div class="d-flex gap-2 flex-wrap align-items-end">
+                <div>
+                  <select name="rh_response" class="form-select form-select-sm" required>
+                    <option value="">— Response —</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="counter">Counter Offer</option>
+                    <option value="declined">Declined</option>
+                  </select>
+                </div>
+                <div style="flex:1;min-width:180px;">
+                  <input type="text" name="rh_response_notes" class="form-control form-control-sm"
+                         placeholder="Notes (counter terms, conditions...)">
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary fw-semibold">Log Response</button>
+              </div>
+            </form>
+          </div>
+          {% elif item.rh_response %}
+          <div class="ms-5 mt-2 d-flex align-items-center gap-2 flex-wrap">
+            <span class="badge {% if item.rh_response == 'accepted' %}bg-success{% elif item.rh_response == 'declined' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+              RH: {{ item.rh_response | title }}
+            </span>
+            {% if item.rh_response_notes %}<span class="small text-muted">{{ item.rh_response_notes }}</span>{% endif %}
+            {% if item.rh_response_at %}<span class="text-muted" style="font-size:.72rem;">{{ item.rh_response_at.strftime('%b %d') }}</span>{% endif %}
+          </div>
+          {% endif %}
+
           <!-- Inline edit form (BA can still manually override status) -->
           <div class="collapse mt-3 ms-5" id="edit-{{ item.id }}">
             <form method="POST" action="{{ url_for('platform_update_item', sub_id=sub.id, item_id=item.id) }}"

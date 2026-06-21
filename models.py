@@ -368,6 +368,10 @@ class ClearanceItem(db.Model):
     docusign_envelope_id = db.Column(db.String(100))
     docusign_status      = db.Column(db.String(50))
 
+    rh_response       = db.Column(db.String(20))   # accepted | counter | declined
+    rh_response_notes = db.Column(db.Text)
+    rh_response_at    = db.Column(db.DateTime)
+
     deal_terms_json = db.Column(db.Text)
 
     documents = db.relationship("SubmissionDocument", backref="clearance_item", lazy=True)
@@ -384,34 +388,37 @@ class ClearanceItem(db.Model):
     @property
     def status_label(self):
         return {
-            "pending":      "Pending",
-            "in_progress":  "In Progress",
-            "under_review": "Under Review",
-            "cleared":      "Cleared",
-            "waived":       "Waived",
-            "n_a":          "N/A",
+            "pending":          "Pending",
+            "in_progress":      "In Progress",
+            "under_review":     "Under Review",
+            "cleared":          "Cleared",
+            "waived":           "Waived",
+            "n_a":              "N/A",
+            "docusign_pending": "DocuSign Pending",
         }.get(self.status, self.status.title())
 
     @property
     def status_color(self):
         return {
-            "pending":      "warning",
-            "in_progress":  "info",
-            "under_review": "primary",
-            "cleared":      "success",
-            "waived":       "secondary",
-            "n_a":          "light",
+            "pending":          "warning",
+            "in_progress":      "info",
+            "under_review":     "primary",
+            "cleared":          "success",
+            "waived":           "secondary",
+            "n_a":              "light",
+            "docusign_pending": "dark",
         }.get(self.status, "secondary")
 
     @property
     def status_icon(self):
         return {
-            "pending":      "bi-clock",
-            "in_progress":  "bi-arrow-repeat",
-            "under_review": "bi-hourglass-split",
-            "cleared":      "bi-check-circle-fill",
-            "waived":       "bi-slash-circle",
-            "n_a":          "bi-dash-circle",
+            "pending":          "bi-clock",
+            "in_progress":      "bi-arrow-repeat",
+            "under_review":     "bi-hourglass-split",
+            "cleared":          "bi-check-circle-fill",
+            "waived":           "bi-slash-circle",
+            "n_a":              "bi-dash-circle",
+            "docusign_pending": "bi-pen",
         }.get(self.status, "bi-circle")
 
     @property

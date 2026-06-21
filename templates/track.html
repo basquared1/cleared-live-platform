@@ -174,6 +174,30 @@
         {% elif item.status == 'in_progress' %}
         <div>
 
+          <!-- Rights Holder Contact -->
+          <div class="mb-3 p-3 rounded" style="background:#f8f9fa;border:1px solid #dee2e6;">
+            <div class="fw-semibold small mb-2 text-navy"><i class="bi bi-person-lines-fill me-1"></i>Rights Holder Contact</div>
+            {% if item.party_name or item.party_email %}
+            <div class="small mb-2">
+              <span class="text-navy fw-semibold">{{ item.party_name or '—' }}</span>
+              {% if item.party_email %}<span class="text-muted ms-2">{{ item.party_email }}</span>{% endif %}
+            </div>
+            {% endif %}
+            <form method="POST" action="{{ url_for('track_item_set_contact', token=sub.token, item_id=item.id) }}" class="row g-2">
+              <div class="col-12 col-sm-6">
+                <input type="text" name="party_name" class="form-control form-control-sm"
+                       value="{{ item.party_name or '' }}" placeholder="Rights holder name (e.g. Live Nation)">
+              </div>
+              <div class="col-12 col-sm-5">
+                <input type="email" name="party_email" class="form-control form-control-sm"
+                       value="{{ item.party_email or '' }}" placeholder="Email address">
+              </div>
+              <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Save</button>
+              </div>
+            </form>
+          </div>
+
           <!-- AI Draft Agreement -->
           {% if not item.ai_draft %}
           <div class="mb-3 p-3 rounded d-flex align-items-center gap-3" style="background:#fff8e1;border:1px solid #f5c842;">
@@ -417,6 +441,38 @@
               </form>
             </div>
           </div>
+
+          <!-- Send for Clearance CTA -->
+          {% if item.ai_outreach_sent_at %}
+          <div class="alert alert-success py-2 px-3 mb-3 small">
+            <i class="bi bi-envelope-check-fill me-2"></i>
+            <strong>Outreach sent{% if item.party_email %} to {{ item.party_email }}{% endif %}</strong>
+            on {{ item.ai_outreach_sent_at.strftime('%B %d, %Y') }}.
+            Waiting for rights holder response — your BA team will update you.
+          </div>
+          {% elif item.party_email and item.ai_draft %}
+          <div class="mb-3">
+            <form method="POST" action="{{ url_for('track_item_send_clearance', token=sub.token, item_id=item.id) }}"
+                  onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('button[type=submit]').innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>Sending…';">
+              <button type="submit" class="btn btn-primary fw-semibold">
+                <i class="bi bi-send-fill me-2"></i>Send for Clearance
+              </button>
+              <span class="text-muted small ms-2">Sends outreach to {{ item.party_name or item.party_email }}</span>
+            </form>
+          </div>
+          {% else %}
+          <div class="small text-muted fst-italic mb-3">
+            <i class="bi bi-info-circle me-1"></i>Add rights holder contact and generate a draft to enable sending.
+          </div>
+          {% endif %}
+
+          {% if item.docusign_envelope_id %}
+          <div class="alert alert-dark py-2 px-3 mb-3 small">
+            <i class="bi bi-pen me-2"></i>
+            <strong>DocuSign sent</strong> — agreement is out for signature.
+            {% if item.docusign_status %} Status: {{ item.docusign_status }}.{% endif %}
+          </div>
+          {% endif %}
 
           <!-- Upload section -->
           <div class="mb-3">

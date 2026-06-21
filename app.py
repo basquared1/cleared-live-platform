@@ -599,6 +599,14 @@ def send_to_docusign(sub, item):
             "tabs": _build_ds_tabs(draft_text, "/sign_submitter/", sub.submitter_name),
         }
     ]
+    if item.party_email and item.party_name:
+        ds_signers.append({
+            "email": item.party_email,
+            "name": item.party_name,
+            "recipientId": "2",
+            "routingOrder": "2",
+            "tabs": _build_ds_tabs(draft_text, "/sign_rights_holder/", item.party_name),
+        })
 
     envelope = {
         "emailSubject": f"Please sign: {item.item_label} — {sub.title} ({sub.platform.name})",
@@ -929,6 +937,64 @@ def track_item_save_draft(token, item_id):
     item.ai_draft = request.form.get("draft_text", item.ai_draft)
     db.session.commit()
     flash("Draft saved.", "success")
+    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+@app.route("/track/<token>/item/<int:item_id>/set-contact", methods=["POST"])
+def track_item_set_contact(token, item_id):
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    item.party_name  = request.form.get("party_name", "").strip() or None
+    item.party_email = request.form.get("party_email", "").strip().lower() or None
+    db.session.commit()
+    flash("Contact saved.", "success")
+    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+@app.route("/track/<token>/item/<int:item_id>/send-clearance", methods=["POST"])
+def track_item_send_clearance(token, item_id):
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    if not item.ai_draft:
+        flash("Generate the AI draft agreement first.", "danger")
+        return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    if not item.party_email:
+        flash("Add the rights holder email address first.", "danger")
+        return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    dt = item.deal_terms
+    if not (dt.get("territory") or dt.get("media_rights")):
+        flash("Fill in deal terms (territory and media rights) before sending.", "danger")
+        return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    # Build outreach body
+    outreach_body = item.ai_outreach_body
+    if not outreach_body:
+        outreach_body = generate_outreach(sub, item) or ""
+    item.ai_outreach_body = outreach_body
+    resend_key = os.getenv("RESEND_API_KEY")
+    if resend_key and outreach_body:
+        try:
+            import resend as _resend
+            _resend.api_key = resend_key
+            _resend.Emails.send({
+                "from": f"{sub.platform.name} Business Affairs <clearances@cleared.live>",
+                "to": [item.party_email],
+                "subject": f"Clearance Request — {item.item_label} | {sub.title}",
+                "text": outreach_body,
+            })
+            item.ai_outreach_sent_at = datetime.utcnow()
+            db.session.commit()
+            flash(f"Outreach sent to {item.party_email}.", "success")
+        except Exception as e:
+            db.session.commit()
+            flash(f"Email send failed: {e}. Draft saved — copy and send manually.", "warning")
+    else:
+        item.ai_outreach_sent_at = datetime.utcnow()
+        db.session.commit()
+        flash("Resend not configured — outreach drafted. Copy and send manually.", "warning")
     return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
 
 
@@ -2064,10 +2130,37 @@ def platform_docusign(sub_id, item_id):
     if envelope_id:
         item.docusign_envelope_id = envelope_id
         item.docusign_status      = "sent"
+        item.status               = "docusign_pending"
         db.session.commit()
         flash(f"DocuSign envelope sent for {item.item_label}. ID: {envelope_id[:12]}…", "success")
     else:
         flash(f"DocuSign: {error}", "danger")
+    return redirect(url_for("platform_project", sub_id=sub_id))
+
+
+@app.route("/platform/project/<int:sub_id>/item/<int:item_id>/log-response", methods=["POST"])
+@require_platform
+def platform_item_log_response(sub_id, item_id):
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub_id:
+        abort(403)
+    rh_response = request.form.get("rh_response", "").strip()
+    item.rh_response       = rh_response or None
+    item.rh_response_notes = request.form.get("rh_response_notes", "").strip() or None
+    item.rh_response_at    = datetime.utcnow()
+    if rh_response == "accepted":
+        item.status = "under_review"
+        flash(f"{item.item_label}: Rights holder accepted — ready to send DocuSign.", "success")
+    elif rh_response == "declined":
+        item.status = "in_progress"
+        flash(f"{item.item_label}: Rights holder declined — item returned to submitter.", "warning")
+    else:
+        flash(f"{item.item_label}: Counter offer logged.", "info")
+    db.session.commit()
     return redirect(url_for("platform_project", sub_id=sub_id))
 
 
@@ -2461,6 +2554,18 @@ def migrate_db_cmd():
         except Exception as exc:
             conn.rollback()
             print(f"  clearance_items.deal_terms_json: {exc}")
+        for col_name, col_type in [
+            ("rh_response", "VARCHAR(20)"),
+            ("rh_response_notes", "TEXT"),
+            ("rh_response_at", "TIMESTAMP"),
+        ]:
+            try:
+                conn.execute(sa_text(f"ALTER TABLE clearance_items ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                conn.commit()
+                print(f"  clearance_items.{col_name} OK")
+            except Exception as exc:
+                conn.rollback()
+                print(f"  clearance_items.{col_name}: {exc}")
     print("Migration complete.")
 
 
