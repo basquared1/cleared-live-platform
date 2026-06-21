@@ -175,24 +175,47 @@
         <div>
 
           <!-- Rights Holder Contact -->
-          <div class="mb-3 p-3 rounded" style="background:#f8f9fa;border:1px solid #dee2e6;">
+          <div class="mb-3 p-3 rounded" style="background:#f8f9fa;border:1px solid #dee2e6;" id="contact-card-{{ item.id }}">
             <div class="fw-semibold small mb-2 text-navy"><i class="bi bi-person-lines-fill me-1"></i>Rights Holder Contact</div>
-            {% if item.party_name or item.party_email %}
-            <div class="small mb-2">
-              <span class="text-navy fw-semibold">{{ item.party_name or '—' }}</span>
-              {% if item.party_email %}<span class="text-muted ms-2">{{ item.party_email }}</span>{% endif %}
+
+            {% if item.party_company or item.party_email %}
+            <div class="small mb-2 d-flex flex-wrap gap-3 align-items-center">
+              {% if item.party_company %}<span class="fw-semibold text-navy">{{ item.party_company }}</span>{% endif %}
+              {% if item.party_name %}<span class="text-muted">{{ item.party_name }}</span>{% endif %}
+              {% if item.party_email %}<span class="text-primary">{{ item.party_email }}</span>{% endif %}
             </div>
             {% endif %}
-            <form method="POST" action="{{ url_for('track_item_set_contact', token=sub.token, item_id=item.id) }}" class="row g-2">
-              <div class="col-12 col-sm-6">
-                <input type="text" name="party_name" class="form-control form-control-sm"
-                       value="{{ item.party_name or '' }}" placeholder="Rights holder name (e.g. Live Nation)">
+
+            <!-- Company name + AI fill -->
+            <div class="d-flex gap-2 mb-2 align-items-end flex-wrap">
+              <div style="flex:1;min-width:160px;">
+                <label class="form-label small fw-semibold mb-1">Company</label>
+                <input type="text" id="company-input-{{ item.id }}" class="form-control form-control-sm"
+                       value="{{ item.party_company or '' }}" placeholder="e.g. Live Nation, ASCAP, Kobalt">
+              </div>
+              <button type="button" class="btn btn-sm btn-warning fw-semibold"
+                      onclick="aiSuggestContact({{ item.id }}, '{{ url_for('track_item_ai_suggest_contact', token=sub.token, item_id=item.id) }}')">
+                <i class="bi bi-stars me-1"></i>AI Fill Contact
+              </button>
+            </div>
+            <div id="contact-result-{{ item.id }}" class="mb-2" style="display:none;"></div>
+
+            <!-- Manual override form -->
+            <form method="POST" action="{{ url_for('track_item_set_contact', token=sub.token, item_id=item.id) }}"
+                  id="contact-form-{{ item.id }}" class="row g-2">
+              <input type="hidden" name="party_company" id="party-company-{{ item.id }}"
+                     value="{{ item.party_company or '' }}">
+              <div class="col-12 col-sm-5">
+                <label class="form-label small mb-1 text-muted">Contact name / dept</label>
+                <input type="text" name="party_name" id="party-name-{{ item.id }}" class="form-control form-control-sm"
+                       value="{{ item.party_name or '' }}" placeholder="e.g. Music Licensing Dept">
               </div>
               <div class="col-12 col-sm-5">
-                <input type="email" name="party_email" class="form-control form-control-sm"
-                       value="{{ item.party_email or '' }}" placeholder="Email address">
+                <label class="form-label small mb-1 text-muted">Email</label>
+                <input type="email" name="party_email" id="party-email-{{ item.id }}" class="form-control form-control-sm"
+                       value="{{ item.party_email or '' }}" placeholder="clearance@company.com">
               </div>
-              <div class="col-auto">
+              <div class="col-auto d-flex align-items-end">
                 <button type="submit" class="btn btn-sm btn-outline-secondary">Save</button>
               </div>
             </form>
@@ -1141,6 +1164,50 @@ function applyDealTerms(formEl, pos) {
 
 function applyAllMediaWWPerp(formEl) {
   applyDealTerms(formEl, {territory: 'worldwide', term: 'perpetuity', uses: ['all'], uses_exclude: []});
+}
+
+function aiSuggestContact(itemId, url) {
+  var company = document.getElementById('company-input-' + itemId).value.trim();
+  if (!company) { alert('Enter a company name first.'); return; }
+  var btn = event.target.closest('button');
+  var resultEl = document.getElementById('contact-result-' + itemId);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Researching…';
+  resultEl.style.display = 'none';
+
+  var body = new URLSearchParams();
+  body.append('company', company);
+
+  fetch(url, { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-stars me-1"></i>AI Fill Contact';
+    if (data.error) {
+      resultEl.style.display = '';
+      resultEl.innerHTML = '<div class="small text-danger">' + data.error + '</div>';
+      return;
+    }
+    // Fill form fields
+    document.getElementById('party-company-' + itemId).value = company;
+    document.getElementById('company-input-' + itemId).value = company;
+    if (data.contact_name) document.getElementById('party-name-' + itemId).value = data.contact_name;
+    if (data.contact_email) document.getElementById('party-email-' + itemId).value = data.contact_email;
+
+    var confColor = data.confidence === 'high' ? 'success' : data.confidence === 'medium' ? 'warning' : 'secondary';
+    resultEl.style.display = '';
+    resultEl.innerHTML = '<div class="p-2 rounded small" style="background:#f0fff4;border:1px solid #b7efc5;">'
+      + '<span class="badge bg-' + confColor + ' me-2">' + (data.confidence || '') + '</span>'
+      + '<strong>' + (data.contact_name || '') + '</strong>'
+      + (data.contact_email ? ' &lt;' + data.contact_email + '&gt;' : '')
+      + (data.note ? '<br><span class="text-muted">' + data.note + '</span>' : '')
+      + (data.confidence !== 'high' ? '<br><span class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Verify before sending — click Save to confirm.</span>' : ' <span class="text-muted small">(auto-saved)</span>')
+      + '</div>';
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-stars me-1"></i>AI Fill Contact';
+  });
 }
 
 function suggestDealTerms(btn, itemLabel) {

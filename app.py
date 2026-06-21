@@ -946,11 +946,63 @@ def track_item_set_contact(token, item_id):
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
-    item.party_name  = request.form.get("party_name", "").strip() or None
-    item.party_email = request.form.get("party_email", "").strip().lower() or None
+    item.party_company = request.form.get("party_company", "").strip() or None
+    item.party_name    = request.form.get("party_name", "").strip() or None
+    item.party_email   = request.form.get("party_email", "").strip().lower() or None
     db.session.commit()
     flash("Contact saved.", "success")
     return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+@app.route("/track/<token>/item/<int:item_id>/ai-suggest-contact", methods=["POST"])
+def track_item_ai_suggest_contact(token, item_id):
+    from flask import jsonify
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    company = request.form.get("company", "").strip()
+    if not company:
+        return jsonify({"error": "Enter a company name first."}), 400
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return jsonify({"error": "AI unavailable."}), 503
+
+    system = (
+        "You are a music and entertainment industry clearance expert with deep knowledge of "
+        "rights clearance departments, licensing contacts, and standard industry email formats. "
+        "Respond ONLY with valid JSON — no markdown, no explanation outside the JSON."
+    )
+    user = (
+        f"For a {item.item_label} clearance request, identify the correct clearance contact at:\n"
+        f"Company: {company}\n"
+        f"Project context: {sub.project_type_label} — {sub.title}\n"
+        f"Platform: {sub.platform.name}\n\n"
+        f"Return JSON with:\n"
+        f"  contact_name: string — department or person name (e.g. 'Licensing Department', 'Music Clearance')\n"
+        f"  contact_email: string — best clearance email for this company and request type\n"
+        f"  confidence: 'high' | 'medium' | 'low'\n"
+        f"  note: string — one sentence on why this contact / any caveat\n\n"
+        f"Use real known contacts where possible (e.g. Live Nation, ASCAP, BMI, major studios, "
+        f"major publishers, PROs, record labels). For unknown companies use standard formats like "
+        f"clearances@company.com or licensing@company.com. Never invent a specific person's name "
+        f"unless you are certain they handle clearances."
+    )
+    import json as _json
+    raw = call_claude(system, user, max_tokens=300)
+    if not raw:
+        return jsonify({"error": "AI did not respond."}), 500
+    try:
+        clean = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        data = _json.loads(clean)
+        # Auto-save to item if high confidence
+        if data.get("confidence") == "high":
+            item.party_company = company
+            item.party_name    = data.get("contact_name") or item.party_name
+            item.party_email   = (data.get("contact_email") or "").lower() or item.party_email
+            db.session.commit()
+        return jsonify(data)
+    except Exception:
+        return jsonify({"error": "Could not parse AI response.", "raw": raw}), 500
 
 
 @app.route("/track/<token>/item/<int:item_id>/send-clearance", methods=["POST"])
@@ -2420,6 +2472,7 @@ def migrate_db_cmd():
         ("docusign_envelope_id", "VARCHAR(100)"),
         ("docusign_status",      "VARCHAR(50)"),
         ("party_email",          "VARCHAR(200)"),
+        ("party_company",        "VARCHAR(200)"),
     ]
     with db.engine.connect() as conn:
         for col_name, col_type in item_cols:

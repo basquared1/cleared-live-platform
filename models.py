@@ -353,6 +353,7 @@ class ClearanceItem(db.Model):
     priority      = db.Column(db.Integer, default=99)
     status        = db.Column(db.String(30), default="pending")
     # pending | in_progress | under_review | cleared | waived | n_a
+    party_company = db.Column(db.String(200))
     party_name    = db.Column(db.String(200))
     party_email   = db.Column(db.String(200))
     assigned_to   = db.Column(db.String(200))
