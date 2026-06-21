@@ -1616,7 +1616,7 @@ def track_pub_groups_send(token):
     _resend.api_key = os.getenv("RESEND_API_KEY")
     try:
         _resend.Emails.send({
-            "from": "clearance@cleared.live",
+            "from": f"{sub.platform.name + ' Business Affairs' if sub.platform else 'Cleared.live'} <clearances@cleared.live>",
             "to": g["contact_email"],
             "subject": f"Sync License Request — {sub.artist_name or sub.title} ({len(g.get('songs',[]))} songs) — {sub.platform.name if sub.platform else ''}",
             "text": g["ai_outreach"],
