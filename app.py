@@ -406,6 +406,28 @@ def _build_clearance_doc_user_prompt(sub, item):
     )
 
 
+_PUB_SEP = "\n===PUBLISHING REF===\n"
+
+def _get_publishing_notes(sub):
+    """Extract publishing reference section from ba_notes (stored after separator)."""
+    if sub.ba_notes and _PUB_SEP in sub.ba_notes:
+        return sub.ba_notes.split(_PUB_SEP, 1)[1].strip()
+    return ""
+
+def _set_publishing_notes(sub, general_notes, pub_notes):
+    """Merge general notes and publishing reference back into ba_notes."""
+    if pub_notes:
+        sub.ba_notes = f"{general_notes}{_PUB_SEP}{pub_notes}".strip()
+    else:
+        sub.ba_notes = general_notes.strip() or None
+
+def _get_ba_notes_only(sub):
+    """Return only the general notes portion (before separator)."""
+    if sub.ba_notes and _PUB_SEP in sub.ba_notes:
+        return sub.ba_notes.split(_PUB_SEP, 1)[0].strip()
+    return sub.ba_notes or ""
+
+
 def generate_draft(sub, item):
     """Generate full agreement text using the attorney system prompt."""
     if not os.getenv("ANTHROPIC_API_KEY"):
@@ -907,10 +929,11 @@ def _ai_fill_songs(sub_id):
         if not sub or sub.project_type != "live_music":
             return
         existing = sub.setlist_list or []
+        _pub = _get_publishing_notes(sub)
         publishing_ref = (
             f"\nVERIFIED PUBLISHING REFERENCE (use this data — it overrides your training data):\n"
-            f"{sub.publishing_notes}\n"
-            if sub.publishing_notes else ""
+            f"{_pub}\n"
+            if _pub else ""
         )
         prompt = (
             f"You are a music publishing rights research assistant.\n"
@@ -986,9 +1009,10 @@ def _ai_fill_song_writers(sub_id, idx):
         song = songs[idx]
         title = song.get("title", "Unknown")
         artist = sub.artist_name or "Unknown"
+        _pub = _get_publishing_notes(sub)
         publishing_ref = (
-            f"\nVERIFIED PUBLISHING REFERENCE (treat as ground truth):\n{sub.publishing_notes}\n"
-            if sub.publishing_notes else ""
+            f"\nVERIFIED PUBLISHING REFERENCE (treat as ground truth):\n{_pub}\n"
+            if _pub else ""
         )
         prompt = (
             f"You are a music publishing rights research assistant.\n"
@@ -1373,6 +1397,8 @@ def platform_project(sub_id):
         territory_labels=TERRITORY_LABELS,
         intended_use_options=INTENDED_USE_OPTIONS,
         term_labels=TERM_LABELS,
+        ba_notes_only=_get_ba_notes_only(sub),
+        publishing_notes=_get_publishing_notes(sub),
     )
 
 
@@ -1558,9 +1584,11 @@ def platform_save_notes(sub_id):
     if sub.platform_id != user.platform_id:
         abort(403)
     if "ba_notes" in request.form:
-        sub.ba_notes = request.form.get("ba_notes", "").strip()
+        general = request.form.get("ba_notes", "").strip()
+        _set_publishing_notes(sub, general, _get_publishing_notes(sub))
     if "publishing_notes" in request.form:
-        sub.publishing_notes = request.form.get("publishing_notes", "").strip() or None
+        pub = request.form.get("publishing_notes", "").strip()
+        _set_publishing_notes(sub, _get_ba_notes_only(sub), pub)
     sub.updated_at = datetime.utcnow()
     db.session.commit()
     flash("Saved.", "success")
