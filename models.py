@@ -368,7 +368,18 @@ class ClearanceItem(db.Model):
     docusign_envelope_id = db.Column(db.String(100))
     docusign_status      = db.Column(db.String(50))
 
+    deal_terms_json = db.Column(db.Text)
+
     documents = db.relationship("SubmissionDocument", backref="clearance_item", lazy=True)
+
+    @property
+    def deal_terms(self):
+        import json
+        return json.loads(self.deal_terms_json or "{}")
+
+    def deal_terms_save(self, terms_dict):
+        import json
+        self.deal_terms_json = json.dumps(terms_dict)
 
     @property
     def status_label(self):

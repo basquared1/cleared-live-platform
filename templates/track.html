@@ -303,6 +303,114 @@
           </div>
           {% endif %}
 
+          <!-- Deal Terms -->
+          {% set idt = item.deal_terms %}
+          <div class="mb-3">
+            <button class="btn btn-link btn-sm p-0 text-decoration-none text-navy fw-semibold"
+                    type="button" data-bs-toggle="collapse" data-bs-target="#item-deal-terms-{{ item.id }}">
+              <i class="bi bi-list-check me-1"></i>Deal Terms
+              {% if idt.territory or idt.media_rights %}
+              <span class="badge bg-light text-dark border ms-1" style="font-size:.65rem;">
+                {{ idt.territory or '' }}{% if idt.term %} · {{ idt.term }}{% endif %}
+              </span>
+              {% endif %}
+              <i class="bi bi-chevron-down ms-1" style="font-size:.7rem;"></i>
+            </button>
+            <div class="collapse mt-2" id="item-deal-terms-{{ item.id }}">
+              <form method="POST" action="{{ url_for('track_item_deal_terms', token=sub.token, item_id=item.id) }}"
+                    class="p-3 rounded deal-terms-form" style="background:#f8f9fa;border:1px solid #dee2e6;font-size:.82rem;">
+                {% if neg_positions %}
+                <div class="mb-3 p-2 rounded" style="background:#f0f4ff;border:1px solid #c5d3f0;">
+                  <div class="small fw-semibold text-navy mb-2"><i class="bi bi-shield-check me-1"></i>Quick Apply — Platform Positions</div>
+                  <div class="d-flex flex-wrap gap-2">
+                    {% for pos in neg_positions %}
+                    {% set badge_color = ['success','warning','danger','secondary'][loop.index0 if loop.index0 < 3 else 3] %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            onclick="applyPositionByIndex(this, {{ loop.index0 }})"
+                            title="{{ pos.notes or '' }}">
+                      <span class="badge bg-{{ badge_color }} me-1">{{ pos.label }}</span>
+                      {{ {'worldwide':'WW','north_america':'NA','us':'US'}.get(pos.territory, pos.territory) }}
+                      · {{ pos.term | replace('_',' ') | title }}
+                    </button>
+                    {% endfor %}
+                    <button type="button" class="btn btn-sm btn-outline-dark"
+                            onclick="applyPositionByIndex(this, 'all_media')">
+                      <i class="bi bi-globe me-1"></i>All Media · WW · Perp
+                    </button>
+                  </div>
+                  {% if neg_positions[0].notes %}
+                  <div class="text-muted mt-1" style="font-size:.72rem;">
+                    <i class="bi bi-info-circle me-1"></i><strong>Primary:</strong> {{ neg_positions[0].notes }}
+                  </div>
+                  {% endif %}
+                </div>
+                {% endif %}
+                <div class="row g-2 mb-2">
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small fw-semibold mb-1">Fee ($)</label>
+                    <input type="number" name="fee" class="form-control form-control-sm"
+                           value="{{ idt.fee or '' }}" placeholder="e.g. 500">
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small fw-semibold mb-1">Fee Type</label>
+                    <select name="fee_type" class="form-select form-select-sm">
+                      <option value="">—</option>
+                      {% for ft in ['Flat Fee', 'Per Item', 'Gratis'] %}
+                      <option {% if idt.fee_type == ft %}selected{% endif %}>{{ ft }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small fw-semibold mb-1">Territory</label>
+                    <select name="territory" class="form-select form-select-sm">
+                      <option value="">—</option>
+                      {% for t in ['Worldwide', 'US Only', 'North America'] %}
+                      <option {% if idt.territory == t %}selected{% endif %}>{{ t }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small fw-semibold mb-1">Term</label>
+                    <select name="term" class="form-select form-select-sm">
+                      <option value="">—</option>
+                      {% for tm in ['Perpetuity', '5 Years', '3 Years', '2 Years', '1 Year'] %}
+                      <option {% if idt.term == tm %}selected{% endif %}>{{ tm }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+                <div class="mb-2">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" name="mfn" value="1"
+                           id="item_mfn_{{ item.id }}" {% if idt.mfn %}checked{% endif %}>
+                    <label class="form-check-label small" for="item_mfn_{{ item.id }}">MFN</label>
+                  </div>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small fw-semibold mb-1">Media Rights</label>
+                  <div class="d-flex flex-wrap gap-3">
+                    {% set item_mr = idt.media_rights or [] %}
+                    {% for mr in ['Theatrical', 'Streaming', 'TV/Broadcast', 'Home Video', 'Social Media', 'All Media', 'All Media excl. Theatrical & Advertising'] %}
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="checkbox" name="media_rights" value="{{ mr }}"
+                             id="item_mr_{{ item.id }}_{{ loop.index }}" {% if mr in item_mr %}checked{% endif %}>
+                      <label class="form-check-label small" for="item_mr_{{ item.id }}_{{ loop.index }}">{{ mr }}</label>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small fw-semibold mb-1">Notes</label>
+                  <textarea name="notes" class="form-control form-control-sm" rows="2"
+                            placeholder="Deal context, special conditions...">{{ idt.notes or '' }}</textarea>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary fw-semibold">
+                  <i class="bi bi-floppy me-1"></i>Save Deal Terms
+                </button>
+              </form>
+            </div>
+          </div>
+
           <!-- Upload section -->
           <div class="mb-3">
             <div class="fw-semibold small mb-2 text-navy">Upload Signed Document</div>
@@ -402,8 +510,34 @@
     <!-- Bulk Deal Terms panel -->
     <div class="collapse" id="bulk-deal-panel">
       <form method="POST" action="{{ url_for('track_song_bulk_deal_terms', token=sub.token) }}"
-            class="p-3 border-bottom bg-light">
+            class="p-3 border-bottom bg-light deal-terms-form">
         <div class="fw-semibold small mb-2 text-muted">Bulk Deal Terms — apply to all songs at once</div>
+        {% if neg_positions %}
+        <div class="mb-3 p-2 rounded" style="background:#f0f4ff;border:1px solid #c5d3f0;">
+          <div class="small fw-semibold text-navy mb-2"><i class="bi bi-shield-check me-1"></i>Quick Apply — Platform Positions</div>
+          <div class="d-flex flex-wrap gap-2">
+            {% for pos in neg_positions %}
+            {% set badge_color = ['success','warning','danger','secondary'][loop.index0 if loop.index0 < 3 else 3] %}
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    onclick="applyPositionByIndex(this, {{ loop.index0 }})"
+                    title="{{ pos.notes or '' }}">
+              <span class="badge bg-{{ badge_color }} me-1">{{ pos.label }}</span>
+              {{ {'worldwide':'WW','north_america':'NA','us':'US'}.get(pos.territory, pos.territory) }}
+              · {{ pos.term | replace('_',' ') | title }}
+            </button>
+            {% endfor %}
+            <button type="button" class="btn btn-sm btn-outline-dark"
+                    onclick="applyPositionByIndex(this, 'all_media')">
+              <i class="bi bi-globe me-1"></i>All Media · WW · Perp
+            </button>
+          </div>
+          {% if neg_positions[0].notes %}
+          <div class="text-muted mt-1" style="font-size:.72rem;">
+            <i class="bi bi-info-circle me-1"></i><strong>Primary:</strong> {{ neg_positions[0].notes }}
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
         <div class="row g-2 mb-2">
           <div class="col-12 col-md-3">
             <label class="form-label small fw-semibold mb-1">Fee ($)</label>
@@ -702,8 +836,28 @@
         <!-- Per-song deal terms panel -->
         <div class="collapse" id="deal-terms-{{ sidx }}">
           <form method="POST" action="{{ url_for('track_song_deal_terms', token=sub.token, idx=sidx) }}"
-                class="p-3 border-top bg-light" style="font-size:.82rem;">
+                class="p-3 border-top bg-light deal-terms-form" style="font-size:.82rem;">
             <div class="fw-semibold small mb-2 text-muted">Deal Terms — {{ song.title }}</div>
+            {% if neg_positions %}
+            <div class="mb-3 p-2 rounded" style="background:#f0f4ff;border:1px solid #c5d3f0;">
+              <div class="d-flex flex-wrap gap-2">
+                {% for pos in neg_positions %}
+                {% set badge_color = ['success','warning','danger','secondary'][loop.index0 if loop.index0 < 3 else 3] %}
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        onclick="applyPositionByIndex(this, {{ loop.index0 }})"
+                        title="{{ pos.notes or '' }}">
+                  <span class="badge bg-{{ badge_color }} me-1">{{ pos.label }}</span>
+                  {{ {'worldwide':'WW','north_america':'NA','us':'US'}.get(pos.territory, pos.territory) }}
+                  · {{ pos.term | replace('_',' ') | title }}
+                </button>
+                {% endfor %}
+                <button type="button" class="btn btn-sm btn-outline-dark"
+                        onclick="applyPositionByIndex(this, 'all_media')">
+                  <i class="bi bi-globe me-1"></i>All Media · WW · Perp
+                </button>
+              </div>
+            </div>
+            {% endif %}
             <div class="row g-2 mb-2">
               <div class="col-12 col-md-3">
                 <label class="form-label small fw-semibold mb-1">Fee ($)</label>
@@ -862,6 +1016,76 @@
 {% endblock %}
 {% block scripts %}
 <script>
+// ── Negotiation positions quick-apply ─────────────────────────────────────────
+const NEG_POSITIONS = {{ neg_positions | tojson }};
+
+const TERRITORY_MAP = {
+  'worldwide':    'Worldwide',
+  'north_america':'North America',
+  'us':           'US Only',
+  'europe':       'Europe'
+};
+const TERM_MAP = {
+  'perpetuity': 'Perpetuity',
+  '5_years':    '5 Years',
+  '3_years':    '3 Years',
+  '2_years':    '2 Years',
+  '1_year':     '1 Year'
+};
+const USE_MAP = {
+  'streaming':   'Streaming',
+  'broadcast':   'TV/Broadcast',
+  'theatrical':  'Theatrical',
+  'social':      'Social Media',
+  'home_video':  'Home Video',
+  'all':         'All Media'
+};
+
+function applyDealTerms(formEl, pos) {
+  var tSel = formEl.querySelector('[name="territory"]');
+  if (tSel) tSel.value = TERRITORY_MAP[pos.territory] || '';
+  var tmSel = formEl.querySelector('[name="term"]');
+  if (tmSel) tmSel.value = TERM_MAP[pos.term] || pos.term || '';
+  formEl.querySelectorAll('[name="media_rights"]').forEach(function(cb) { cb.checked = false; });
+  var uses = pos.uses || [];
+  var excludes = pos.uses_exclude || [];
+  if (uses.includes('all')) {
+    var target = (excludes.length > 0) ? 'All Media excl. Theatrical & Advertising' : 'All Media';
+    formEl.querySelectorAll('[name="media_rights"]').forEach(function(cb) {
+      if (cb.value === target) cb.checked = true;
+    });
+  } else {
+    uses.forEach(function(u) {
+      var mapped = USE_MAP[u];
+      if (mapped) formEl.querySelectorAll('[name="media_rights"]').forEach(function(cb) {
+        if (cb.value === mapped) cb.checked = true;
+      });
+    });
+  }
+}
+
+function applyAllMediaWWPerp(formEl) {
+  applyDealTerms(formEl, {territory: 'worldwide', term: 'perpetuity', uses: ['all'], uses_exclude: []});
+}
+
+function applyPositionByIndex(btn, idx) {
+  var form = btn.closest('form');
+  if (idx === 'all_media') { applyAllMediaWWPerp(form); }
+  else if (NEG_POSITIONS[idx]) { applyDealTerms(form, NEG_POSITIONS[idx]); }
+}
+
+// Pre-fill empty deal terms forms from Primary position on page load
+document.addEventListener('DOMContentLoaded', function() {
+  if (!NEG_POSITIONS.length) return;
+  var primary = NEG_POSITIONS[0];
+  document.querySelectorAll('.deal-terms-form').forEach(function(form) {
+    var territory = form.querySelector('[name="territory"]');
+    if (territory && !territory.value) {
+      applyDealTerms(form, primary);
+    }
+  });
+});
+
 function copyLink() {
   navigator.clipboard.writeText(window.location.href).then(() => {
     const btn = document.getElementById('copyBtn');

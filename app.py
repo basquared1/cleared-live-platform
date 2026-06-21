@@ -814,7 +814,8 @@ def submit_confirm(token):
 def track(token):
     sub = Submission.query.filter_by(token=token).first_or_404()
     return render_template("track.html", sub=sub,
-                           publishing_notes=_get_publishing_notes(sub))
+                           publishing_notes=_get_publishing_notes(sub),
+                           neg_positions=sub.platform.negotiation_positions)
 
 
 @app.route("/track/<token>/save-publishing-notes", methods=["POST"])
@@ -926,6 +927,27 @@ def track_item_save_draft(token, item_id):
     item.ai_draft = request.form.get("draft_text", item.ai_draft)
     db.session.commit()
     flash("Draft saved.", "success")
+    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+@app.route("/track/<token>/item/<int:item_id>/deal-terms", methods=["POST"])
+def track_item_deal_terms(token, item_id):
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    terms = {
+        "fee":           request.form.get("fee", "").strip() or None,
+        "fee_type":      request.form.get("fee_type", "").strip() or None,
+        "territory":     request.form.get("territory", "").strip() or None,
+        "term":          request.form.get("term", "").strip() or None,
+        "mfn":           bool(request.form.get("mfn")),
+        "media_rights":  request.form.getlist("media_rights"),
+        "notes":         request.form.get("notes", "").strip() or None,
+    }
+    item.deal_terms_save(terms)
+    db.session.commit()
+    flash("Deal terms saved.", "success")
     return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
 
 
@@ -2377,6 +2399,16 @@ def migrate_db_cmd():
         except Exception as exc:
             conn.rollback()
             print(f"  submissions.publishing_notes: {exc}")
+        # Add deal_terms_json to clearance_items
+        try:
+            conn.execute(sa_text(
+                "ALTER TABLE clearance_items ADD COLUMN IF NOT EXISTS deal_terms_json TEXT"
+            ))
+            conn.commit()
+            print("  clearance_items.deal_terms_json OK")
+        except Exception as exc:
+            conn.rollback()
+            print(f"  clearance_items.deal_terms_json: {exc}")
     print("Migration complete.")
 
 
