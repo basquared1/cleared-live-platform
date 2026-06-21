@@ -647,6 +647,32 @@
       </div>
     </div>
 
+    {% if sub.project_type == 'live_music' %}
+    <!-- Publishing Reference — injected into AI prompts -->
+    <div class="card border-0 shadow-sm mb-3" style="border-left:3px solid #f5c842 !important;">
+      <div class="card-header bg-white border-bottom py-3">
+        <div class="fw-semibold text-navy small">
+          <i class="bi bi-stars me-2 text-warning"></i>Publishing Reference
+          <span class="badge bg-warning text-dark border ms-1" style="font-size:.65rem;">Fed to AI — overrides training data</span>
+        </div>
+      </div>
+      <div class="card-body p-3">
+        <p class="text-muted small mb-2">
+          Enter verified publisher, PRO, and co-writer info for this artist.
+          AI Fill Writers will treat this as ground truth and won't contradict it.
+          Example: <em>"Noah Kahan: Kobalt/ASCAP. Dial Drunk co-writers: Gabe Simon + Noah Levine (PULSE/Concord, ASCAP), 33.3% each."</em>
+        </p>
+        <form method="POST" action="{{ url_for('platform_save_notes', sub_id=sub.id) }}">
+          <textarea name="publishing_notes" class="form-control form-control-sm mb-2" rows="5"
+                    placeholder="e.g. Noah Kahan: Kobalt Music Publishing (ASCAP). Frequent co-writers: Gabe Simon, Noah Levine (PULSE/Concord). Featured artists on recordings (Morgan Wallen, Post Malone) are NOT songwriters.">{{ sub.publishing_notes or '' }}</textarea>
+          <button type="submit" class="btn btn-sm btn-warning text-dark fw-semibold">
+            <i class="bi bi-floppy me-1"></i>Save Reference
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
 
   </div>
 </div>

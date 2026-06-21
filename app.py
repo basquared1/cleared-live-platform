@@ -907,31 +907,36 @@ def _ai_fill_songs(sub_id):
         if not sub or sub.project_type != "live_music":
             return
         existing = sub.setlist_list or []
+        publishing_ref = (
+            f"\nVERIFIED PUBLISHING REFERENCE (use this data — it overrides your training data):\n"
+            f"{sub.publishing_notes}\n"
+            if sub.publishing_notes else ""
+        )
         prompt = (
-            f"You are a music publishing rights research assistant with deep knowledge of BMI, ASCAP, and publisher databases.\n"
+            f"You are a music publishing rights research assistant.\n"
             f"Artist: {sub.artist_name or 'Unknown'}\n"
             f"Event: {sub.event_name or sub.title}\n"
             f"Venue: {sub.venue or 'Unknown'}\n"
             f"Date: {sub.event_date or 'Unknown'}\n"
-            f"Known setlist (may be empty): {', '.join(existing) if existing else 'not provided'}\n\n"
-            f"Task:\n"
-            f"1. If no setlist is provided, use your knowledge to identify the most likely setlist "
-            f"for this event (or a typical recent setlist for this artist). Mark confidence: high/medium/low.\n"
-            f"2. For each song, identify ONLY the actual credited songwriters from official PRO/publisher records "
-            f"(BMI, ASCAP, SESAC). Do NOT confuse featured artists or performers with songwriters. "
-            f"A featured artist on a recording is NOT a songwriter unless they have a verified writer credit. "
-            f"For each confirmed writer include: their publishing administrator (not record label), "
-            f"their PRO affiliation, and their ownership split percentage.\n"
-            f"3. Use the most specific and accurate publisher name available — e.g. 'Kobalt Music Publishing' "
-            f"not just 'Kobalt'; 'PULSE Music Group / Concord' not 'PULSE'; 'Sony Music Publishing (US) LLC' not 'Sony'.\n"
-            f"4. Return ONLY a JSON array. No prose. Each element:\n"
+            f"Known setlist (may be empty): {', '.join(existing) if existing else 'not provided'}\n"
+            f"{publishing_ref}\n"
+            f"RULES — follow exactly:\n"
+            f"1. List ONLY credited songwriters from official BMI/ASCAP/SESAC records. "
+            f"NEVER include featured performers ('feat.' artists) as songwriters unless they have a "
+            f"verified, separate writer credit. Being on the recording does not make someone a songwriter.\n"
+            f"2. If a VERIFIED PUBLISHING REFERENCE is provided above, treat it as ground truth and use "
+            f"those publisher names, splits, and co-writers exactly. Do not contradict it.\n"
+            f"3. When you are uncertain about co-writers or splits, list only the primary artist and "
+            f"mark confidence: low — do not guess. A wrong name is worse than a missing name.\n"
+            f"4. Use full publisher names: 'Kobalt Music Publishing', 'PULSE Music Group / Concord', "
+            f"'Sony Music Publishing (US) LLC', 'Warner Chappell Music'. Not just 'Kobalt' or 'Sony'.\n"
+            f"5. If no setlist is provided, identify the most likely setlist for this event.\n"
+            f"6. Return ONLY a JSON array — no prose, no markdown fences:\n"
             f'{{"title": str, '
-            f'"writers": [{{"name": str, "publisher": str, "pro": str, "split_pct": number}}], '
+            f'"writers": [{{"name": str, "publisher": str, "pro": "ASCAP"|"BMI"|"SESAC"|"SOCAN"|"PRS", "split_pct": number}}], '
             f'"is_cover": bool, "original_artist": str or null, '
             f'"confidence": "high"|"medium"|"low", "status": "pending"}}\n'
-            f"For co-written songs include one object per writer. Split percentages must sum to 100. "
-            f"If you are uncertain about exact splits, distribute evenly among confirmed writers and mark confidence: medium.\n"
-            f"Return the JSON array only — no markdown fences, no explanation."
+            f"Split percentages per song must sum to 100. Distribute evenly when exact splits are unknown."
         )
         try:
             import anthropic
@@ -981,13 +986,25 @@ def _ai_fill_song_writers(sub_id, idx):
         song = songs[idx]
         title = song.get("title", "Unknown")
         artist = sub.artist_name or "Unknown"
+        publishing_ref = (
+            f"\nVERIFIED PUBLISHING REFERENCE (treat as ground truth):\n{sub.publishing_notes}\n"
+            if sub.publishing_notes else ""
+        )
         prompt = (
-            f"You are a music rights research assistant.\n"
-            f"Find the songwriter(s), publishing company/companies, and PRO for this song:\n"
-            f"Song: \"{title}\" by {artist}\n\n"
-            f"Return ONLY a JSON array of writer objects. No prose:\n"
+            f"You are a music publishing rights research assistant.\n"
+            f"Song: \"{title}\" by {artist}\n"
+            f"{publishing_ref}\n"
+            f"RULES:\n"
+            f"- List ONLY credited songwriters from BMI/ASCAP/SESAC records.\n"
+            f"- Do NOT include featured performers as songwriters. Being on the recording ('feat.') "
+            f"is NOT a writer credit.\n"
+            f"- If a VERIFIED PUBLISHING REFERENCE is provided, use those names and publishers exactly.\n"
+            f"- If uncertain about co-writers, list only the primary artist at 100% and mark low confidence "
+            f"rather than guessing.\n"
+            f"- Use full publisher names (e.g. 'Kobalt Music Publishing', not 'Kobalt').\n\n"
+            f"Return ONLY a JSON array — no prose, no markdown:\n"
             f'[{{"name": str, "publisher": str, "pro": "ASCAP"|"BMI"|"SESAC"|"SOCAN"|"PRS", "split_pct": number}}]\n'
-            f"Split percentages must sum to 100. Include all co-writers."
+            f"Splits must sum to 100."
         )
         try:
             import anthropic
@@ -1540,10 +1557,13 @@ def platform_save_notes(sub_id):
     sub  = Submission.query.get_or_404(sub_id)
     if sub.platform_id != user.platform_id:
         abort(403)
-    sub.ba_notes   = request.form.get("ba_notes", "").strip()
+    if "ba_notes" in request.form:
+        sub.ba_notes = request.form.get("ba_notes", "").strip()
+    if "publishing_notes" in request.form:
+        sub.publishing_notes = request.form.get("publishing_notes", "").strip() or None
     sub.updated_at = datetime.utcnow()
     db.session.commit()
-    flash("Notes saved.", "success")
+    flash("Saved.", "success")
     return redirect(url_for("platform_project", sub_id=sub_id))
 
 
@@ -2288,6 +2308,16 @@ def migrate_db_cmd():
         except Exception as exc:
             conn.rollback()
             print(f"  submissions.deal_terms_json: {exc}")
+        # Add publishing_notes to submissions
+        try:
+            conn.execute(sa_text(
+                "ALTER TABLE submissions ADD COLUMN IF NOT EXISTS publishing_notes TEXT"
+            ))
+            conn.commit()
+            print("  submissions.publishing_notes OK")
+        except Exception as exc:
+            conn.rollback()
+            print(f"  submissions.publishing_notes: {exc}")
     print("Migration complete.")
 
 

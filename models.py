@@ -205,6 +205,7 @@ class Submission(db.Model):
     status              = db.Column(db.String(30), default="submitted")
     # submitted | in_review | in_clearance | cleared | rejected
     ba_notes            = db.Column(db.Text)    # internal only
+    publishing_notes    = db.Column(db.Text)    # BA-entered artist/publisher reference injected into AI prompts
     songs_json          = db.Column(db.Text)    # JSON list of song dicts for live_music
     deal_terms_json     = db.Column(db.Text)    # JSON dict of bulk deal terms
 
