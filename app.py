@@ -1243,8 +1243,9 @@ def _ai_fill_songs(sub_id):
             for s in songs:
                 if "deal_terms" not in s or not s["deal_terms"]:
                     s["deal_terms"] = dict(default_deal)
-                if "writers" not in s:
-                    s["writers"] = []
+                # Always clear writers in Phase 1 — Phase 2 fills them with the
+                # publisher-admin prompt. Prevents stale/wrong data from Phase 1.
+                s["writers"] = []
             sub.songs_save(songs)
             if not sub.setlist:
                 sub.setlist = "\n".join(s["title"] for s in songs)
@@ -1357,10 +1358,11 @@ def track_fill_next_writers(token):
     sub  = Submission.query.filter_by(token=token).first_or_404()
     songs = sub.songs
     start = int(request.form.get("start", 0))
+    force = request.form.get("force") == "1"
     batch = 3
     filled = []
     for idx in range(start, min(start + batch, len(songs))):
-        if not songs[idx].get("writers"):
+        if force or not songs[idx].get("writers"):
             _ai_fill_song_writers(sub.id, idx)
             filled.append(idx)
     next_start = start + batch

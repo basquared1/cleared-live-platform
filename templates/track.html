@@ -1642,7 +1642,7 @@ setTimeout(() => location.reload(), 90000);
     fetch('{{ url_for("track_fill_next_writers", token=sub.token) }}', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: 'start=' + start,
+      body: 'start=' + start + '&force=1',
     })
     .then(r => r.json())
     .then(data => {
