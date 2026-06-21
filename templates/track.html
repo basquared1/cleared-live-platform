@@ -1039,14 +1039,68 @@ function copyOutreach(elId, btn) {
 }
 
 {% if sub.status not in ('cleared', 'rejected') %}
-{% set songs_missing_writers = sub.songs | selectattr('writers', 'equalto', []) | list %}
-{% if songs_missing_writers | length > 0 %}
-// Writers still filling — refresh every 20s
-setTimeout(() => location.reload(), 20000);
-{% else %}
-// Standard refresh every 90s
 setTimeout(() => location.reload(), 90000);
 {% endif %}
+
+{% set songs_missing_writers = sub.songs | selectattr('writers', 'equalto', []) | list | length %}
+{% if songs_missing_writers > 0 and sub.project_type == 'live_music' %}
+// Auto-fill writers batch by batch — no manual refresh needed
+(function() {
+  const TOTAL = {{ sub.songs | length }};
+  const MISSING = {{ songs_missing_writers }};
+
+  // Create progress banner
+  const banner = document.createElement('div');
+  banner.id = 'writer-fill-banner';
+  banner.style.cssText = 'position:fixed;bottom:1rem;right:1rem;z-index:9999;min-width:240px;';
+  banner.innerHTML = `
+    <div class="card shadow border-0" style="background:#fffbea;border-left:4px solid #f5c842!important;">
+      <div class="card-body py-2 px-3">
+        <div class="small fw-semibold text-navy mb-1">
+          <span class="spinner-border spinner-border-sm me-1 text-warning"></span>
+          Filling writers…
+        </div>
+        <div class="progress mb-1" style="height:6px;">
+          <div id="writer-progress-bar" class="progress-bar bg-warning" style="width:0%;transition:width .4s;"></div>
+        </div>
+        <div id="writer-progress-text" class="text-muted" style="font-size:.72rem;">Starting…</div>
+      </div>
+    </div>`;
+  document.body.appendChild(banner);
+
+  function updateProgress(filled, total) {
+    const pct = Math.round((filled / total) * 100);
+    document.getElementById('writer-progress-bar').style.width = pct + '%';
+    document.getElementById('writer-progress-text').textContent = `${filled} of ${total} songs done`;
+  }
+
+  function fillBatch(start, soFar) {
+    updateProgress(soFar, TOTAL);
+    fetch('{{ url_for("track_fill_next_writers", token=sub.token) }}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'start=' + start,
+    })
+    .then(r => r.json())
+    .then(data => {
+      const nowDone = soFar + data.filled.length;
+      updateProgress(nowDone, TOTAL);
+      if (data.done) {
+        document.getElementById('writer-progress-text').textContent = 'Done! Reloading…';
+        setTimeout(() => location.reload(), 600);
+      } else {
+        fillBatch(data.next, nowDone);
+      }
+    })
+    .catch(() => {
+      document.getElementById('writer-progress-text').textContent = 'Error — refresh to retry';
+    });
+  }
+
+  // Start from the first song that's missing writers
+  const firstMissing = {{ sub.songs | map(attribute='writers') | list | tojson }}.findIndex(w => !w || w.length === 0);
+  fillBatch(firstMissing >= 0 ? firstMissing : 0, TOTAL - MISSING);
+})();
 {% endif %}
 </script>
 {% endblock %}

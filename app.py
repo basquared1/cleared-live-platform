@@ -1063,12 +1063,31 @@ def _ai_fill_song_writers(sub_id, idx):
 @app.route("/track/<token>/ai-fill-songs", methods=["POST"])
 def track_ai_fill_songs(token):
     sub = Submission.query.filter_by(token=token).first_or_404()
-    # Phase 1 — setlist titles, synchronous (fast, ~3s)
-    _ai_fill_songs(sub.id)
-    # Phase 2 — per-song writer research, background (avoids 30s timeout)
-    threading.Thread(target=_ai_fill_all_writers, args=(sub.id,), daemon=False).start()
-    flash("Setlist loaded — writers are filling in. Refresh in ~30 seconds.", "info")
+    _ai_fill_songs(sub.id)   # Phase 1: setlist titles only, synchronous
+    # Phase 2 handled client-side via /fill-next-writers batched JSON calls
     return redirect(url_for("track", token=token) + "#songs-section")
+
+
+@app.route("/track/<token>/fill-next-writers", methods=["POST"])
+def track_fill_next_writers(token):
+    """Fill writers for a batch of songs. Called repeatedly by JS until done."""
+    from flask import jsonify
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    songs = sub.songs
+    start = int(request.form.get("start", 0))
+    batch = 3
+    filled = []
+    for idx in range(start, min(start + batch, len(songs))):
+        if not songs[idx].get("writers"):
+            _ai_fill_song_writers(sub.id, idx)
+            filled.append(idx)
+    next_start = start + batch
+    return jsonify({
+        "next":  next_start,
+        "done":  next_start >= len(songs),
+        "total": len(songs),
+        "filled": filled,
+    })
 
 
 @app.route("/track/<token>/songs/add", methods=["POST"])
