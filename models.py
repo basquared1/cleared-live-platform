@@ -27,11 +27,10 @@ CLEARANCE_TEMPLATES = {
     "live_music": [
         {"key": "promoter_consent",   "label": "Promoter Filming Rights Consent",  "priority": 1},
         {"key": "label_waiver",       "label": "Label Waiver",                     "priority": 2},
-        {"key": "publishing",         "label": "Publishing Clearance",             "priority": 3},
-        {"key": "performer_release",  "label": "Performer Releases",               "priority": 4},
-        {"key": "venue_license",      "label": "Venue Filming License",            "priority": 5},
-        {"key": "crowd_release",      "label": "Crowd / Audience Release",         "priority": 6},
-        {"key": "platform_agreement", "label": "Platform Distribution Agreement",  "priority": 7},
+        {"key": "performer_release",  "label": "Performer Releases",               "priority": 3},
+        {"key": "venue_license",      "label": "Venue Filming License",            "priority": 4},
+        {"key": "crowd_release",      "label": "Crowd / Audience Release",         "priority": 5},
+        {"key": "platform_agreement", "label": "Platform Distribution Agreement",  "priority": 6},
     ],
     "documentary": [
         {"key": "sync_license",        "label": "Music Sync License(s)",           "priority": 1},
