@@ -713,7 +713,7 @@ def _auto_outreach_agent(item_id):
                 import resend as _resend
                 _resend.api_key = os.getenv("RESEND_API_KEY")
                 _resend.Emails.send({
-                    "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clearances@cleared.live>",
+                    "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clear@cleared.live>",
                     "to": [party_email],
                     "subject": f"Clearance Request — {item.item_label} | {sub.title}",
                     "text": body,
@@ -1136,7 +1136,7 @@ def track_item_send_clearance(token, item_id):
             import resend as _resend
             _resend.api_key = resend_key
             _resend.Emails.send({
-                "from": f"{sub.platform.name} Business Affairs <clearances@cleared.live>",
+                "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clear@cleared.live>",
                 "to": [item.party_email],
                 "subject": f"Clearance Request — {item.item_label} | {sub.title}",
                 "text": outreach_body,
@@ -1620,7 +1620,7 @@ def track_pub_groups_send(token):
     _resend.api_key = os.getenv("RESEND_API_KEY")
     try:
         _resend.Emails.send({
-            "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clearances@cleared.live>",
+            "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clear@cleared.live>",
             "to": g["contact_email"],
             "subject": f"Sync License Request — {sub.artist_name or sub.title} ({len(g.get('songs',[]))} songs) — {sub.platform.name if sub.platform else ''}",
             "text": g["ai_outreach"],
