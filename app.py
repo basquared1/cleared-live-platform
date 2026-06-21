@@ -1005,6 +1005,57 @@ def track_item_ai_suggest_contact(token, item_id):
         return jsonify({"error": "Could not parse AI response.", "raw": raw}), 500
 
 
+@app.route("/track/<token>/item/<int:item_id>/ai-fill-vars", methods=["POST"])
+def track_item_ai_fill_vars(token, item_id):
+    from flask import jsonify
+    import json as _json
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return jsonify({"error": "AI unavailable"}), 503
+
+    var_names = request.form.getlist("vars")
+    if not var_names:
+        return jsonify({}), 200
+
+    dt = item.deal_terms
+    system = (
+        "You are a legal document specialist. Fill in contract variable fields with accurate, "
+        "specific values based on the project context provided. "
+        "Respond ONLY with valid JSON — no markdown, no explanation outside the JSON."
+    )
+    user = (
+        f"Fill in the following contract variables for a {item.item_label} agreement.\n\n"
+        f"Project context:\n{_sub_context(sub)}\n\n"
+        f"Rights Holder: {item.party_company or item.party_name or 'Unknown'}\n"
+        f"Rights Holder Email: {item.party_email or 'Unknown'}\n"
+        f"Deal Terms: fee=${dt.get('fee') or 'TBD'}, fee_type={dt.get('fee_type') or 'TBD'}, "
+        f"territory={dt.get('territory') or 'Worldwide'}, term={dt.get('term') or 'Perpetuity'}, "
+        f"media_rights={', '.join(dt.get('media_rights') or ['Streaming'])}\n\n"
+        f"Variables to fill (return ONLY these keys in JSON):\n"
+        + "\n".join(f"  - {v}" for v in var_names)
+        + "\n\nFor each variable, provide a specific, accurate value. Use the project data above. "
+        f"For STATE: use the state where the event/company is located. "
+        f"For ENTITY TYPE AND STATE: e.g. 'a California limited liability company'. "
+        f"For AMOUNT: use the fee from deal terms or suggest a reasonable market rate. "
+        f"For PAYMENT SCHEDULE: suggest standard terms like 'full upon execution' or '50% upon execution, 50% upon delivery'. "
+        f"For DATE/EFFECTIVE DATE: use the event date or today June 21 2026. "
+        f"For TERM: use the deal terms term. "
+        f"Never leave a value as a bracket placeholder."
+    )
+    raw = call_claude(system, user, max_tokens=600)
+    if not raw:
+        return jsonify({"error": "AI did not respond"}), 500
+    try:
+        clean = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        data = _json.loads(clean)
+        return jsonify(data)
+    except Exception:
+        return jsonify({"error": "Could not parse AI response", "raw": raw[:200]}), 500
+
+
 @app.route("/track/<token>/item/<int:item_id>/send-clearance", methods=["POST"])
 def track_item_send_clearance(token, item_id):
     sub  = Submission.query.filter_by(token=token).first_or_404()

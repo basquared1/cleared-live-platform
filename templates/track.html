@@ -1114,6 +1114,57 @@
 {% endblock %}
 {% block scripts %}
 <script>
+// ── Known submission data for auto-filling agreement variables ─────────────
+const KNOWN_VARS = {
+  'DATE':                   '{{ sub.event_date or "" }}',
+  'EFFECTIVE DATE':         '{{ sub.event_date or "" }}',
+  'EVENT DATE':             '{{ sub.event_date or "" }}',
+  'AGREEMENT DATE':         '{{ sub.event_date or "" }}',
+  'ARTIST':                 '{{ sub.artist_name or "" }}',
+  'ARTIST NAME':            '{{ sub.artist_name or "" }}',
+  'PERFORMER':              '{{ sub.artist_name or "" }}',
+  'PROJECT':                '{{ sub.title or "" }}',
+  'PROJECT NAME':           '{{ sub.title or "" }}',
+  'FILM TITLE':             '{{ sub.title or "" }}',
+  'SHOW TITLE':             '{{ sub.title or "" }}',
+  'PLATFORM':               '{{ sub.platform.name or "" }}',
+  'STREAMING PLATFORM':     '{{ sub.platform.name or "" }}',
+  'VENUE':                  '{{ sub.venue or "" }}',
+  'VENUE NAME':             '{{ sub.venue or "" }}',
+  'EVENT':                  '{{ (sub.event_name or sub.title) or "" }}',
+  'EVENT NAME':             '{{ (sub.event_name or sub.title) or "" }}',
+  'TOUR':                   '{{ sub.event_name or "" }}',
+  'TERRITORY':              '{{ sub.deal_terms.territory or "Worldwide" }}',
+  'PRODUCER':               '{{ sub.submitter_company or sub.submitter_name or "" }}',
+  'PRODUCTION COMPANY':     '{{ sub.submitter_company or "" }}',
+  'PRODUCTION ENTITY':      '{{ sub.submitter_company or "" }}',
+  'LABEL':                  '{{ sub.label or "" }}',
+  'RECORD LABEL':           '{{ sub.label or "" }}',
+  'SUBMITTER':              '{{ sub.submitter_name or "" }}',
+  'CONTACT NAME':           '{{ sub.submitter_name or "" }}',
+};
+
+// Cross-item variable cache — filled values shared across all agreements on this page
+const FILLED_VARS = {};
+
+function getItemVars(itemId) {
+  // Per-item known vars from contact info
+  var company = document.getElementById('party-company-' + itemId);
+  var name    = document.getElementById('party-name-' + itemId);
+  var email   = document.getElementById('party-email-' + itemId);
+  return {
+    'RIGHTS HOLDER':              (company && company.value) || '',
+    'RIGHTS HOLDER NAME':         (company && company.value) || '',
+    'RIGHTS HOLDER LEGAL NAME':   (company && company.value) || '',
+    'LICENSOR':                   (company && company.value) || '',
+    'PROMOTER':                   (company && company.value) || '',
+    'VENUE OWNER':                (company && company.value) || '',
+    'LICENSEE':                   (company && company.value) || '',
+    'CONTACT':                    (name && name.value) || '',
+    'EMAIL':                      (email && email.value) || '',
+  };
+}
+
 // ── Negotiation positions quick-apply ─────────────────────────────────────────
 const NEG_POSITIONS = {{ neg_positions | tojson }};
 
@@ -1346,28 +1397,103 @@ function renderPreview(id) {
 
 function initDraft(id) {
   const raw = getRawDraft(id);
-  // Detect unique [BRACKET] variables
   const matches = [...new Set(raw.match(/\[[^\]]+\]/g) || [])];
   const container = document.getElementById('var-inputs-' + id);
   container.innerHTML = '';
   if (matches.length === 0) {
     document.getElementById('var-fields-' + id).style.display = 'none';
-  } else {
-    matches.forEach(varname => {
-      const col = document.createElement('div');
-      col.className = 'col-12 col-md-6';
-      const label = varname.slice(1, -1); // strip brackets
-      col.innerHTML = `
-        <label class="form-label small fw-semibold mb-1" style="font-size:.75rem;">${label}</label>
-        <input type="text" class="form-control form-control-sm"
-               data-varname="${varname}"
-               placeholder="${label}"
-               oninput="renderPreview(${id})">
-      `;
-      container.appendChild(col);
-    });
+    renderPreview(id);
+    return;
   }
+
+  // Build combined known values: submission data + per-item contact + cross-item cache
+  const allKnown = Object.assign({}, KNOWN_VARS, getItemVars(id), FILLED_VARS);
+
+  matches.forEach(function(varname) {
+    const col = document.createElement('div');
+    col.className = 'col-12 col-md-6';
+    const label = varname.slice(1, -1);
+    const knownVal = allKnown[label] || '';
+    col.innerHTML = '<label class="form-label small fw-semibold mb-1" style="font-size:.75rem;">' + label + '</label>'
+      + '<input type="text" class="form-control form-control-sm' + (knownVal ? ' border-success' : '') + '"'
+      + ' data-varname="' + varname + '"'
+      + ' value="' + knownVal.replace(/"/g, '&quot;') + '"'
+      + ' placeholder="' + label + '"'
+      + ' oninput="onVarInput(' + id + ', this)">';
+    container.appendChild(col);
+    if (knownVal) FILLED_VARS[label] = knownVal;
+  });
+
+  // Check if any vars are still unfilled
+  var unfilled = matches.filter(function(v) { return !allKnown[v.slice(1,-1)]; });
+  if (unfilled.length > 0) {
+    var aiBtn = document.createElement('div');
+    aiBtn.className = 'col-12 mt-1';
+    aiBtn.innerHTML = '<button type="button" class="btn btn-sm btn-warning" id="ai-fill-btn-' + id + '"'
+      + ' onclick="aiAutoFillVars(' + id + ')">'
+      + '<i class="bi bi-stars me-1"></i>AI Auto-fill ' + unfilled.length + ' remaining field' + (unfilled.length > 1 ? 's' : '')
+      + '</button>';
+    container.appendChild(aiBtn);
+  }
+
   renderPreview(id);
+}
+
+function onVarInput(id, input) {
+  // Update cross-item cache when user manually types
+  FILLED_VARS[input.dataset.varname.slice(1,-1)] = input.value;
+  renderPreview(id);
+}
+
+function aiAutoFillVars(id) {
+  var btn = document.getElementById('ai-fill-btn-' + id);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Filling…'; }
+
+  // Collect unfilled variable names
+  var unfilled = [];
+  document.querySelectorAll('#var-inputs-' + id + ' input').forEach(function(inp) {
+    if (!inp.value.trim()) unfilled.push(inp.dataset.varname.slice(1,-1));
+  });
+  if (!unfilled.length) { if (btn) btn.remove(); return; }
+
+  var body = new URLSearchParams();
+  unfilled.forEach(function(v) { body.append('vars', v); });
+
+  fetch('/track/{{ sub.token }}/item/' + id + '/ai-fill-vars', {
+    method: 'POST', body: body,
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (btn) btn.remove();
+    document.querySelectorAll('#var-inputs-' + id + ' input').forEach(function(inp) {
+      var label = inp.dataset.varname.slice(1,-1);
+      if (!inp.value.trim() && data[label]) {
+        inp.value = data[label];
+        inp.classList.add('border-success');
+        FILLED_VARS[label] = data[label];
+      }
+    });
+    renderPreview(id);
+    // Offer to fill same vars in other open agreements
+    propagateFilledVars();
+  })
+  .catch(function() { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-stars me-1"></i>AI Auto-fill'; } });
+}
+
+function propagateFilledVars() {
+  // For any other open draft panels, fill matching variables from FILLED_VARS
+  document.querySelectorAll('[id^="var-inputs-"]').forEach(function(container) {
+    container.querySelectorAll('input').forEach(function(inp) {
+      var label = inp.dataset.varname.slice(1,-1);
+      if (!inp.value.trim() && FILLED_VARS[label]) {
+        inp.value = FILLED_VARS[label];
+        inp.classList.add('border-success');
+        var id = container.id.replace('var-inputs-', '');
+        renderPreview(parseInt(id));
+      }
+    });
+  });
 }
 
 function enterEditMode(id) {
