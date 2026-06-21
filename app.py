@@ -478,8 +478,8 @@ def generate_outreach(sub, item):
         f"{_sub_context(sub)}\n\n"
         f"Start with 'Dear {salutation},'. State exactly what rights are being requested, "
         f"for which project and platform, reference event details, request a response within 5 business days, "
-        f"and close professionally from {sub.submitter_name or sub.submitter_company or 'the clearance team'} "
-        f"({sub.submitter_company or ''}) on behalf of {sub.platform.name}."
+        f"and close professionally. Signature is: {sub.submitter_name or ''}"
+        + (f"\n{sub.submitter_company}" if sub.submitter_company else "") + ". No 'on behalf of' in the closing."
     )
     return call_claude(system, user, max_tokens=600)
 
@@ -1587,9 +1587,9 @@ def track_pub_groups_outreach(token):
         f"  Uses: {', '.join(primary.get('uses', ['Streaming']))}\n\n"
         f"Include MFN language if appropriate (this project is clearing rights with multiple publishers simultaneously). "
         f"Request that all songs be covered under one blanket sync license agreement for efficiency. "
-        f"Sign off as {sub.submitter_name or 'Clearance Team'}"
-        + (f", {sub.submitter_company}" if sub.submitter_company else "")
-        + f" on behalf of {sub.platform.name if sub.platform else 'our platform'}. "
+        f"Sign off with just the sender's name and company — no 'on behalf of' in the closing. "
+        f"Signature: {sub.submitter_name or ''}"
+        + (f"\n{sub.submitter_company}" if sub.submitter_company else "") + ". "
         f"Keep to 3–4 short paragraphs. Professional tone. No markdown formatting."
     )
     raw = call_claude(system, user, max_tokens=800)
