@@ -1103,6 +1103,26 @@ def track_song_writer_delete(token, idx, widx):
     return redirect(url_for("track", token=token) + "#songs-section")
 
 
+@app.route("/track/<token>/songs/<int:idx>/writer/<int:widx>/update", methods=["POST"])
+def track_song_writer_update(token, idx, widx):
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    songs = sub.songs
+    if 0 <= idx < len(songs):
+        writers = songs[idx].get("writers", [])
+        if 0 <= widx < len(writers):
+            writers[widx]["name"]      = request.form.get("name", writers[widx]["name"]).strip()
+            writers[widx]["publisher"] = request.form.get("publisher", writers[widx].get("publisher", "")).strip()
+            writers[widx]["pro"]       = request.form.get("pro", writers[widx].get("pro", "")).strip()
+            try:
+                writers[widx]["split_pct"] = float(request.form.get("split_pct", writers[widx].get("split_pct", 0)))
+            except ValueError:
+                pass
+            songs[idx]["writers"] = writers
+            sub.songs_save(songs)
+            db.session.commit()
+    return redirect(url_for("track", token=token) + "#songs-section")
+
+
 @app.route("/track/<token>/songs/<int:idx>/ai-fill-writers", methods=["POST"])
 def track_song_ai_fill_writers(token, idx):
     sub = Submission.query.filter_by(token=token).first_or_404()
