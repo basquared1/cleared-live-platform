@@ -3011,6 +3011,20 @@ def _guideline_user_prompt(project_type, platform_name, item_labels):
     )
 
 
+_GUIDELINE_PUBLIC_SYSTEM = """You translate a streaming platform's INTERNAL clearance guidelines into a plain-English preparation guide for the SUBMITTER (the content producer). Write what the submitter must do to get cleared: documents to gather, rights and consents to confirm, parties to contact, and what to prepare before and during submission. Friendly, practical, concise. Do NOT include anything internal: no deal strategy, negotiation leverage, fallback positions, pricing, what to 'push back on', or anything the platform would not want a counterparty to read. No legal boilerplate."""
+
+def _guideline_public_user_prompt(project_type, platform_name, internal_content):
+    return (
+        f"Platform: {platform_name}\n"
+        f"Project type: {project_type.replace('_', ' ').title()}\n\n"
+        f"INTERNAL BA GUIDELINES (source material — strip out all internal-only strategy):\n"
+        f"{internal_content}\n\n"
+        f"Write the submitter-facing version as a clear preparation checklist, grouped by clearance "
+        f"item with a short heading each. Focus only on what the submitter needs to gather, confirm, "
+        f"and do. Omit internal strategy, pricing, fallback positions, and platform negotiating leverage."
+    )
+
+
 @app.route("/platform/guidelines")
 @require_platform
 def platform_guidelines():
@@ -3061,6 +3075,30 @@ def platform_guideline_detail(project_type):
             g.status = "draft"
             db.session.commit()
             flash("AI draft generated. Review and approve when ready.", "success")
+
+        elif action == "ai_public_draft":
+            # Draft a plain-English submitter-facing version from the internal guidelines.
+            source = request.form.get("content", "").strip() or (g.content if g else "")
+            if not source:
+                flash("Generate or save the internal guidelines first.", "warning")
+                return redirect(url_for("platform_guideline_detail", project_type=project_type))
+            try:
+                public = call_claude(
+                    _GUIDELINE_PUBLIC_SYSTEM,
+                    _guideline_public_user_prompt(project_type, platform.name, source),
+                    max_tokens=2000,
+                )
+            except Exception as e:
+                flash(f"Submitter draft failed: {e}", "danger")
+                return redirect(url_for("platform_guideline_detail", project_type=project_type))
+            if not g:
+                g = ClearanceGuideline(platform_id=user.platform_id, project_type=project_type)
+                db.session.add(g)
+            g.content = source           # keep internal in sync with what we drafted from
+            g.public_content = public
+            g.status = "draft"
+            db.session.commit()
+            flash("Submitter-facing draft generated. Review it, tick 'Show to submitters', then Save.", "success")
 
         elif action == "save":
             if not g:

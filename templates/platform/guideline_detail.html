@@ -102,7 +102,24 @@
       <h6 class="fw-bold mb-0"><i class="bi bi-people me-1"></i>Submitter-Facing Guidelines</h6>
       <span class="badge bg-secondary" style="font-size:.7rem;">Public</span>
     </div>
-    <p class="text-muted small mb-3">This simplified version is shown to submitters on the submission form when "Show to submitters" is enabled. Keep it plain English — no internal deal strategy. Save Draft to update.</p>
+    <p class="text-muted small mb-3">This simplified version is shown to submitters on the submission form and in their workspace when "Show to submitters" is enabled. Keep it plain English — no internal deal strategy. Save to update.</p>
+
+    <!-- Toolbar: AI-draft a public version, or drop in the internal version -->
+    <div class="d-flex gap-2 flex-wrap mb-2">
+      <form method="POST" class="d-inline" id="genPublicForm"
+            onsubmit="document.getElementById('genPublicContent').value=document.getElementById('guidelineContent').value; var b=this.querySelector('button'); b.disabled=true; b.innerHTML='<span class=&quot;spinner-border spinner-border-sm me-1&quot;></span>Drafting submitter version… (up to a minute)';">
+        <input type="hidden" name="action" value="ai_public_draft">
+        <input type="hidden" name="content" id="genPublicContent" value="">
+        <button type="submit" class="btn btn-sm btn-primary fw-semibold"
+          {% if not (guideline and guideline.content) %}disabled title="Generate the internal draft first"{% endif %}>
+          <i class="bi bi-stars me-1"></i>Generate submitter version
+        </button>
+      </form>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="useInternalForPublic()"
+        {% if not (guideline and guideline.content) %}disabled title="Generate the internal draft first"{% endif %}>
+        <i class="bi bi-arrow-down-square me-1"></i>Use internal version instead
+      </button>
+    </div>
 
     <form method="POST">
       <input type="hidden" name="action" value="save">
@@ -122,7 +139,7 @@
           </button>
         </div>
         <div class="card-body p-0">
-          <textarea name="public_content"
+          <textarea name="public_content" id="publicContent"
             class="form-control border-0 rounded-0"
             style="min-height:250px; font-size:.9rem; line-height:1.6; padding:1rem; resize:vertical;"
             placeholder="Write a plain-English checklist of what submitters need to prepare for this project type — documents to gather, rights to confirm, parties to contact. No internal strategy here.">{{ guideline.public_content if guideline and guideline.public_content else '' }}</textarea>
@@ -130,6 +147,17 @@
       </div>
     </form>
   </div>
+
+  <script>
+  function useInternalForPublic() {
+    var internal = document.getElementById('guidelineContent').value;
+    var pub = document.getElementById('publicContent');
+    if (!internal.trim()) { alert('No internal guidelines to copy yet — generate the AI draft first.'); return; }
+    if (pub.value.trim() && !confirm('Replace the submitter-facing text with the internal version? This does not save until you click Save.')) return;
+    pub.value = internal;
+    pub.focus();
+  }
+  </script>
 
   <!-- Platform rules sidebar note -->
   <div class="mt-3 p-3 rounded small" style="background:#fff3cd; border:1px solid #ffc107;">
