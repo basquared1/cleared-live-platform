@@ -1233,21 +1233,18 @@
 
         <!-- Contact -->
         <div class="mb-2">
-          {% if g.get('contact_email') %}
-          <div class="small text-muted mb-1">
+          <div id="pub-contact-display-{{ loop.index }}" class="small text-muted mb-1 {% if not g.get('contact_email') %}d-none{% endif %}">
             <i class="bi bi-envelope me-1"></i>
-            <span class="fw-semibold">{{ g.contact_name or 'Sync Licensing' }}</span>
-            — {{ g.contact_email }}
+            <span class="fw-semibold" id="pub-contact-name-{{ loop.index }}">{{ g.contact_name or 'Sync Licensing' }}</span>
+            — <span id="pub-contact-email-{{ loop.index }}">{{ g.get('contact_email','') }}</span>
           </div>
-          {% endif %}
           <button class="btn btn-sm btn-outline-secondary" type="button"
                   data-bs-toggle="collapse" data-bs-target="#pub-contact-{{ loop.index }}">
-            <i class="bi bi-person me-1"></i>{% if g.get('contact_email') %}Edit Contact{% else %}Set Contact{% endif %}
+            <i class="bi bi-person me-1"></i><span id="pub-contact-toggle-label-{{ loop.index }}">{% if g.get('contact_email') %}Edit Contact{% else %}Set Contact{% endif %}</span>
           </button>
           <div class="collapse mt-2" id="pub-contact-{{ loop.index }}">
-            <form method="POST" action="{{ url_for('track_pub_groups_contact', token=sub.token) }}"
-                  class="row g-2 align-items-end">
-              <input type="hidden" name="publisher" value="{{ pub_name }}">
+            <form class="row g-2 align-items-end"
+                  onsubmit="return savePubContact(event, {{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_contact', token=sub.token) }}')">
               <div class="col-12 col-sm-4">
                 <label class="form-label small mb-1">Contact name / dept</label>
                 <input type="text" name="contact_name" class="form-control form-control-sm"
@@ -1271,15 +1268,14 @@
                   onclick="generatePubOutreach(this, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_outreach', token=sub.token) }}')">
             <i class="bi bi-stars me-1"></i>{% if g.get('ai_outreach') %}Re-draft Outreach{% else %}Draft Grouped Outreach{% endif %}
           </button>
-          {% if g.get('ai_outreach') and g.get('contact_email') and not g.get('outreach_sent_at') %}
-          <button class="btn btn-sm btn-primary fw-semibold"
-                  onclick="sendPubOutreach(this, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_send', token=sub.token) }}')">
+          {% if g.get('ai_outreach') and not g.get('outreach_sent_at') %}
+          <button id="pub-send-{{ loop.index }}"
+                  class="btn btn-sm btn-primary fw-semibold {% if not g.get('contact_email') %}d-none{% endif %}"
+                  onclick="sendPubOutreach(this, {{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_send', token=sub.token) }}')">
             <i class="bi bi-send me-1"></i>Send to {{ pub_name }}
           </button>
           {% endif %}
-          {% if g.get('outreach_sent_at') %}
-          <span class="badge bg-success"><i class="bi bi-check2 me-1"></i>Sent</span>
-          {% endif %}
+          <span id="pub-sent-{{ loop.index }}" class="badge bg-success {% if not g.get('outreach_sent_at') %}d-none{% endif %}"><i class="bi bi-check2 me-1"></i>Sent</span>
         </div>
 
         <!-- Outreach preview / edit -->
@@ -1313,9 +1309,9 @@
         </button>
         {% endif %}
 
-        <!-- Log response (show after outreach sent) -->
-        {% if g.get('outreach_sent_at') and not g.get('rh_response') %}
-        <div class="mt-2 p-2 rounded" style="background:#fff3cd;border:1px solid #ffc107;">
+        <!-- Log response (revealed once outreach is sent) -->
+        {% if not g.get('rh_response') %}
+        <div id="pub-awaiting-{{ loop.index }}" class="mt-2 p-2 rounded {% if not g.get('outreach_sent_at') %}d-none{% endif %}" style="background:#fff3cd;border:1px solid #ffc107;">
           <div class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Awaiting response — log when received:</div>
           <form method="POST" action="{{ url_for('track_pub_groups_response', token=sub.token) }}" class="row g-2">
             <input type="hidden" name="publisher" value="{{ pub_name }}">
@@ -1920,8 +1916,9 @@ function generatePubOutreach(btn, publisher, url) {
   .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-stars me-1"></i>Draft Grouped Outreach'; });
 }
 
-function sendPubOutreach(btn, publisher, url) {
+function sendPubOutreach(btn, idx, publisher, url) {
   if (!confirm('Send outreach to ' + publisher + '?')) return;
+  var orig = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending…';
   var body = new URLSearchParams();
@@ -1929,10 +1926,55 @@ function sendPubOutreach(btn, publisher, url) {
   fetch(url, { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
   .then(function(r) { return r.json(); })
   .then(function(data) {
-    if (data.error) { alert(data.error); btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>Send'; return; }
-    location.reload();
+    if (data.error) { alert(data.error); btn.disabled = false; btn.innerHTML = orig; return; }
+    // Sent — reflect in place: hide Send, show Sent badge, reveal the log-response form.
+    btn.classList.add('d-none');
+    var sent = document.getElementById('pub-sent-' + idx);
+    if (sent) sent.classList.remove('d-none');
+    var awaiting = document.getElementById('pub-awaiting-' + idx);
+    if (awaiting) awaiting.classList.remove('d-none');
   })
-  .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>Send'; });
+  .catch(function() { btn.disabled = false; btn.innerHTML = orig; });
+}
+
+function savePubContact(event, idx, publisher, url) {
+  event.preventDefault();
+  var form = event.target;
+  var saveBtn = form.querySelector('button[type=submit]');
+  var orig = saveBtn ? saveBtn.innerHTML : '';
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = 'Saving…'; }
+  var body = new URLSearchParams();
+  body.append('publisher', publisher);
+  body.append('contact_name', form.querySelector('[name=contact_name]').value);
+  body.append('contact_email', form.querySelector('[name=contact_email]').value);
+  fetch(url, { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = orig; }
+    if (data.error) { alert(data.error); return; }
+    // Update the contact display line.
+    var display = document.getElementById('pub-contact-display-' + idx);
+    document.getElementById('pub-contact-name-' + idx).textContent = data.contact_name || 'Sync Licensing';
+    document.getElementById('pub-contact-email-' + idx).textContent = data.contact_email;
+    if (data.contact_email) { display.classList.remove('d-none'); }
+    else { display.classList.add('d-none'); }
+    document.getElementById('pub-contact-toggle-label-' + idx).textContent =
+      data.contact_email ? 'Edit Contact' : 'Set Contact';
+    // Reveal the Send button if it's now sendable.
+    var sendBtn = document.getElementById('pub-send-' + idx);
+    if (sendBtn) {
+      if (data.can_send) sendBtn.classList.remove('d-none');
+      else sendBtn.classList.add('d-none');
+    }
+    // Collapse the contact form panel.
+    var panel = document.getElementById('pub-contact-' + idx);
+    if (panel && window.bootstrap) bootstrap.Collapse.getOrCreateInstance(panel).hide();
+  })
+  .catch(function() {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = orig; }
+    alert('Could not save contact — try again.');
+  });
+  return false;
 }
 
 function editPubOutreach(idx) {

@@ -1866,15 +1866,24 @@ def track_pub_groups_generate(token):
 
 @app.route("/track/<token>/pub-groups/contact", methods=["POST"])
 def track_pub_groups_contact(token):
+    from flask import jsonify
     sub = Submission.query.filter_by(token=token).first_or_404()
     publisher = request.form.get("publisher", "").strip()
     groups = sub.publisher_clearances
-    if publisher in groups:
-        groups[publisher]["contact_name"]  = request.form.get("contact_name", "").strip()
-        groups[publisher]["contact_email"] = request.form.get("contact_email", "").strip()
-        sub.publisher_clearances_save(groups)
-        db.session.commit()
-    return redirect(url_for("track", token=token) + "#pub-clearance-section")
+    if publisher not in groups:
+        return jsonify({"error": "Publisher group not found"}), 404
+    g = groups[publisher]
+    g["contact_name"]  = request.form.get("contact_name", "").strip()
+    g["contact_email"] = request.form.get("contact_email", "").strip()
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    return jsonify({
+        "ok": True,
+        "contact_name": g["contact_name"],
+        "contact_email": g["contact_email"],
+        # Can send once a draft exists, a contact email is set, and it's not already sent.
+        "can_send": bool(g.get("ai_outreach") and g["contact_email"] and not g.get("outreach_sent_at")),
+    })
 
 
 @app.route("/track/<token>/pub-groups/outreach", methods=["POST"])
