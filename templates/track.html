@@ -527,9 +527,8 @@
               <!-- AI working -->
               <div class="d-flex align-items-center text-primary small">
                 <span class="spinner-border spinner-border-sm me-2"></span>
-                AI is analyzing the reply and drafting the next move… this page will refresh automatically.
+                AI is analyzing the reply and drafting the next move… this updates automatically.
               </div>
-              <script>setTimeout(function(){ location.reload(); }, 14000);</script>
 
             {% elif item.neg_state == 'needs_approval' and rec %}
               <!-- AI recommendation awaiting submitter sign-off -->
@@ -1978,6 +1977,63 @@ setTimeout(() => location.reload(), 90000);
   // Start from the first song that's missing writers
   const firstMissing = {{ sub.songs | map(attribute='writers') | list | tojson }}.findIndex(w => !w || w.length === 0);
   fillBatch(firstMissing >= 0 ? firstMissing : 0, TOTAL - MISSING);
+})();
+{% endif %}
+
+// ── Negotiation poller ───────────────────────────────────────────────────────
+// When the AI agent is analyzing a reply, poll its state and refresh only once
+// it finishes — and never while the submitter has unsaved edits open.
+{% if sub.clearance_items | selectattr('neg_state', 'equalto', 'analyzing') | list %}
+(function(){
+  const STATUS_URL = "{{ url_for('track_neg_status', token=sub.token) }}";
+  // States at page render — the baseline we compare each poll against.
+  const baseline = { {% for it in sub.clearance_items %}"{{ it.id }}":"{{ it.neg_state or '' }}"{{ "," if not loop.last }}{% endfor %} };
+
+  // Flag any textarea the user has changed so a refresh never discards it.
+  document.querySelectorAll('textarea').forEach(function(t){
+    t.addEventListener('input', function(){ t.dataset.dirty = '1'; });
+  });
+  function editingInProgress(){
+    const tas = document.querySelectorAll('textarea, input[type=text]');
+    for (const t of tas){
+      if (document.activeElement === t) return true;
+      if (t.dataset.dirty === '1') return true;
+    }
+    return false;
+  }
+  function showRefreshPill(){
+    if (document.getElementById('neg-refresh-pill')) return;
+    const pill = document.createElement('div');
+    pill.id = 'neg-refresh-pill';
+    pill.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1080;background:#0d6efd;color:#fff;'
+      + 'padding:.6rem .85rem;border-radius:.55rem;box-shadow:0 6px 18px rgba(0,0,0,.22);'
+      + 'font-size:.85rem;display:flex;align-items:center;gap:.7rem;';
+    pill.innerHTML = '<span><i class="bi bi-check-circle me-1"></i>AI finished — update ready</span>';
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-light btn-sm fw-semibold';
+    btn.textContent = 'Refresh';
+    btn.onclick = function(){ location.reload(); };
+    pill.appendChild(btn);
+    document.body.appendChild(pill);
+  }
+  function poll(){
+    fetch(STATUS_URL, { headers: { 'Accept': 'application/json' } })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        let finished = false;
+        for (const id in baseline){
+          if (baseline[id] === 'analyzing' && data[id] && data[id] !== 'analyzing'){ finished = true; break; }
+        }
+        if (finished){
+          if (editingInProgress()) showRefreshPill();
+          else location.reload();
+          return; // stop polling — decision made
+        }
+        setTimeout(poll, 5000);
+      })
+      .catch(function(){ setTimeout(poll, 8000); });
+  }
+  setTimeout(poll, 4000);
 })();
 {% endif %}
 </script>

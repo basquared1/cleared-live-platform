@@ -1020,6 +1020,15 @@ def track(token):
                            actions=_scan_submitter_actions(sub))
 
 
+@app.route("/track/<token>/neg-status")
+def track_neg_status(token):
+    """Lightweight JSON snapshot of each item's negotiation state, polled by the
+    submitter workspace so it can refresh only when the AI agent finishes —
+    instead of blindly reloading and clobbering in-progress edits."""
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    return jsonify({str(it.id): (it.neg_state or "") for it in sub.clearance_items})
+
+
 @app.route("/track/<token>/save-publishing-notes", methods=["POST"])
 def track_save_publishing_notes(token):
     sub = Submission.query.filter_by(token=token).first_or_404()
