@@ -65,6 +65,19 @@
       </form>
       {% endif %}
 
+      {% if guideline %}
+      <form method="POST" class="d-inline" id="visForm">
+        <input type="hidden" name="action" value="save">
+        <input type="hidden" name="submitter_settings" value="1">
+        <div class="form-check form-switch mb-0 ms-1">
+          <input class="form-check-input" type="checkbox" name="show_to_submitters" value="1" id="showSubmittersTop"
+                 onchange="this.form.submit()"
+                 {% if guideline.show_to_submitters %}checked{% endif %}>
+          <label class="form-check-label small fw-semibold" for="showSubmittersTop">Show to submitters</label>
+        </div>
+      </form>
+      {% endif %}
+
       <div class="text-muted small ms-auto">
         {% if guideline and guideline.approved_at %}
           Last approved by <strong>{{ guideline.approved_by }}</strong> on {{ guideline.approved_at.strftime('%b %d, %Y') }}
@@ -76,6 +89,27 @@
       </div>
     </div>
   </div>
+
+  <!-- Publish-readiness banner: tells the BA exactly whether submitters can see this -->
+  {% if guideline %}
+  {% set is_live = guideline.show_to_submitters and guideline.status == 'approved' and guideline.public_content %}
+  <div class="alert {% if is_live %}alert-success{% else %}alert-warning{% endif %} d-flex align-items-start gap-2 small py-2 px-3 mb-4">
+    {% if is_live %}
+      <i class="bi bi-check-circle-fill mt-1"></i>
+      <div>These guidelines are <strong>live in the submitter workspace</strong>. Submitters see the public version below.</div>
+    {% else %}
+      <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+      <div>
+        <strong>Not visible to submitters yet.</strong> To publish, complete:
+        <ul class="mb-0 mt-1 ps-3">
+          <li>{% if guideline.public_content %}<s>Add a submitter-facing version</s> ✓{% else %}Add a submitter-facing version below (Generate or paste, then Save){% endif %}</li>
+          <li>{% if guideline.show_to_submitters %}<s>Turn on "Show to submitters"</s> ✓{% else %}Turn on the <strong>"Show to submitters"</strong> switch above{% endif %}</li>
+          <li>{% if guideline.status == 'approved' %}<s>Approve &amp; Publish</s> ✓{% else %}Click <strong>Approve &amp; Publish</strong> above{% endif %}</li>
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+  {% endif %}
 
   <!-- Editor -->
   <form method="POST" id="guidelineForm">
@@ -123,19 +157,12 @@
 
     <form method="POST">
       <input type="hidden" name="action" value="save">
-      <input type="hidden" name="submitter_settings" value="1">
 
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
-          <div class="form-check mb-0">
-            <input class="form-check-input" type="checkbox" name="show_to_submitters" value="1" id="showSubmitters"
-              {% if guideline and guideline.show_to_submitters %}checked{% endif %}>
-            <label class="form-check-label fw-semibold small" for="showSubmitters">
-              Show these guidelines to submitters on the submission form
-            </label>
-          </div>
-          <button type="submit" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-floppy me-1"></i>Save
+          <span class="fw-semibold small text-muted text-uppercase" style="letter-spacing:.05em;">Public version (shown to submitters)</span>
+          <button type="submit" class="btn btn-sm btn-primary">
+            <i class="bi bi-floppy me-1"></i>Save public version
           </button>
         </div>
         <div class="card-body p-0">
