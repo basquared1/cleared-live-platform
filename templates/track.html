@@ -108,12 +108,11 @@
 
   {% endif %}{# /status banner (not music_only) #}
 
-  {# ===== Main workspace: two-column layout — sticky summary sidebar on desktop ===== #}
+  {# ===== Main workspace: two-column layout — summary sidebar on desktop ===== #}
   {% if view == 'main' %}
   <div class="row g-4">
-    <!-- Summary sidebar: progress + attention. Sticky on desktop (right column); stacks on top below xl. -->
+    <!-- Summary sidebar: progress, attention, submission details. Right column on desktop; stacks on top below xl. -->
     <div class="col-12 col-xl-4 order-xl-2">
-      <div class="sticky-xl-top" style="top:1rem; z-index:2;">
 
         <!-- Progress summary -->
         {% set items_ready = sub.clearance_items | selectattr('status', 'in', ['under_review', 'cleared', 'waived', 'n_a']) | list | length %}
@@ -171,7 +170,54 @@
         </div>
         {% endif %}
 
-      </div>{# /sticky #}
+        <!-- Your Submission -->
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-header bg-light border-0 py-3">
+            <div class="fw-semibold text-navy small"><i class="bi bi-info-circle me-2"></i>Your Submission</div>
+          </div>
+          <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+              <tbody>
+                <tr><td class="text-muted small ps-4" style="width:40%;">Submitted to</td><td class="small">{{ sub.platform.name }}</td></tr>
+                <tr><td class="text-muted small ps-4">Submitted by</td><td class="small">{{ sub.submitter_name }}{% if sub.submitter_company %} · {{ sub.submitter_company }}{% endif %}</td></tr>
+                {% if sub.venue %}<tr><td class="text-muted small ps-4">Venue</td><td class="small">{{ sub.venue }}</td></tr>{% endif %}
+                {% if sub.label %}<tr><td class="text-muted small ps-4">Label</td><td class="small">{{ sub.label }}</td></tr>{% endif %}
+                <tr><td class="text-muted small ps-4">Territory</td><td class="small">{{ sub.territory_label }}</td></tr>
+                <tr><td class="text-muted small ps-4">Submitted</td><td class="small">{{ sub.created_at.strftime('%B %d, %Y') }}</td></tr>
+                <tr>
+                  <td class="text-muted small ps-4">Payment</td>
+                  <td class="small">
+                    {% if sub.payment_status == 'paid' %}<span class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>Paid</span>
+                    {% elif sub.payment_status == 'invoiced' %}<span class="text-warning fw-semibold"><i class="bi bi-envelope me-1"></i>Invoice sent — please pay to avoid delays</span>
+                    {% elif sub.payment_status == 'waived' %}<span class="text-secondary">Waived</span>
+                    {% else %}<span class="text-muted">Invoice pending — you'll receive it by email</span>{% endif %}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {% if sub.setlist_list %}
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-header bg-light border-0 py-3">
+            <div class="fw-semibold text-navy small">
+              <i class="bi bi-music-note-list me-2"></i>
+              {% if sub.project_type == 'live_music' %}Setlist{% else %}Music / Content{% endif %}
+              <span class="text-muted fw-normal ms-1 small">(each item cleared separately)</span>
+            </div>
+          </div>
+          <div class="card-body py-2 px-4">
+            {% for song in sub.setlist_list %}
+            <div class="d-flex align-items-center gap-2 py-1 border-bottom">
+              <span class="text-muted small" style="min-width:1.5rem;">{{ loop.index }}.</span>
+              <span class="small">{{ song }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
     </div>{# /summary sidebar #}
 
     <!-- Main work column -->
@@ -965,54 +1011,6 @@
   {% endif %}
 
   {% if not music_only %}
-  <!-- Project details -->
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-light border-0 py-3">
-      <div class="fw-semibold text-navy small"><i class="bi bi-info-circle me-2"></i>Your Submission</div>
-    </div>
-    <div class="card-body p-0">
-      <table class="table table-sm mb-0">
-        <tbody>
-          <tr><td class="text-muted small ps-4" style="width:40%;">Submitted to</td><td class="small">{{ sub.platform.name }}</td></tr>
-          <tr><td class="text-muted small ps-4">Submitted by</td><td class="small">{{ sub.submitter_name }}{% if sub.submitter_company %} · {{ sub.submitter_company }}{% endif %}</td></tr>
-          {% if sub.venue %}<tr><td class="text-muted small ps-4">Venue</td><td class="small">{{ sub.venue }}</td></tr>{% endif %}
-          {% if sub.label %}<tr><td class="text-muted small ps-4">Label</td><td class="small">{{ sub.label }}</td></tr>{% endif %}
-          <tr><td class="text-muted small ps-4">Territory</td><td class="small">{{ sub.territory_label }}</td></tr>
-          <tr><td class="text-muted small ps-4">Submitted</td><td class="small">{{ sub.created_at.strftime('%B %d, %Y') }}</td></tr>
-          <tr>
-            <td class="text-muted small ps-4">Payment</td>
-            <td class="small">
-              {% if sub.payment_status == 'paid' %}<span class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>Paid</span>
-              {% elif sub.payment_status == 'invoiced' %}<span class="text-warning fw-semibold"><i class="bi bi-envelope me-1"></i>Invoice sent — please pay to avoid delays</span>
-              {% elif sub.payment_status == 'waived' %}<span class="text-secondary">Waived</span>
-              {% else %}<span class="text-muted">Invoice pending — you'll receive it by email</span>{% endif %}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  {% if sub.setlist_list %}
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-light border-0 py-3">
-      <div class="fw-semibold text-navy small">
-        <i class="bi bi-music-note-list me-2"></i>
-        {% if sub.project_type == 'live_music' %}Setlist{% else %}Music / Content{% endif %}
-        <span class="text-muted fw-normal ms-1 small">(each item cleared separately)</span>
-      </div>
-    </div>
-    <div class="card-body py-2 px-4">
-      {% for song in sub.setlist_list %}
-      <div class="d-flex align-items-center gap-2 py-1 border-bottom">
-        <span class="text-muted small" style="min-width:1.5rem;">{{ loop.index }}.</span>
-        <span class="small">{{ song }}</span>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
   <!-- Actions -->
   <div class="d-flex gap-2 flex-wrap mb-3">
     <button onclick="copyLink()" class="btn btn-outline-dark btn-sm" id="copyBtn">
