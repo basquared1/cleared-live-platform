@@ -441,7 +441,10 @@ def _build_clearance_doc_user_prompt(sub, item):
 
     return (
         f"Draft a professional {item.item_label} for the following project.\n\n"
-        f"REPRESENTED PARTY: {sub.submitter_company or sub.submitter_name} on behalf of {sub.platform.name}\n\n"
+        f"CONTRACTING PARTY (Producer/Submitter): {sub.submitter_company or sub.submitter_name}. "
+        f"The agreement is between this Producer/Submitter and the Licensor/Rights Holder. "
+        f"{sub.platform.name} is named ONLY as assignee of the granted rights — it is NOT a contracting party, "
+        f"and the Producer/Submitter does NOT act 'on behalf of' {sub.platform.name}.\n\n"
         f"PROJECT DETAILS:\n{_sub_context(sub)}\n\n"
         f"CLEARANCE ITEM: {item.item_label}\n"
         + (f"Rights Holder / Counterparty: {item.party_name}\n" if item.party_name else "Rights Holder / Counterparty: [RIGHTS HOLDER]\n")
@@ -511,8 +514,12 @@ def generate_outreach(sub, item):
     if not os.getenv("ANTHROPIC_API_KEY"):
         return None
     salutation = item.party_name if item.party_name else "[Rights Holder]"
+    platform_name = sub.platform.name if sub.platform else "the platform"
     system = (
-        f"You are a business affairs professional at {sub.platform.name}. "
+        "You are a music clearance professional helping a content producer draft outreach emails to rights holders. "
+        "The email is sent BY the producer/submitter, in their own name and company — NOT by the platform. "
+        f"Reference the project and the platform ({platform_name}) it will stream on as context only; never write that "
+        "the sender is contacting anyone 'on behalf of' the platform, and never imply the sender works for or represents the platform. "
         "You draft concise, professional outreach emails to rights holders requesting clearance. "
         "Never include a subject line. Write 175–225 words. "
         "Do NOT use placeholder brackets like [Name] or [Rights Holder] — use the actual names provided."
@@ -521,7 +528,9 @@ def generate_outreach(sub, item):
         f"Write a professional clearance outreach email requesting a {item.item_label} for:\n"
         f"{_sub_context(sub)}\n\n"
         f"Start with 'Dear {salutation},'. State exactly what rights are being requested, "
-        f"for which project and platform, reference event details, request a response within 5 business days, "
+        f"for which project, referencing {platform_name} only as where the finished project will stream "
+        f"(the sender is the producer making the request — not writing on behalf of {platform_name}). "
+        f"Reference event details, request a response within 5 business days, "
         f"and close professionally. Signature is: {sub.submitter_name or ''}"
         + (f"\n{sub.submitter_company}" if sub.submitter_company else "") + ". No 'on behalf of' in the closing."
         + _guideline_block(sub)
@@ -1973,27 +1982,35 @@ def track_pub_groups_outreach(token):
     )
     neg = sub.platform.negotiation_positions if sub.platform else {}
     primary = (neg or [{}])[0] if isinstance(neg, list) else {}
+    platform_name = sub.platform.name if sub.platform else "the platform"
     system = (
-        "You are a music clearance professional drafting sync license request emails. "
+        "You are a music clearance professional helping a content producer draft sync license request emails. "
+        "The email is sent BY the producer/submitter, in their own name and company — NOT by the platform. "
+        "Reference the project and the platform it will stream on as context only; never write that the sender is "
+        "contacting anyone 'on behalf of' the platform, and never imply the sender represents or works for the platform. "
         "Write professional, concise outreach. Do not use placeholders — write real content."
     )
     user = (
         f"Draft a sync license request email to {publisher}'s sync licensing department.\n\n"
-        f"From: {sub.submitter_name or 'Music Clearance Team'} on behalf of {sub.platform.name if sub.platform else 'our platform'}\n"
+        f"Sender (the requester making this request): {sub.submitter_name or 'Music Clearance Team'}"
+        + (f", {sub.submitter_company}" if sub.submitter_company else "") + "\n"
         f"Project: {sub.project_type_label} — {sub.title}\n"
         f"Artist performing: {sub.artist_name or 'Unknown'}\n"
         f"Event: {sub.event_name or sub.title}\n"
         f"Venue: {sub.venue or 'TBD'}\n"
         f"Date: {sub.event_date or 'TBD'}\n"
-        f"Platform: {sub.platform.name if sub.platform else 'Streaming'}\n\n"
+        f"Distribution platform (context only — where the finished project will stream): {platform_name}\n\n"
         f"Songs requesting clearance ({len(g.get('songs', []))} total):\n{song_list}\n\n"
         f"Deal terms requested:\n"
         f"  Territory: {primary.get('territory', 'Worldwide')}\n"
         f"  Term: {primary.get('term', 'Perpetuity')}\n"
         f"  Uses: {', '.join(primary.get('uses', ['Streaming']))}\n\n"
+        f"The sender is the producer making this request for their own project, which will stream on {platform_name}. "
+        f"Reference {platform_name} only as the distribution outlet — do NOT write 'on behalf of {platform_name}' or "
+        f"state that the sender represents {platform_name}. "
         f"Include MFN language if appropriate (this project is clearing rights with multiple publishers simultaneously). "
         f"Request that all songs be covered under one blanket sync license agreement for efficiency. "
-        f"Sign off with just the sender's name and company — no 'on behalf of' in the closing. "
+        f"Sign off with just the sender's name and company. "
         f"Signature: {sub.submitter_name or ''}"
         + (f"\n{sub.submitter_company}" if sub.submitter_company else "") + ". "
         f"Keep to 3–4 short paragraphs. Professional tone. No markdown formatting."
