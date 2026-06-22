@@ -1,0 +1,18 @@
+name: Daily clearance digest
+
+# Emails submitters and platform BAs whatever needs their attention.
+# Runs once a day; also runnable on-demand from the Actions tab.
+on:
+  schedule:
+    - cron: "0 13 * * *"   # 13:00 UTC = 8am ET
+  workflow_dispatch: {}
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping digest endpoint
+        run: |
+          curl -fsS "https://cleared-live-platform.onrender.com/cron/digest?secret=${CRON_SECRET}" && echo "Digest triggered OK"
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
