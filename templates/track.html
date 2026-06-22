@@ -2,7 +2,7 @@
 {% block title %}Clearance Workspace — {{ sub.title }}{% endblock %}
 {% block navbar %}
 <nav class="navbar navbar-expand-lg">
-  <div class="container-fluid px-4" style="max-width:960px;">
+  <div class="container-fluid px-4" style="max-width:1400px;">
     <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">Cleared<span class="text-warning">.</span>live</a>
     <div class="ms-auto">
       <span class="badge rounded-pill px-3 py-2" style="background:{{ sub.platform.primary_color }};color:#fff;">
@@ -12,10 +12,8 @@
   </div>
 </nav>
 {% endblock %}
-{% block container_class %}container py-5{% endblock %}
+{% block container_class %}container-fluid px-4 py-4{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-<div class="col-lg-8">
 {# view: 'main' (primary workspace), 'music' (primary music page), 'delegate' (music contact) #}
 {% set view = view|default('main') %}
 {% set music_only = view in ('music', 'delegate') %}
@@ -108,61 +106,76 @@
     </div>
   </div>
 
-  <!-- Progress summary -->
-  {% set items_ready = sub.clearance_items | selectattr('status', 'in', ['under_review', 'cleared', 'waived', 'n_a']) | list | length %}
-  {% set items_total = sub.clearance_items | length %}
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-body p-4">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="fw-semibold text-navy">Your Progress</div>
-        <div class="fw-bold fs-5 {% if items_ready == items_total %}text-success{% else %}text-navy{% endif %}">
-          {{ sub.progress_pct }}%
-        </div>
-      </div>
-      <div class="progress mb-3" style="height:10px; border-radius:8px;">
-        <div class="progress-bar {% if sub.progress_pct == 100 %}bg-success{% elif sub.progress_pct > 0 %}bg-warning{% else %}bg-secondary{% endif %}"
-             style="width:{{ sub.progress_pct }}%; border-radius:8px; transition:width .6s ease;"></div>
-      </div>
-      <div class="small text-muted">
-        <strong>{{ items_ready }}</strong> of <strong>{{ items_total }}</strong> items ready for review or approved
-        {% set items_pending = sub.clearance_items | selectattr('status', 'equalto', 'pending') | list | length %}
-        {% if items_pending %}
-          · <strong class="text-warning">{{ items_pending }}</strong> not started
-        {% endif %}
-        {% set items_in_progress = sub.clearance_items | selectattr('status', 'equalto', 'in_progress') | list | length %}
-        {% if items_in_progress %}
-          · <strong class="text-info">{{ items_in_progress }}</strong> in progress
-        {% endif %}
-        {% set items_under_review = sub.clearance_items | selectattr('status', 'equalto', 'under_review') | list | length %}
-        {% if items_under_review %}
-          · <strong class="text-primary">{{ items_under_review }}</strong> awaiting BA approval
-        {% endif %}
-      </div>
-    </div>
-  </div>
-  {% endif %}{# not music_only: status banner + overall progress #}
+  {% endif %}{# /status banner (not music_only) #}
 
-  <!-- Action queue (orchestrator) -->
-  {% if actions and not music_only %}
-  <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid #0d3b6e !important;">
-    <div class="card-body p-4">
-      <div class="fw-semibold text-navy mb-3"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Needs your attention <span class="badge bg-navy ms-1">{{ actions|length }}</span></div>
-      <div class="d-flex flex-column gap-2">
-        {% for a in actions %}
-        <a href="{% if a.item_id in music_ids %}{{ url_for('track_music', token=access_token) }}{% endif %}#item-card-{{ a.item_id }}" class="text-decoration-none">
-          <div class="d-flex align-items-start p-2 rounded-3" style="background:#f8fafc;">
-            <span class="me-2 mt-1" style="display:inline-block;width:9px;height:9px;border-radius:50%;flex:0 0 auto;
-                 background:{% if a.urgency=='high' %}#dc2626{% elif a.urgency=='medium' %}#d97706{% else %}#64748b{% endif %};"></span>
-            <div>
-              <div class="small fw-semibold text-navy">{{ a.action }} — <span class="text-muted">{{ a.label }}</span></div>
-              <div class="text-muted" style="font-size:.78rem;">{{ a.detail }}</div>
+  {# ===== Main workspace: two-column layout — sticky summary sidebar on desktop ===== #}
+  {% if view == 'main' %}
+  <div class="row g-4">
+    <!-- Summary sidebar: progress + attention. Sticky on desktop (right column); stacks on top below xl. -->
+    <div class="col-12 col-xl-4 order-xl-2">
+      <div class="sticky-xl-top" style="top:1rem; z-index:2;">
+
+        <!-- Progress summary -->
+        {% set items_ready = sub.clearance_items | selectattr('status', 'in', ['under_review', 'cleared', 'waived', 'n_a']) | list | length %}
+        {% set items_total = sub.clearance_items | length %}
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="fw-semibold text-navy">Your Progress</div>
+              <div class="fw-bold fs-5 {% if items_ready == items_total %}text-success{% else %}text-navy{% endif %}">
+                {{ sub.progress_pct }}%
+              </div>
+            </div>
+            <div class="progress mb-3" style="height:10px; border-radius:8px;">
+              <div class="progress-bar {% if sub.progress_pct == 100 %}bg-success{% elif sub.progress_pct > 0 %}bg-warning{% else %}bg-secondary{% endif %}"
+                   style="width:{{ sub.progress_pct }}%; border-radius:8px; transition:width .6s ease;"></div>
+            </div>
+            <div class="small text-muted">
+              <strong>{{ items_ready }}</strong> of <strong>{{ items_total }}</strong> items ready for review or approved
+              {% set items_pending = sub.clearance_items | selectattr('status', 'equalto', 'pending') | list | length %}
+              {% if items_pending %}
+                · <strong class="text-warning">{{ items_pending }}</strong> not started
+              {% endif %}
+              {% set items_in_progress = sub.clearance_items | selectattr('status', 'equalto', 'in_progress') | list | length %}
+              {% if items_in_progress %}
+                · <strong class="text-info">{{ items_in_progress }}</strong> in progress
+              {% endif %}
+              {% set items_under_review = sub.clearance_items | selectattr('status', 'equalto', 'under_review') | list | length %}
+              {% if items_under_review %}
+                · <strong class="text-primary">{{ items_under_review }}</strong> awaiting BA approval
+              {% endif %}
             </div>
           </div>
-        </a>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
+        </div>
+
+        <!-- Action queue (orchestrator) -->
+        {% if actions %}
+        <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid #0d3b6e !important;">
+          <div class="card-body p-4">
+            <div class="fw-semibold text-navy mb-3"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Needs your attention <span class="badge bg-navy ms-1">{{ actions|length }}</span></div>
+            <div class="d-flex flex-column gap-2">
+              {% for a in actions %}
+              <a href="{% if a.item_id in music_ids %}{{ url_for('track_music', token=access_token) }}{% endif %}#item-card-{{ a.item_id }}" class="text-decoration-none">
+                <div class="d-flex align-items-start p-2 rounded-3" style="background:#f8fafc;">
+                  <span class="me-2 mt-1" style="display:inline-block;width:9px;height:9px;border-radius:50%;flex:0 0 auto;
+                       background:{% if a.urgency=='high' %}#dc2626{% elif a.urgency=='medium' %}#d97706{% else %}#64748b{% endif %};"></span>
+                  <div>
+                    <div class="small fw-semibold text-navy">{{ a.action }} — <span class="text-muted">{{ a.label }}</span></div>
+                    <div class="text-muted" style="font-size:.78rem;">{{ a.detail }}</div>
+                  </div>
+                </div>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+      </div>{# /sticky #}
+    </div>{# /summary sidebar #}
+
+    <!-- Main work column -->
+    <div class="col-12 col-xl-8 order-xl-1">
   {% endif %}
 
   <!-- Music Clearance group (sync, master, publishing) — full detail on the music page only -->
@@ -1020,8 +1033,11 @@
   </div>
   {% endif %}
 
-</div>
-</div>
+  {% if view == 'main' %}
+    </div>{# /main work column #}
+  </div>{# /row #}
+  {% endif %}
+
 {% endblock %}
 {% block scripts %}
 <script>
