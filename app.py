@@ -2275,6 +2275,35 @@ def _send_reservation_email(sub, item, ba_user):
         return False
 
 
+_RESERVATION_LOG_LABEL = "Reservation-of-rights & indemnity notice sent on approval"
+
+
+def _reservation_already_sent(item):
+    """True if a reservation-of-rights notice was already logged for this item,
+    so clearing it again (via a different route) doesn't double-email."""
+    for turn in (item.negotiation_log or []):
+        if (turn.get("label") or "").startswith("Reservation-of-rights"):
+            return True
+    return False
+
+
+def _notify_on_clear(sub, item, ba_user):
+    """Send the reservation-of-rights / continuing-indemnity notice once, when an
+    item is cleared — regardless of whether it was cleared via the Approval Queue
+    or the project status dropdown. No-op if already sent for this item."""
+    if _reservation_already_sent(item):
+        return False
+    if not _send_reservation_email(sub, item, ba_user):
+        return False
+    item.negotiation_log_add({
+        "role": "system", "label": _RESERVATION_LOG_LABEL,
+        "body": f"Sign-off recorded by {ba_user.username}. Reservation-of-rights / continuing-indemnity "
+                f"notice emailed to {sub.submitter_email} (cc clear@cleared.live).",
+        "ts": datetime.utcnow().isoformat(),
+    })
+    return True
+
+
 @app.route("/platform/project/<int:sub_id>")
 @require_platform
 def platform_project(sub_id):
@@ -2338,6 +2367,10 @@ def platform_update_item(sub_id, item_id):
         if new_status in ("cleared", "waived"):
             item.cleared_at = datetime.utcnow()
             item.cleared_by = user.username
+        # Sign-off via the status dropdown sends the same reservation-of-rights
+        # notice as the Approval Queue (guarded so it never double-sends).
+        if new_status == "cleared":
+            _notify_on_clear(sub, item, user)
         db.session.commit()
         # Auto-outreach agent: generate (and send if email known) when item moves to in_progress
         if new_status == "in_progress":
@@ -2375,14 +2408,7 @@ def platform_approve_item(sub_id, item_id):
 
     # Auto-send the reservation-of-rights / continuing-indemnity notice to the
     # submitter (cc Cleared.live + the approving BA) and record it on the item.
-    sent = _send_reservation_email(sub, item, user)
-    if sent:
-        item.negotiation_log_add({
-            "role": "system", "label": "Reservation-of-rights & indemnity notice sent on approval",
-            "body": f"Sign-off recorded by {user.username}. Reservation-of-rights / continuing-indemnity "
-                    f"notice emailed to {sub.submitter_email} (cc clear@cleared.live).",
-            "ts": datetime.utcnow().isoformat(),
-        })
+    _notify_on_clear(sub, item, user)
     db.session.commit()
 
     deliver_webhook(user.platform_id, sub.id, "item_updated", {
