@@ -31,6 +31,7 @@ CLEARANCE_TEMPLATES = {
         {"key": "venue_license",      "label": "Venue Filming License",            "priority": 4},
         {"key": "crowd_release",      "label": "Crowd / Audience Release",         "priority": 5},
         {"key": "platform_agreement", "label": "Platform Distribution Agreement",  "priority": 6},
+        {"key": "eo_documentation",   "label": "E&O Insurance Documentation",      "priority": 7},
     ],
     "documentary": [
         {"key": "sync_license",        "label": "Music Sync License(s)",           "priority": 1},
@@ -56,6 +57,7 @@ CLEARANCE_TEMPLATES = {
         {"key": "performer_consent",  "label": "Performer / Talent Consent", "priority": 2},
         {"key": "ugc_clearance",      "label": "UGC Rights Clearance",       "priority": 3},
         {"key": "brand_clearance",    "label": "Brand / Trademark Clearance","priority": 4},
+        {"key": "eo_documentation",   "label": "E&O Insurance Documentation","priority": 5},
     ],
     "podcast": [
         {"key": "guest_release",       "label": "Guest / Interview Release",          "priority": 1},
@@ -64,6 +66,7 @@ CLEARANCE_TEMPLATES = {
         {"key": "sponsor_agreement",   "label": "Sponsor / Ad Read Agreement",        "priority": 4},
         {"key": "sample_clearance",    "label": "Audio Sample / Clip Clearance",      "priority": 5},
         {"key": "distributor_license", "label": "Platform Distribution License",      "priority": 6},
+        {"key": "eo_documentation",    "label": "E&O Insurance Documentation",        "priority": 7},
     ],
     # Label waiver mode: label reviews submitter's completed clearances, then issues conditional waiver
     "live_music_label": [
@@ -72,7 +75,8 @@ CLEARANCE_TEMPLATES = {
         {"key": "performer_releases_review", "label": "Performer Releases — Verify & Review",         "priority": 3},
         {"key": "venue_license_review",      "label": "Venue Filming License — Verify & Review",      "priority": 4},
         {"key": "crowd_release_review",      "label": "Crowd / Audience Release — Verify & Review",   "priority": 5},
-        {"key": "conditional_label_waiver",  "label": "Conditional Label Waiver — Issue",             "priority": 6},
+        {"key": "eo_documentation_review",   "label": "E&O Insurance — Verify & Review",              "priority": 6},
+        {"key": "conditional_label_waiver",  "label": "Conditional Label Waiver — Issue",             "priority": 7},
     ],
     "ugc": [
         {"key": "content_license",    "label": "Content License",           "priority": 1},

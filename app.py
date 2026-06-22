@@ -3704,6 +3704,28 @@ def migrate_db_cmd():
         except Exception as exc:
             conn.rollback()
             print(f"  submissions.publisher_clearances_json: {exc}")
+
+    # Backfill: ensure every existing submission carries the E&O item its template
+    # now requires (added to all project types except UGC). Idempotent.
+    eo_defs = {}
+    for tkey, items in CLEARANCE_TEMPLATES.items():
+        for it in items:
+            if it["key"].startswith("eo_"):
+                eo_defs[tkey] = it
+    added = 0
+    for s in Submission.query.all():
+        tkey = "live_music_label" if (s.platform and s.platform.platform_mode == "label_waiver") else s.project_type
+        eo = eo_defs.get(tkey)
+        if not eo:
+            continue  # e.g. UGC has no E&O item
+        if not any(ci.item_key == eo["key"] for ci in s.clearance_items):
+            db.session.add(ClearanceItem(
+                submission_id=s.id, item_key=eo["key"], item_label=eo["label"],
+                priority=eo["priority"], status="pending",
+            ))
+            added += 1
+    db.session.commit()
+    print(f"  E&O backfill: added {added} item(s) to existing submissions")
     print("Migration complete.")
 
 
