@@ -2221,6 +2221,60 @@ def _safe_next():
     return None
 
 
+def _send_reservation_email(sub, item, ba_user):
+    """On BA approval, email the submitter a reservation-of-rights / continuing
+    indemnity notice: the platform's sign-off is administrative, made in reliance
+    on the submitter, who remains responsible for proper clearance and continues
+    to indemnify the platform. Sent to the submitter, cc Cleared.live + the BA."""
+    platform = sub.platform
+    pname    = platform.name if platform else "the platform"
+    party    = sub.submitter_company or sub.submitter_name or "the submitter"
+    when     = datetime.utcnow().strftime("%B %d, %Y")
+    body = (
+        f"Dear {sub.submitter_name or 'Submitter'},\n\n"
+        f"{pname} has recorded its clearance sign-off on the following item:\n\n"
+        f"  Item:    {item.item_label}\n"
+        f"  Project: {sub.title}" + (f" — {sub.artist_name}" if sub.artist_name else "") + "\n"
+        f"  Sign-off date: {when}\n\n"
+        f"This sign-off is administrative and is provided on the following express terms:\n\n"
+        f"1. Reliance on Submitter. {pname}'s acceptance is made in reliance on the "
+        f"representations, documentation, and clearances provided by {party}. {pname} has not "
+        f"independently verified the underlying rights and assumes no responsibility for the "
+        f"accuracy or completeness of the clearance materials.\n\n"
+        f"2. Continuing Indemnity. {party} remains responsible for ensuring that all rights, "
+        f"licenses, consents, and releases required for the use of the materials have been fully and "
+        f"properly obtained, and continues to indemnify, defend, and hold harmless {pname} and its "
+        f"affiliates from and against any claims, damages, liabilities, costs, and expenses "
+        f"(including reasonable attorneys' fees) arising out of or relating to any actual or alleged "
+        f"failure to secure such rights or any breach of the foregoing.\n\n"
+        f"3. Reservation of Rights. Nothing in this sign-off limits or waives any right or remedy "
+        f"available to {pname}, all of which are expressly reserved.\n\n"
+        f"This notice is provided for clearance-coordination purposes and does not constitute legal advice.\n\n"
+        f"Business Affairs\n{pname}\nvia Cleared.live"
+    )
+    resend_key = os.getenv("RESEND_API_KEY")
+    if not (resend_key and sub.submitter_email):
+        return False
+    cc = ["clear@cleared.live"]
+    if ba_user and ba_user.email and ba_user.email not in cc:
+        cc.append(ba_user.email)
+    try:
+        import resend as _resend
+        _resend.api_key = resend_key
+        _resend.Emails.send({
+            "from": f"{pname} Business Affairs <clear@cleared.live>",
+            "to": [sub.submitter_email],
+            "cc": cc,
+            "reply_to": "clear@cleared.live",
+            "subject": f"Clearance Sign-Off — Reservation of Rights & Continuing Indemnity — {item.item_label} | {sub.title}",
+            "text": body,
+        })
+        return True
+    except Exception as e:
+        app.logger.error(f"RESERVATION EMAIL ERROR — item={item.id} error={e}")
+        return False
+
+
 @app.route("/platform/project/<int:sub_id>")
 @require_platform
 def platform_project(sub_id):
@@ -2318,6 +2372,17 @@ def platform_approve_item(sub_id, item_id):
     item.status     = "cleared"
     item.cleared_at = datetime.utcnow()
     item.cleared_by = user.username
+
+    # Auto-send the reservation-of-rights / continuing-indemnity notice to the
+    # submitter (cc Cleared.live + the approving BA) and record it on the item.
+    sent = _send_reservation_email(sub, item, user)
+    if sent:
+        item.negotiation_log_add({
+            "role": "system", "label": "Reservation-of-rights & indemnity notice sent on approval",
+            "body": f"Sign-off recorded by {user.username}. Reservation-of-rights / continuing-indemnity "
+                    f"notice emailed to {sub.submitter_email} (cc clear@cleared.live).",
+            "ts": datetime.utcnow().isoformat(),
+        })
     db.session.commit()
 
     deliver_webhook(user.platform_id, sub.id, "item_updated", {

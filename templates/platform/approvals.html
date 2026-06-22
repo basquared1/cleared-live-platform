@@ -97,7 +97,38 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="text-muted small mb-3"><i class="bi bi-exclamation-triangle me-1"></i>No documents attached.</div>
+    <div class="text-muted small mb-3"><i class="bi bi-exclamation-triangle me-1"></i>No signed document attached — review the agreement draft and the rights-holder's acceptance below.</div>
+    {% endif %}
+
+    <!-- Rights-holder acceptance + agreed terms -->
+    {% set rec = item.ai_recommendation or {} %}
+    {% set last_reply = namespace(body=None, ts=None) %}
+    {% for turn in (item.negotiation_log or []) %}
+      {% if turn.role == 'inbound' %}{% set last_reply.body = turn.body %}{% set last_reply.ts = turn.ts %}{% endif %}
+    {% endfor %}
+    {% if last_reply.body or rec.get('assessment') %}
+    <div class="mb-3 p-2 rounded" style="background:#f0fdf4; border:1px solid #bbf7d0;">
+      <div class="small fw-semibold text-success mb-1"><i class="bi bi-check2-circle me-1"></i>Rights-holder acceptance</div>
+      {% if last_reply.body %}
+      <div class="small text-dark" style="white-space:pre-wrap; max-height:160px; overflow-y:auto;">{{ last_reply.body }}</div>
+      {% endif %}
+      {% if rec.get('assessment') %}
+      <div class="small text-muted mt-2"><span class="fw-semibold">AI assessment:</span> {{ rec.get('assessment') }}</div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- AI draft agreement (read-only) -->
+    {% if item.ai_draft %}
+    <div class="mb-3">
+      <button class="btn btn-sm btn-outline-secondary py-0" type="button"
+              data-bs-toggle="collapse" data-bs-target="#draft-{{ item.id }}">
+        <i class="bi bi-file-earmark-text me-1"></i>View agreement draft (read-only)
+      </button>
+      <div class="collapse mt-2" id="draft-{{ item.id }}">
+        <div class="p-3 rounded border bg-light" style="white-space:pre-wrap; font-family:Georgia,serif; font-size:.82rem; line-height:1.6; max-height:420px; overflow-y:auto;">{{ item.ai_draft }}</div>
+      </div>
+    </div>
     {% endif %}
 
     <!-- Approve / Send Back -->
@@ -112,6 +143,13 @@
               data-bs-toggle="collapse" data-bs-target="#reject-{{ item.id }}">
         <i class="bi bi-arrow-counterclockwise me-1"></i>Send Back
       </button>
+      <a href="{{ url_for('platform_project', sub_id=sub.id) }}#item-card-{{ item.id }}"
+         class="btn btn-outline-secondary btn-sm ms-auto">
+        <i class="bi bi-box-arrow-up-right me-1"></i>Open full project
+      </a>
+    </div>
+    <div class="small text-muted mt-2">
+      <i class="bi bi-shield-check me-1"></i>Approving emails the submitter a reservation-of-rights &amp; continuing-indemnity notice (cc Cleared.live).
     </div>
     <div class="collapse mt-2" id="reject-{{ item.id }}">
       <form method="POST" action="{{ url_for('platform_reject_item', sub_id=sub.id, item_id=item.id) }}">
