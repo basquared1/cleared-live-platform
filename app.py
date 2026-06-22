@@ -1071,7 +1071,7 @@ def submit_confirm(token):
 # section only). _MUSIC_SCOPE_ENDPOINTS lists the view functions a music-scope
 # token may reach; item-level endpoints are further restricted to music items.
 _MUSIC_SCOPE_ENDPOINTS = {
-    "track", "track_neg_status", "track_save_publishing_notes",
+    "track", "track_music", "track_neg_status", "track_save_publishing_notes",
     "track_ai_fill_songs", "track_fill_next_writers",
     "track_song_add", "track_song_delete", "track_song_update",
     "track_song_writer_add", "track_song_writer_delete", "track_song_writer_update",
@@ -1132,19 +1132,27 @@ def _sub(token):
     return Submission.query.filter_by(token=token).first_or_404()
 
 
-@app.route("/track/<token>")
-def track(token):
+def _render_track(token, view):
+    """Render the submitter workspace in one of three views:
+      'main'     — primary token, main workspace (general clearances + a compact
+                   music tracker card that links to the music page)
+      'music'    — primary token, dedicated Music Clearance page (full music world
+                   + the delegate panel + a link back to the main workspace)
+      'delegate' — music-scope token, music-only view for a delegated music contact
+    """
     sub = _sub(token)
     # Published clearance guideline for this project type, if the BA has shared one.
-    gl = ClearanceGuideline.query.filter_by(
-        platform_id=sub.platform_id, project_type=sub.project_type,
-        status="approved", show_to_submitters=True,
-    ).first()
-    project_guidelines = gl.public_content if (gl and gl.public_content) else None
+    # Shown on the main workspace only — the music page stays focused.
+    project_guidelines = None
+    if view == "main":
+        gl = ClearanceGuideline.query.filter_by(
+            platform_id=sub.platform_id, project_type=sub.project_type,
+            status="approved", show_to_submitters=True,
+        ).first()
+        project_guidelines = gl.public_content if (gl and gl.public_content) else None
     # Split clearance items into the Music Clearance group and everything else.
     music_items   = [ci for ci in sub.clearance_items if is_music_item(ci.item_key)]
     general_items = [ci for ci in sub.clearance_items if not is_music_item(ci.item_key)]
-    music_only = getattr(g, "scope", "full") == "music"
     return render_template("track.html", sub=sub,
                            access_token=token,
                            publishing_notes=_get_publishing_notes(sub),
@@ -1152,7 +1160,20 @@ def track(token):
                            actions=_scan_submitter_actions(sub),
                            project_guidelines=project_guidelines,
                            music_items=music_items, general_items=general_items,
-                           music_only=music_only)
+                           view=view)
+
+
+@app.route("/track/<token>")
+def track(token):
+    # A delegated music contact lands here too — keep them on the full music view.
+    view = "delegate" if getattr(g, "scope", "full") == "music" else "main"
+    return _render_track(token, view)
+
+
+@app.route("/track/<token>/music")
+def track_music(token):
+    view = "delegate" if getattr(g, "scope", "full") == "music" else "music"
+    return _render_track(token, view)
 
 
 @app.route("/track/<token>/music-delegate", methods=["POST"])
@@ -3378,30 +3399,30 @@ def _scan_submitter_actions(sub):
         if it.neg_state == "needs_approval":
             rec = it.ai_recommendation or {}
             if rec.get("recommended_action") == "send_for_signature":
-                actions.append({"item_id": it.id, "label": it.item_label, "urgency": "high",
+                actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "high",
                                 "action": "Approve & send for signature",
                                 "detail": "AI says terms are agreed — one click to send the agreement."})
             else:
-                actions.append({"item_id": it.id, "label": it.item_label, "urgency": "high",
+                actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "high",
                                 "action": "Approve the AI's drafted reply",
                                 "detail": rec.get("assessment") or "AI has drafted your next move."})
         elif it.neg_state == "awaiting_reply":
             last = _last_outbound_at(it)
             if last and (datetime.utcnow() - last) > timedelta(days=STALL_DAYS):
                 days = (datetime.utcnow() - last).days
-                actions.append({"item_id": it.id, "label": it.item_label, "urgency": "medium",
+                actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "medium",
                                 "action": "Follow up — no reply",
                                 "detail": f"No response in {days} days. Record a reply or send a nudge."})
         elif it.status == "pending":
-            actions.append({"item_id": it.id, "label": it.item_label, "urgency": "low",
+            actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "low",
                             "action": "Start clearance", "detail": "Not started yet."})
         elif it.status == "in_progress" and not it.ai_outreach_sent_at:
             if it.party_email and it.ai_outreach_body:
-                actions.append({"item_id": it.id, "label": it.item_label, "urgency": "medium",
+                actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "medium",
                                 "action": "Send outreach",
                                 "detail": "Draft and contact are ready — one click to send."})
             else:
-                actions.append({"item_id": it.id, "label": it.item_label, "urgency": "medium",
+                actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "medium",
                                 "action": "Send outreach",
                                 "detail": "Add the rights holder contact and send the request."})
     return actions

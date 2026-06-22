@@ -16,6 +16,10 @@
 {% block content %}
 <div class="row justify-content-center">
 <div class="col-lg-8">
+{# view: 'main' (primary workspace), 'music' (primary music page), 'delegate' (music contact) #}
+{% set view = view|default('main') %}
+{% set music_only = view in ('music', 'delegate') %}
+{% set music_ids = music_items | map(attribute='id') | list %}
 
   <!-- Header -->
   <div class="mb-4">
@@ -48,13 +52,26 @@
   </div>
   {% endif %}
 
-  {% if music_only %}
+  {% if view == 'delegate' %}
   <div class="alert alert-info border-0 mb-4 py-3 px-4 d-flex gap-3 align-items-start" style="border-left:4px solid #0d6efd !important;">
     <i class="bi bi-music-note-beamed fs-5 mt-1 flex-shrink-0"></i>
     <div class="small">
       <strong>Music clearance workspace.</strong> You're working the music clearance for
       <strong>{{ sub.title }}</strong>{% if sub.artist_name %} ({{ sub.artist_name }}){% endif %}
       as the designated music contact. This view shows the music clearances only — sync, master, publishing, and the publisher groups.
+    </div>
+  </div>
+  {% elif view == 'music' %}
+  <a href="{{ url_for('track', token=access_token) }}" class="btn btn-sm btn-outline-secondary mb-3">
+    <i class="bi bi-arrow-left me-1"></i>Back to workspace
+  </a>
+  <div class="alert alert-info border-0 mb-4 py-3 px-4 d-flex gap-3 align-items-start" style="border-left:4px solid #0d6efd !important;">
+    <i class="bi bi-music-note-beamed fs-5 mt-1 flex-shrink-0"></i>
+    <div class="small">
+      <strong>Music Clearance.</strong> Sync, master, and publishing clearances for
+      <strong>{{ sub.title }}</strong>{% if sub.artist_name %} ({{ sub.artist_name }}){% endif %} —
+      including the songs &amp; publishing data and the publisher groups. Hand this section to a
+      music supervisor below, or work it yourself.
     </div>
   </div>
   {% endif %}
@@ -132,7 +149,7 @@
       <div class="fw-semibold text-navy mb-3"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Needs your attention <span class="badge bg-navy ms-1">{{ actions|length }}</span></div>
       <div class="d-flex flex-column gap-2">
         {% for a in actions %}
-        <a href="#item-card-{{ a.item_id }}" class="text-decoration-none">
+        <a href="{% if a.item_id in music_ids %}{{ url_for('track_music', token=access_token) }}{% endif %}#item-card-{{ a.item_id }}" class="text-decoration-none">
           <div class="d-flex align-items-start p-2 rounded-3" style="background:#f8fafc;">
             <span class="me-2 mt-1" style="display:inline-block;width:9px;height:9px;border-radius:50%;flex:0 0 auto;
                  background:{% if a.urgency=='high' %}#dc2626{% elif a.urgency=='medium' %}#d97706{% else %}#64748b{% endif %};"></span>
@@ -148,8 +165,8 @@
   </div>
   {% endif %}
 
-  <!-- Music Clearance group (sync, master, publishing) -->
-  {% if music_items %}
+  <!-- Music Clearance group (sync, master, publishing) — full detail on the music page only -->
+  {% if music_items and view != 'main' %}
   <div class="mb-4">
     <div class="d-flex align-items-center justify-content-between mb-3">
       <div class="fw-semibold text-navy"><i class="bi bi-music-note-beamed me-2"></i>Music Clearance</div>
@@ -179,7 +196,7 @@
     {% include "_clearance_item_card.html" %}
     {% endfor %}
 
-    {% if not music_only %}
+    {% if view == 'music' %}
     <!-- Delegate music clearance to a music supervisor -->
     <div class="card border-0 shadow-sm mb-3" style="border-left:4px solid {{ sub.platform.primary_color }} !important;">
       <div class="card-body py-3 px-4">
@@ -218,8 +235,31 @@
   </div>
   {% endif %}
 
-  <!-- Songs & Publishing (live_music only) -->
-  {% if sub.project_type == 'live_music' %}
+  <!-- Music Clearance tracker card (main workspace) — links out to the dedicated music page -->
+  {% if music_items and view == 'main' %}
+  {% set music_done, music_total = sub.music_clearance_counts %}
+  <a href="{{ url_for('track_music', token=access_token) }}" class="text-decoration-none">
+    <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid {{ sub.platform.primary_color }} !important;">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="fw-semibold text-navy"><i class="bi bi-music-note-beamed me-2"></i>Music Clearance</div>
+          <span class="small fw-semibold" style="color:{{ sub.platform.primary_color }};">Open <i class="bi bi-arrow-right ms-1"></i></span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <div class="small text-muted">Sync, master &amp; publishing{% if sub.project_type == 'live_music' %} · {{ sub.songs|length }} songs · {{ sub.publisher_clearances|length }} publisher groups{% endif %}</div>
+          <div class="small {% if music_done == music_total and music_total %}text-success fw-bold{% else %}text-muted{% endif %}">{{ music_done }} of {{ music_total }} cleared</div>
+        </div>
+        <div class="progress" style="height:8px; border-radius:8px;">
+          <div class="progress-bar {% if sub.music_progress_pct == 100 %}bg-success{% elif sub.music_progress_pct > 0 %}bg-warning{% else %}bg-secondary{% endif %}"
+               style="width:{{ sub.music_progress_pct }}%; border-radius:8px; transition:width .6s ease;"></div>
+        </div>
+      </div>
+    </div>
+  </a>
+  {% endif %}
+
+  <!-- Songs & Publishing (live_music only) — full detail on the music page only -->
+  {% if sub.project_type == 'live_music' and view != 'main' %}
   <div class="card border-0 shadow-sm mb-4" id="songs-section">
     <!-- Header -->
     <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
