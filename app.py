@@ -1145,6 +1145,7 @@ def track_item_send_clearance(token, item_id):
             db.session.commit()
             flash(f"Outreach sent to {item.party_email}.", "success")
         except Exception as e:
+            app.logger.error(f"RESEND ERROR — type={type(e).__name__} key_set={bool(resend_key)} key_prefix={resend_key[:12] if resend_key else 'NONE'} error={e}")
             db.session.commit()
             flash(f"Email send failed: {e}. Draft saved — copy and send manually.", "warning")
     else:
