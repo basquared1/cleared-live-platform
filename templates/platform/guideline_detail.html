@@ -46,7 +46,8 @@
   <!-- Action bar -->
   <div class="card border-0 shadow-sm mb-4">
     <div class="card-body d-flex gap-2 flex-wrap align-items-center">
-      <form method="POST" class="d-inline">
+      <form method="POST" class="d-inline"
+            onsubmit="var b=this.querySelector('button');b.disabled=true;b.innerHTML='<span class=&quot;spinner-border spinner-border-sm me-1&quot;></span>Generating… (up to a minute)';">
         <input type="hidden" name="action" value="ai_draft">
         <button type="submit" class="btn btn-primary btn-sm fw-semibold">
           <i class="bi bi-stars me-1"></i>{% if guideline %}Regenerate AI Draft{% else %}Generate AI Draft{% endif %}
