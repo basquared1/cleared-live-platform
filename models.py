@@ -335,6 +335,24 @@ class Submission(db.Model):
         return round(done / total * 100)
 
     @property
+    def music_clearance_counts(self):
+        """(done, total) for the Music Clearance group: music clearance items plus
+        publisher clearance groups (sync per publisher). Used for music-only progress."""
+        items = [i for i in self.clearance_items if is_music_item(i.item_key)]
+        done = sum(1 for i in items if i.status in ("cleared", "waived", "n_a"))
+        total = len(items)
+        for grp in (self.publisher_clearances or {}).values():
+            total += 1
+            if grp.get("status") == "cleared":
+                done += 1
+        return done, total
+
+    @property
+    def music_progress_pct(self):
+        done, total = self.music_clearance_counts
+        return round(done / total * 100) if total else 0
+
+    @property
     def is_fully_cleared(self):
         return self.clearance_items and all(
             i.status in ("cleared", "waived", "n_a") for i in self.clearance_items

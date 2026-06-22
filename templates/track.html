@@ -147,7 +147,20 @@
         <span class="badge bg-success small">Approved</span>
       </div>
     </div>
-    <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i>Sync, master, and publishing clearances — including the publisher groups below. This section can be handled by your music supervisor.</p>
+    <p class="text-muted small mb-2"><i class="bi bi-info-circle me-1"></i>Sync, master, and publishing clearances — including the publisher groups below. This section can be handled by your music supervisor.</p>
+    {% set music_done, music_total = sub.music_clearance_counts %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body py-3 px-4">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <div class="small fw-semibold text-navy">Music clearance progress</div>
+          <div class="small {% if music_done == music_total and music_total %}text-success fw-bold{% else %}text-muted{% endif %}">{{ music_done }} of {{ music_total }} cleared</div>
+        </div>
+        <div class="progress" style="height:8px; border-radius:8px;">
+          <div class="progress-bar {% if sub.music_progress_pct == 100 %}bg-success{% elif sub.music_progress_pct > 0 %}bg-warning{% else %}bg-secondary{% endif %}"
+               style="width:{{ sub.music_progress_pct }}%; border-radius:8px; transition:width .6s ease;"></div>
+        </div>
+      </div>
+    </div>
 
     {% for item in music_items %}
     {% include "_clearance_item_card.html" %}
