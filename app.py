@@ -713,47 +713,59 @@ def _auto_draft_agent(sub_id):
         db.session.commit()
 
 
+def _ensure_deal_terms(sub, item):
+    """Default an item's deal terms to the platform BA's primary negotiation
+    position when none are set, so outreach can be sent without the submitter
+    re-entering terms the platform already mandates. Returns the deal terms."""
+    dt = item.deal_terms or {}
+    if dt.get("territory") or dt.get("media_rights"):
+        return dt
+    positions = sub.platform.negotiation_positions if sub.platform else []
+    primary = positions[0] if isinstance(positions, list) and positions else {}
+    dt = {
+        **dt,
+        "territory":    dt.get("territory")    or primary.get("territory") or "worldwide",
+        "term":         dt.get("term")         or primary.get("term")      or "perpetuity",
+        "media_rights": dt.get("media_rights") or primary.get("uses")      or ["streaming"],
+    }
+    item.deal_terms_save(dt)
+    return dt
+
+
 def _auto_outreach_agent(item_id):
-    """Background thread: generate and optionally send outreach email when item → in_progress."""
+    """Background thread: fully STAGE outreach when an item → in_progress so the
+    submitter can send with a single click. Does NOT send — it AI-fills the
+    rights-holder contact if missing, drafts the outreach, and defaults deal
+    terms to the platform's primary position. The submitter clicks Send."""
     if not os.getenv("ANTHROPIC_API_KEY"):
         return
     with app.app_context():
         item = ClearanceItem.query.get(item_id)
-        if not item or item.ai_outreach_body:
+        if not item:
             return
         sub = item.submission
-        try:
-            body = generate_outreach(sub, item)
-        except Exception:
-            return
-        if not body:
-            return
-        item.ai_outreach_body = body
 
-        # Auto-send via Resend if party email is known
-        party_email = item.party_email
-        if party_email and os.getenv("RESEND_API_KEY"):
+        # AI-fill the rights-holder contact if we don't have one yet, so the
+        # Send button is actionable. The submitter still confirms by clicking Send.
+        if not item.party_email:
+            hint = item.party_company or sub.artist_name or sub.label or sub.title
+            data = _ai_contact_lookup(sub, item, hint)
+            if data and data.get("contact_email"):
+                item.party_company = item.party_company or hint
+                item.party_name    = item.party_name or data.get("contact_name")
+                item.party_email   = (data.get("contact_email") or "").lower()
+
+        # Draft the outreach email (does not send).
+        if not item.ai_outreach_body:
             try:
-                import resend as _resend
-                _resend.api_key = os.getenv("RESEND_API_KEY")
-                _resend.Emails.send({
-                    "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clear@cleared.live>",
-                    "to": [party_email],
-                    "reply_to": _reply_address(item),
-                    "subject": f"Clearance Request — {item.item_label} | {sub.title}",
-                    "text": body,
-                })
-                item.ai_outreach_sent_at = datetime.utcnow()
+                body = generate_outreach(sub, item)
+                if body:
+                    item.ai_outreach_body = body
             except Exception:
                 pass
 
-        # Seed the negotiation thread with the outreach we just sent
-        if item.ai_outreach_sent_at and not item.negotiation_log:
-            item.negotiation_log_add({
-                "role": "outbound", "label": "Outreach email",
-                "body": body, "ts": datetime.utcnow().isoformat(),
-            })
-            item.neg_state = "awaiting_reply"
+        # Default deal terms to the platform BA's primary position.
+        _ensure_deal_terms(sub, item)
 
         db.session.commit()
 
@@ -1134,19 +1146,13 @@ def track_item_set_contact(token, item_id):
     return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
 
 
-@app.route("/track/<token>/item/<int:item_id>/ai-suggest-contact", methods=["POST"])
-def track_item_ai_suggest_contact(token, item_id):
-    from flask import jsonify
-    sub  = Submission.query.filter_by(token=token).first_or_404()
-    item = ClearanceItem.query.get_or_404(item_id)
-    if item.submission_id != sub.id:
-        abort(403)
-    company = request.form.get("company", "").strip()
-    if not company:
-        return jsonify({"error": "Enter a company name first."}), 400
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        return jsonify({"error": "AI unavailable."}), 503
-
+def _ai_contact_lookup(sub, item, company):
+    """Research the correct rights-holder / licensing contact for an item.
+    Returns a parsed dict (contact_name, contact_email, confidence, note,
+    co_admins) or None. Shared by the manual route and the auto-stage agent."""
+    company = (company or "").strip()
+    if not company or not os.getenv("ANTHROPIC_API_KEY"):
+        return None
     system = (
         "You are a music and entertainment industry clearance expert specializing in sync licensing. "
         "Your job is to identify the correct PUBLISHING ADMINISTRATOR or rights holder that must be "
@@ -1194,21 +1200,40 @@ def track_item_ai_suggest_contact(token, item_id):
     import json as _json
     raw = call_claude(system, user, max_tokens=500)
     if not raw:
-        return jsonify({"error": "AI did not respond."}), 500
+        return None
     try:
         clean = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
         data = _json.loads(clean)
         if "co_admins" not in data:
             data["co_admins"] = []
-        # Auto-save primary contact to item if high confidence
-        if data.get("confidence") == "high":
-            item.party_company = company
-            item.party_name    = data.get("contact_name") or item.party_name
-            item.party_email   = (data.get("contact_email") or "").lower() or item.party_email
-            db.session.commit()
-        return jsonify(data)
+        return data
     except Exception:
-        return jsonify({"error": "Could not parse AI response.", "raw": raw}), 500
+        return None
+
+
+@app.route("/track/<token>/item/<int:item_id>/ai-suggest-contact", methods=["POST"])
+def track_item_ai_suggest_contact(token, item_id):
+    from flask import jsonify
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    company = request.form.get("company", "").strip()
+    if not company:
+        return jsonify({"error": "Enter a company name first."}), 400
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return jsonify({"error": "AI unavailable."}), 503
+
+    data = _ai_contact_lookup(sub, item, company)
+    if data is None:
+        return jsonify({"error": "AI did not respond or could not be parsed."}), 500
+    # Auto-save primary contact to item if high confidence
+    if data.get("confidence") == "high":
+        item.party_company = company
+        item.party_name    = data.get("contact_name") or item.party_name
+        item.party_email   = (data.get("contact_email") or "").lower() or item.party_email
+        db.session.commit()
+    return jsonify(data)
 
 
 @app.route("/track/<token>/item/<int:item_id>/ai-fill-vars", methods=["POST"])
@@ -1274,21 +1299,10 @@ def track_item_send_clearance(token, item_id):
     if not item.party_email:
         flash("Add the rights holder email address first.", "danger")
         return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
-    dt = item.deal_terms
-    if not (dt.get("territory") or dt.get("media_rights")):
-        # No per-item deal terms yet — default to the platform BA's primary
-        # negotiation position (which the platform already mandates) so the
-        # first-draft outreach can go out without the submitter re-entering it.
-        positions = sub.platform.negotiation_positions if sub.platform else []
-        primary = positions[0] if isinstance(positions, list) and positions else {}
-        dt = {
-            **dt,
-            "territory":    dt.get("territory")    or primary.get("territory") or "worldwide",
-            "term":         dt.get("term")         or primary.get("term")      or "perpetuity",
-            "media_rights": dt.get("media_rights") or primary.get("uses")      or ["streaming"],
-        }
-        item.deal_terms_save(dt)
-        db.session.commit()
+    # Deal terms default to the platform BA's primary position when unset, so
+    # the submitter never has to re-enter what the platform already mandates.
+    dt = _ensure_deal_terms(sub, item)
+    db.session.commit()
     # Build outreach body
     outreach_body = item.ai_outreach_body
     if not outreach_body:
@@ -2950,9 +2964,14 @@ def _scan_submitter_actions(sub):
             actions.append({"item_id": it.id, "label": it.item_label, "urgency": "low",
                             "action": "Start clearance", "detail": "Not started yet."})
         elif it.status == "in_progress" and not it.ai_outreach_sent_at:
-            actions.append({"item_id": it.id, "label": it.item_label, "urgency": "medium",
-                            "action": "Send outreach",
-                            "detail": "Add the rights holder contact and send the request."})
+            if it.party_email and it.ai_outreach_body:
+                actions.append({"item_id": it.id, "label": it.item_label, "urgency": "medium",
+                                "action": "Send outreach",
+                                "detail": "Draft and contact are ready — one click to send."})
+            else:
+                actions.append({"item_id": it.id, "label": it.item_label, "urgency": "medium",
+                                "action": "Send outreach",
+                                "detail": "Add the rights holder contact and send the request."})
     return actions
 
 
