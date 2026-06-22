@@ -60,6 +60,25 @@
     </div>
   </div>
 
+  <!-- Clearance Guidelines (published by the platform BA for this project type) -->
+  {% if project_guidelines %}
+  <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid {{ sub.platform.primary_color }} !important;">
+    <div class="card-header bg-white border-bottom d-flex align-items-center gap-2" role="button"
+         data-bs-toggle="collapse" data-bs-target="#guidelines-panel" aria-expanded="true">
+      <i class="bi bi-book text-navy"></i>
+      <span class="fw-semibold">Clearance Guidelines</span>
+      <span class="badge bg-light text-dark border ms-1" style="font-size:.7rem;">{{ sub.project_type_label }}</span>
+      <span class="text-muted small ms-auto"><i class="bi bi-chevron-up"></i> show / hide</span>
+    </div>
+    <div class="collapse show" id="guidelines-panel">
+      <div class="card-body" style="font-size:.875rem; line-height:1.7; white-space:pre-wrap;">{{ project_guidelines }}</div>
+      <div class="card-footer bg-white border-0 small text-muted pt-0">
+        <i class="bi bi-info-circle me-1"></i>Published by {{ sub.platform.name }} Business Affairs as guidance for this project type.
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Progress summary -->
   {% set items_ready = sub.clearance_items | selectattr('status', 'in', ['under_review', 'cleared', 'waived', 'n_a']) | list | length %}
   {% set items_total = sub.clearance_items | length %}

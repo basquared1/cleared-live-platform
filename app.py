@@ -1014,10 +1014,17 @@ def submit_confirm(token):
 @app.route("/track/<token>")
 def track(token):
     sub = Submission.query.filter_by(token=token).first_or_404()
+    # Published clearance guideline for this project type, if the BA has shared one.
+    gl = ClearanceGuideline.query.filter_by(
+        platform_id=sub.platform_id, project_type=sub.project_type,
+        status="approved", show_to_submitters=True,
+    ).first()
+    project_guidelines = gl.public_content if (gl and gl.public_content) else None
     return render_template("track.html", sub=sub,
                            publishing_notes=_get_publishing_notes(sub),
                            neg_positions=sub.platform.negotiation_positions,
-                           actions=_scan_submitter_actions(sub))
+                           actions=_scan_submitter_actions(sub),
+                           project_guidelines=project_guidelines)
 
 
 @app.route("/track/<token>/neg-status")
