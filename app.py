@@ -3818,6 +3818,29 @@ def migrate_db_cmd():
     db.session.commit()
     print(f"  E&O backfill: added {added} item(s) to existing submissions")
 
+    # Backfill: ensure every existing submission carries the Master Recording License
+    # item its template now requires (live_music, unscripted, social, podcast,
+    # documentary, and the label-waiver review flow). Idempotent. UGC is excluded.
+    master_defs = {}
+    for tkey, items in CLEARANCE_TEMPLATES.items():
+        for it in items:
+            if it["key"].startswith("master_"):
+                master_defs[tkey] = it
+    added = 0
+    for s in Submission.query.all():
+        tkey = "live_music_label" if (s.platform and s.platform.platform_mode == "label_waiver") else s.project_type
+        m = master_defs.get(tkey)
+        if not m:
+            continue  # e.g. UGC has no master recording item
+        if not any(ci.item_key == m["key"] for ci in s.clearance_items):
+            db.session.add(ClearanceItem(
+                submission_id=s.id, item_key=m["key"], item_label=m["label"],
+                priority=m["priority"], status="pending",
+            ))
+            added += 1
+    db.session.commit()
+    print(f"  Master Recording License backfill: added {added} item(s) to existing submissions")
+
     # Remove the misplaced Platform Distribution Agreement item from existing live_music
     # submissions (it's the platform deal, not a third-party clearance). Preserve any
     # that already have uploaded documents or reached cleared/waived, to avoid data loss.
