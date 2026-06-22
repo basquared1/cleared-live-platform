@@ -1915,9 +1915,6 @@ function sendPubOutreach(btn, publisher, url) {
   .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>Send'; });
 }
 
-{% if sub.status not in ('cleared', 'rejected') %}
-setTimeout(() => location.reload(), 90000);
-{% endif %}
 
 {% set songs_missing_writers = sub.songs | selectattr('writers', 'equalto', []) | list | length %}
 {% if songs_missing_writers > 0 and sub.project_type == 'live_music' %}
@@ -1981,21 +1978,23 @@ setTimeout(() => location.reload(), 90000);
 {% endif %}
 
 // ── Negotiation poller ───────────────────────────────────────────────────────
-// When the AI agent is analyzing a reply, poll its state and refresh only once
-// it finishes — and never while the submitter has unsaved edits open.
-{% if sub.clearance_items | selectattr('neg_state', 'equalto', 'analyzing') | list %}
+// Keeps the workspace fresh by polling item state and refreshing only when
+// something actually changes (a reply arrives, the AI finishes, etc.) — never
+// on a blind timer, and never while the submitter has unsaved edits open.
+// Replaces the old blanket 14s / 90s location.reload() calls.
+{% if sub.status not in ('cleared', 'rejected') %}
 (function(){
   const STATUS_URL = "{{ url_for('track_neg_status', token=sub.token) }}";
-  // States at page render — the baseline we compare each poll against.
+  // Item states at page render — the baseline we compare each poll against.
   const baseline = { {% for it in sub.clearance_items %}"{{ it.id }}":"{{ it.neg_state or '' }}"{{ "," if not loop.last }}{% endfor %} };
 
-  // Flag any textarea the user has changed so a refresh never discards it.
-  document.querySelectorAll('textarea').forEach(function(t){
+  // Flag any field the user changes so a refresh never discards their work.
+  document.querySelectorAll('textarea, input[type=text]').forEach(function(t){
     t.addEventListener('input', function(){ t.dataset.dirty = '1'; });
   });
   function editingInProgress(){
-    const tas = document.querySelectorAll('textarea, input[type=text]');
-    for (const t of tas){
+    const els = document.querySelectorAll('textarea, input[type=text]');
+    for (const t of els){
       if (document.activeElement === t) return true;
       if (t.dataset.dirty === '1') return true;
     }
@@ -2008,7 +2007,7 @@ setTimeout(() => location.reload(), 90000);
     pill.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1080;background:#0d6efd;color:#fff;'
       + 'padding:.6rem .85rem;border-radius:.55rem;box-shadow:0 6px 18px rgba(0,0,0,.22);'
       + 'font-size:.85rem;display:flex;align-items:center;gap:.7rem;';
-    pill.innerHTML = '<span><i class="bi bi-check-circle me-1"></i>AI finished — update ready</span>';
+    pill.innerHTML = '<span><i class="bi bi-arrow-clockwise me-1"></i>Update available — your edits are kept</span>';
     const btn = document.createElement('button');
     btn.className = 'btn btn-light btn-sm fw-semibold';
     btn.textContent = 'Refresh';
@@ -2020,20 +2019,20 @@ setTimeout(() => location.reload(), 90000);
     fetch(STATUS_URL, { headers: { 'Accept': 'application/json' } })
       .then(function(r){ return r.json(); })
       .then(function(data){
-        let finished = false;
-        for (const id in baseline){
-          if (baseline[id] === 'analyzing' && data[id] && data[id] !== 'analyzing'){ finished = true; break; }
+        let changed = false;
+        for (const id in data){
+          if ((baseline[id] || '') !== data[id]){ changed = true; break; }
         }
-        if (finished){
+        if (changed){
           if (editingInProgress()) showRefreshPill();
           else location.reload();
-          return; // stop polling — decision made
+          return; // stop polling — decision made (pill stays / page reloads)
         }
-        setTimeout(poll, 5000);
+        setTimeout(poll, 6000);
       })
-      .catch(function(){ setTimeout(poll, 8000); });
+      .catch(function(){ setTimeout(poll, 10000); });
   }
-  setTimeout(poll, 4000);
+  setTimeout(poll, 6000);
 })();
 {% endif %}
 </script>
