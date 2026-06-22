@@ -8,6 +8,11 @@
       <span class="text-muted fw-normal" style="font-size:.8rem;">Clearance Portal</span>
     </a>
     <div class="ms-auto d-flex align-items-center gap-3">
+      <a href="{{ url_for('platform_approvals') }}"
+         class="btn btn-sm {% if pending_count %}btn-primary{% else %}btn-outline-secondary{% endif %} d-none d-md-inline-flex align-items-center gap-1">
+        <i class="bi bi-check2-square"></i> Approvals
+        {% if pending_count %}<span class="badge bg-light text-dark ms-1">{{ pending_count }}</span>{% endif %}
+      </a>
       <a href="{{ url_for('platform_guidelines') }}"
          class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
         <i class="bi bi-book"></i> Guidelines

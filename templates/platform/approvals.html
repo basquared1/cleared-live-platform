@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}{{ platform.name }} — Approval Queue{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('platform_dashboard') }}">
+      <span style="color:{{ platform.primary_color }}; font-weight:900; font-size:1.05rem;">{{ platform.logo_text or platform.name }}</span>
+      <span class="text-muted fw-normal" style="font-size:.8rem;">Clearance Portal</span>
+    </a>
+    <div class="ms-auto d-flex align-items-center gap-3">
+      <a href="{{ url_for('platform_dashboard') }}"
+         class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
+        <i class="bi bi-grid"></i> Dashboard
+      </a>
+      <a href="{{ url_for('platform_approvals') }}"
+         class="btn btn-sm btn-primary d-none d-md-inline-flex align-items-center gap-1">
+        <i class="bi bi-check2-square"></i> Approvals
+        {% if pending_count %}<span class="badge bg-light text-dark ms-1">{{ pending_count }}</span>{% endif %}
+      </a>
+      <span class="text-muted small d-none d-md-inline">{{ platform_user.username }}</span>
+      <a href="{{ url_for('platform_logout') }}" class="btn btn-sm btn-outline-secondary">Logout</a>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="fw-bold text-navy mb-1"><i class="bi bi-check2-square me-2"></i>Approval Queue</h4>
+    <div class="text-muted small">Items where the submitter has uploaded signed documents and is awaiting your sign-off.</div>
+  </div>
+  <span class="badge bg-navy fs-6">{{ pending_count }} awaiting</span>
+</div>
+
+{% if not pending %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+    Nothing awaiting sign-off. You're all caught up.
+  </div>
+</div>
+{% endif %}
+
+{% for sub, item in pending %}
+{% set dt = item.deal_terms or {} %}
+{% set docs = item.documents %}
+<div class="card border-0 shadow-sm mb-3" style="border-left:4px solid {{ platform.primary_color }} !important;">
+  <div class="card-body p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+      <div>
+        <div class="fw-bold text-navy">{{ item.item_label }}</div>
+        <div class="text-muted small">
+          <a href="{{ url_for('platform_project', sub_id=sub.id) }}" class="text-decoration-none">{{ sub.title }}</a>
+          {% if sub.artist_name %} · {{ sub.artist_name }}{% endif %}
+          {% if sub.submitter_name %} · submitted by {{ sub.submitter_name }}{% endif %}
+        </div>
+      </div>
+      <div class="text-end">
+        {% if dt.get('territory') or dt.get('term') %}
+        <span class="badge bg-light text-dark border">
+          {{ dt.get('territory','—')|capitalize }}{% if dt.get('term') %} · {{ dt.get('term')|replace('_',' ')|capitalize }}{% endif %}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Documents -->
+    {% if docs %}
+    <div class="mb-3">
+      <div class="small fw-semibold text-muted mb-2"><i class="bi bi-paperclip me-1"></i>Signed documents ({{ docs|length }})</div>
+      {% for doc in docs %}
+      <div class="border rounded mb-2">
+        <div class="d-flex align-items-center justify-content-between p-2">
+          <span class="small text-truncate"><i class="bi bi-file-earmark-text me-1"></i>{{ doc.filename }}</span>
+          <span class="d-flex gap-2 flex-shrink-0">
+            {% if 'pdf' in (doc.mimetype or '') or doc.filename.lower().endswith('.pdf') %}
+            <button class="btn btn-sm btn-outline-primary py-0" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#preview-{{ doc.id }}">
+              <i class="bi bi-eye"></i> Preview
+            </button>
+            {% endif %}
+            <a class="btn btn-sm btn-outline-secondary py-0"
+               href="{{ url_for('platform_download_doc', doc_id=doc.id) }}">
+              <i class="bi bi-download"></i> Download
+            </a>
+          </span>
+        </div>
+        {% if 'pdf' in (doc.mimetype or '') or doc.filename.lower().endswith('.pdf') %}
+        <div class="collapse" id="preview-{{ doc.id }}">
+          <iframe src="{{ url_for('platform_download_doc', doc_id=doc.id) }}?inline=1"
+                  style="width:100%; height:560px; border:0; border-top:1px solid #e5e7eb;"
+                  title="{{ doc.filename }}"></iframe>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-muted small mb-3"><i class="bi bi-exclamation-triangle me-1"></i>No documents attached.</div>
+    {% endif %}
+
+    <!-- Approve / Send Back -->
+    <div class="d-flex gap-2 flex-wrap align-items-start">
+      <form method="POST" action="{{ url_for('platform_approve_item', sub_id=sub.id, item_id=item.id) }}" class="d-inline">
+        <input type="hidden" name="next" value="{{ url_for('platform_approvals') }}">
+        <button type="submit" class="btn btn-success btn-sm fw-semibold">
+          <i class="bi bi-check-circle me-1"></i>Approve
+        </button>
+      </form>
+      <button class="btn btn-outline-danger btn-sm" type="button"
+              data-bs-toggle="collapse" data-bs-target="#reject-{{ item.id }}">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Send Back
+      </button>
+    </div>
+    <div class="collapse mt-2" id="reject-{{ item.id }}">
+      <form method="POST" action="{{ url_for('platform_reject_item', sub_id=sub.id, item_id=item.id) }}">
+        <input type="hidden" name="next" value="{{ url_for('platform_approvals') }}">
+        <textarea name="reject_note" class="form-control form-control-sm mb-2" rows="2"
+                  placeholder="Explain what the submitter needs to fix or resubmit..."></textarea>
+        <button type="submit" class="btn btn-danger btn-sm fw-semibold">
+          <i class="bi bi-send me-1"></i>Send Back to Submitter
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{% endblock %}

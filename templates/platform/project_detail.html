@@ -206,6 +206,17 @@
             <div class="fw-semibold small text-primary mb-2">
               <i class="bi bi-hourglass-split me-1"></i>Submitter has uploaded documents — review and approve or send back.
             </div>
+            {% set review_docs = item.documents %}
+            {% if review_docs %}
+            <div class="mb-2 d-flex flex-wrap gap-1">
+              {% for doc in review_docs %}
+              <a href="{{ url_for('platform_download_doc', doc_id=doc.id) }}"
+                 class="badge bg-white text-primary border border-primary text-decoration-none small">
+                <i class="bi bi-file-earmark-text me-1"></i>{{ doc.filename }}
+              </a>
+              {% endfor %}
+            </div>
+            {% endif %}
             <div class="d-flex gap-2 flex-wrap align-items-start">
               <!-- Approve -->
               <form method="POST" action="{{ url_for('platform_approve_item', sub_id=sub.id, item_id=item.id) }}" class="d-inline">

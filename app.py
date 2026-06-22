@@ -2182,7 +2182,43 @@ def platform_dashboard():
         sf=sf, tf=tf,
         project_type_labels=PROJECT_TYPE_LABELS,
         ba_actions=_scan_ba_actions(platform),
+        pending_count=len(_pending_approvals(platform)),
     )
+
+
+def _pending_approvals(platform):
+    """(submission, item) pairs awaiting BA sign-off — submitter has uploaded
+    documents and moved the item to under_review — across the whole platform."""
+    pending = []
+    subs = (Submission.query.filter_by(platform_id=platform.id)
+            .order_by(Submission.created_at.desc()).all())
+    for sub in subs:
+        for it in sub.clearance_items:
+            if it.status == "under_review":
+                pending.append((sub, it))
+    return pending
+
+
+@app.route("/platform/approvals")
+@require_platform
+def platform_approvals():
+    user     = current_platform_user()
+    platform = user.platform
+    pending  = _pending_approvals(platform)
+    return render_template(
+        "platform/approvals.html",
+        platform=platform,
+        pending=pending,
+        pending_count=len(pending),
+    )
+
+
+def _safe_next():
+    """Return the posted `next` URL only if it's a safe local platform path."""
+    nxt = (request.form.get("next") or "").strip()
+    if nxt.startswith("/platform/") and "//" not in nxt[1:]:
+        return nxt
+    return None
 
 
 @app.route("/platform/project/<int:sub_id>")
@@ -2299,7 +2335,7 @@ def platform_approve_item(sub_id, item_id):
         db.session.commit()
         deliver_webhook(user.platform_id, sub.id, "clearance_complete", clearance_payload(sub))
 
-    return redirect(url_for("platform_project", sub_id=sub_id))
+    return redirect(_safe_next() or url_for("platform_project", sub_id=sub_id))
 
 
 @app.route("/platform/project/<int:sub_id>/item/<int:item_id>/reject", methods=["POST"])
@@ -2317,7 +2353,7 @@ def platform_reject_item(sub_id, item_id):
     if reject_note:
         item.notes = reject_note
     db.session.commit()
-    return redirect(url_for("platform_project", sub_id=sub_id))
+    return redirect(_safe_next() or url_for("platform_project", sub_id=sub_id))
 
 
 @app.route("/platform/project/<int:sub_id>/add-item", methods=["POST"])
@@ -2435,10 +2471,13 @@ def platform_download_doc(doc_id):
     doc  = SubmissionDocument.query.get_or_404(doc_id)
     if doc.submission.platform_id != user.platform_id:
         abort(403)
+    # ?inline=1 serves the file for in-browser preview (e.g. PDF in an iframe);
+    # default is a download attachment.
+    inline = request.args.get("inline") == "1"
     return send_file(
         __import__("io").BytesIO(doc.file_data),
         download_name=doc.filename,
-        as_attachment=True,
+        as_attachment=not inline,
         mimetype=doc.mimetype or "application/octet-stream",
     )
 
