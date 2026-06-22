@@ -2,6 +2,7 @@ import os
 import json
 import hmac
 import hashlib
+import secrets
 import threading
 from datetime import datetime, timedelta
 from functools import wraps
@@ -715,6 +716,7 @@ def _auto_outreach_agent(item_id):
                 _resend.Emails.send({
                     "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clear@cleared.live>",
                     "to": [party_email],
+                    "reply_to": _reply_address(item),
                     "subject": f"Clearance Request — {item.item_label} | {sub.title}",
                     "text": body,
                 })
@@ -722,6 +724,133 @@ def _auto_outreach_agent(item_id):
             except Exception:
                 pass
 
+        # Seed the negotiation thread with the outreach we just sent
+        if item.ai_outreach_sent_at and not item.negotiation_log:
+            item.negotiation_log_add({
+                "role": "outbound", "label": "Outreach email",
+                "body": body, "ts": datetime.utcnow().isoformat(),
+            })
+            item.neg_state = "awaiting_reply"
+
+        db.session.commit()
+
+
+# ---------------------------------------------------------------------------
+# AI Negotiation Agent
+# ---------------------------------------------------------------------------
+
+_NEGOTIATION_SYSTEM = """You are an autonomous business affairs negotiator handling a rights-clearance negotiation on behalf of a content producer. You do ALL the analytical and drafting work. A human submitter approves each message before it is sent, and a platform Business Affairs (BA) attorney gives the final clearance sign-off at the end.
+
+Each turn you read the full negotiation thread plus the rights holder's latest message, decide where things stand, and draft the next move.
+
+Hold these non-negotiable clearance principles — the platform requires them:
+- The production company / SPV is always the contracting party, never an individual.
+- The producer holds all liability; rights must be assignable to the distributing platform.
+- Secure the broadest grant the deal terms allow (territory, term, media); narrow scope only when necessary to close.
+- E&O and general liability insurance and a warranted chain of title are expected.
+
+Negotiate firmly but professionally toward the platform's stated positions. Fall back from the primary position toward the fallback positions only as needed to close. If the rights holder agrees to terms, move to signature. If they raise a deal-breaker or demand something outside your authority, escalate to the BA rather than conceding.
+
+Respond ONLY with valid JSON, no markdown, no prose outside the JSON object."""
+
+
+def _fmt_negotiation_positions(positions):
+    if not positions:
+        return "No platform negotiation positions configured — use sound BA judgment and the deal terms."
+    lines = []
+    for p in positions:
+        rank = p.get("rank") or p.get("label") or "Position"
+        lines.append(
+            f"- [{rank}] {p.get('label','')}: territory={p.get('territory','—')}, "
+            f"uses={p.get('uses','—')}, term={p.get('term','—')}. {p.get('notes','')}".strip()
+        )
+    return "\n".join(lines)
+
+
+def _run_negotiation(sub, item):
+    """Analyze the thread and draft the next move. Returns a recommendation dict or None."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return None
+    positions = sub.platform.negotiation_positions if sub.platform else []
+    dt = item.deal_terms or {}
+    deal_str = (
+        f"fee={dt.get('fee') or '—'} ({dt.get('fee_type') or '—'}), "
+        f"territory={dt.get('territory') or '—'}, term={dt.get('term') or '—'}, "
+        f"media={', '.join(dt.get('media_rights') or []) or '—'}, "
+        f"MFN={'yes' if dt.get('mfn') else 'no'}. Notes: {dt.get('notes') or '—'}"
+    )
+    thread = item.negotiation_log or []
+    thread_str = "\n\n".join(
+        f"[{e.get('label') or e.get('role','message')}]\n{e.get('body','')}" for e in thread
+    ) or "(no messages yet)"
+
+    user = (
+        f"CLEARANCE ITEM: {item.item_label}\n"
+        f"RIGHTS HOLDER: {item.party_name or '[unknown]'} ({item.party_company or ''}) <{item.party_email or 'no email'}>\n\n"
+        f"PROJECT:\n{_sub_context(sub)}\n\n"
+        f"DEAL TERMS WE ARE SEEKING:\n{deal_str}\n\n"
+        f"PLATFORM NEGOTIATION POSITIONS (primary first, then fallbacks):\n{_fmt_negotiation_positions(positions)}\n\n"
+        f"NEGOTIATION THREAD SO FAR (oldest first):\n{thread_str}\n\n"
+        "Analyze the rights holder's most recent message and decide the next move. "
+        "Return a JSON object with EXACTLY these fields:\n"
+        '{\n'
+        '  "classification": "accepted" | "counter" | "question" | "declined" | "unclear",\n'
+        '  "assessment": "2-3 sentences: where the negotiation stands and what they want",\n'
+        '  "recommended_action": "send_for_signature" | "send_counter" | "answer_question" | "send_reply" | "escalate_to_ba",\n'
+        '  "draft_reply": "the full email body to send next — no subject line, no placeholder brackets, use real names. If escalating, write a brief holding note.",\n'
+        '  "deal_term_changes": "plain text describing any terms conceded or proposed this round, or \\"none\\"",\n'
+        '  "confidence": "high" | "medium" | "low",\n'
+        '  "rationale": "1-2 sentences on why this is the right move, referencing the platform positions"\n'
+        '}\n'
+        "Use recommended_action=send_for_signature ONLY when the material terms are agreed and the next step is signing. "
+        "Use escalate_to_ba when they demand something outside the platform positions or a clear deal-breaker."
+    )
+    raw = call_claude(_NEGOTIATION_SYSTEM, user, max_tokens=1500)
+    if not raw:
+        return None
+    import json as _json
+    try:
+        clean = raw.strip()
+        if clean.startswith("```"):
+            clean = clean.split("\n", 1)[1] if "\n" in clean else clean
+            clean = clean.rsplit("```", 1)[0]
+        clean = clean.strip().lstrip("json").strip() if clean.lstrip().startswith("json") else clean
+        # Locate the JSON object
+        start = clean.find("{")
+        end = clean.rfind("}")
+        if start != -1 and end != -1:
+            clean = clean[start:end + 1]
+        return _json.loads(clean)
+    except Exception:
+        return {
+            "classification": "unclear",
+            "assessment": "The AI response could not be parsed automatically. Review the rights holder's message and draft a reply manually, or regenerate.",
+            "recommended_action": "send_reply",
+            "draft_reply": "",
+            "deal_term_changes": "none",
+            "confidence": "low",
+            "rationale": "Automatic parsing failed.",
+            "raw": raw[:1500],
+        }
+
+
+def _negotiation_agent(item_id):
+    """Background thread: analyze the latest reply and stage a recommendation."""
+    with app.app_context():
+        item = ClearanceItem.query.get(item_id)
+        if not item:
+            return
+        sub = item.submission
+        try:
+            rec = _run_negotiation(sub, item)
+        except Exception as e:
+            app.logger.error(f"NEGOTIATION AGENT ERROR — {type(e).__name__}: {e}")
+            rec = None
+        if rec:
+            item.ai_recommendation_save(rec)
+            item.neg_state = "needs_approval"
+        else:
+            item.neg_state = "awaiting_reply"
         db.session.commit()
 
 
@@ -852,7 +981,8 @@ def track(token):
     sub = Submission.query.filter_by(token=token).first_or_404()
     return render_template("track.html", sub=sub,
                            publishing_notes=_get_publishing_notes(sub),
-                           neg_positions=sub.platform.negotiation_positions)
+                           neg_positions=sub.platform.negotiation_positions,
+                           actions=_scan_submitter_actions(sub))
 
 
 @app.route("/track/<token>/save-publishing-notes", methods=["POST"])
@@ -1130,6 +1260,13 @@ def track_item_send_clearance(token, item_id):
     if not outreach_body:
         outreach_body = generate_outreach(sub, item) or ""
     item.ai_outreach_body = outreach_body
+    # Seed the negotiation thread with this outreach
+    if not item.negotiation_log:
+        item.negotiation_log_add({
+            "role": "outbound", "label": "Outreach email",
+            "body": outreach_body, "ts": datetime.utcnow().isoformat(),
+        })
+        item.neg_state = "awaiting_reply"
     resend_key = os.getenv("RESEND_API_KEY")
     if resend_key and outreach_body:
         try:
@@ -1138,6 +1275,7 @@ def track_item_send_clearance(token, item_id):
             _resend.Emails.send({
                 "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clear@cleared.live>",
                 "to": [item.party_email],
+                "reply_to": _reply_address(item),
                 "subject": f"Clearance Request — {item.item_label} | {sub.title}",
                 "text": outreach_body,
             })
@@ -1153,6 +1291,136 @@ def track_item_send_clearance(token, item_id):
         db.session.commit()
         flash("Resend not configured — outreach drafted. Copy and send manually.", "warning")
     return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+def _neg_redirect(token, item_id):
+    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+@app.route("/track/<token>/item/<int:item_id>/record-reply", methods=["POST"])
+def track_item_record_reply(token, item_id):
+    """Submitter brings the rights holder's reply into the platform; AI then analyzes it."""
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    reply = request.form.get("reply_body", "").strip()
+    if not reply:
+        flash("Paste the rights holder's reply before recording it.", "warning")
+        return _neg_redirect(token, item_id)
+    item.negotiation_log_add({
+        "role": "inbound", "label": "Rights holder reply",
+        "body": reply, "ts": datetime.utcnow().isoformat(),
+    })
+    item.neg_state = "analyzing"
+    item.ai_recommendation_save(None)
+    db.session.commit()
+    threading.Thread(target=_negotiation_agent, args=(item.id,), daemon=True).start()
+    flash("Reply recorded — the AI is analyzing it and drafting the next move.", "info")
+    return _neg_redirect(token, item_id)
+
+
+@app.route("/track/<token>/item/<int:item_id>/regenerate-reply", methods=["POST"])
+def track_item_regenerate_reply(token, item_id):
+    """Re-run the negotiation agent, optionally with submitter guidance."""
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    guidance = request.form.get("guidance", "").strip()
+    if guidance:
+        item.negotiation_log_add({
+            "role": "system", "label": "Submitter guidance to AI",
+            "body": guidance, "ts": datetime.utcnow().isoformat(),
+        })
+    item.neg_state = "analyzing"
+    item.ai_recommendation_save(None)
+    db.session.commit()
+    threading.Thread(target=_negotiation_agent, args=(item.id,), daemon=True).start()
+    flash("Regenerating the AI recommendation…", "info")
+    return _neg_redirect(token, item_id)
+
+
+@app.route("/track/<token>/item/<int:item_id>/edit-reply", methods=["POST"])
+def track_item_edit_reply(token, item_id):
+    """Submitter edits the AI's drafted reply before approving."""
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    rec = item.ai_recommendation
+    if rec:
+        rec["draft_reply"] = request.form.get("draft_reply", "").strip()
+        item.ai_recommendation_save(rec)
+        db.session.commit()
+        flash("Draft updated.", "success")
+    return _neg_redirect(token, item_id)
+
+
+@app.route("/track/<token>/item/<int:item_id>/approve-send", methods=["POST"])
+def track_item_approve_send(token, item_id):
+    """Submitter signs off on the AI's recommended move and it goes out."""
+    sub  = Submission.query.filter_by(token=token).first_or_404()
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    rec = item.ai_recommendation
+    if not rec:
+        flash("No AI recommendation to approve.", "warning")
+        return _neg_redirect(token, item_id)
+    action = rec.get("recommended_action", "send_reply")
+    body = request.form.get("draft_reply", "").strip() or rec.get("draft_reply", "")
+
+    # --- Path A: terms agreed → send for signature via DocuSign ---
+    if action == "send_for_signature":
+        envelope_id, error = send_to_docusign(sub, item)
+        if envelope_id:
+            item.docusign_envelope_id = envelope_id
+            item.docusign_status      = "sent"
+            item.status               = "docusign_pending"
+            item.neg_state            = "signature_sent"
+            item.negotiation_log_add({
+                "role": "outbound", "label": "Agreement sent for signature (DocuSign)",
+                "body": body or "Terms agreed — agreement sent for e-signature.",
+                "ts": datetime.utcnow().isoformat(),
+            })
+            item.ai_recommendation_save(None)
+            db.session.commit()
+            flash("Approved — agreement sent for signature via DocuSign.", "success")
+        else:
+            flash(f"DocuSign: {error}", "danger")
+        return _neg_redirect(token, item_id)
+
+    # --- Path B: send the drafted reply as an email ---
+    resend_key = os.getenv("RESEND_API_KEY")
+    sent = False
+    if resend_key and item.party_email and body:
+        try:
+            import resend as _resend
+            _resend.api_key = resend_key
+            _resend.Emails.send({
+                "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clear@cleared.live>",
+                "to": [item.party_email],
+                "reply_to": _reply_address(item),
+                "subject": f"Re: Clearance Request — {item.item_label} | {sub.title}",
+                "text": body,
+            })
+            sent = True
+        except Exception as e:
+            app.logger.error(f"NEG SEND ERROR — {type(e).__name__}: {e}")
+    item.negotiation_log_add({
+        "role": "outbound",
+        "label": "Reply sent to rights holder" if sent else "Reply (Resend unavailable — copy & send manually)",
+        "body": body, "ts": datetime.utcnow().isoformat(),
+    })
+    item.neg_state = "awaiting_reply"
+    item.ai_recommendation_save(None)
+    db.session.commit()
+    if sent:
+        flash("Approved and sent. Record the next reply when it comes in.", "success")
+    else:
+        flash("Saved to the thread — Resend not configured, so copy the message and send manually.", "warning")
+    return _neg_redirect(token, item_id)
 
 
 @app.route("/track/<token>/suggest-deal-terms", methods=["POST"])
@@ -1865,6 +2133,7 @@ def platform_dashboard():
         stats=stats,
         sf=sf, tf=tf,
         project_type_labels=PROJECT_TYPE_LABELS,
+        ba_actions=_scan_ba_actions(platform),
     )
 
 
@@ -2604,6 +2873,229 @@ def terms_of_service():
 
 
 # ---------------------------------------------------------------------------
+# Orchestrator — proactive action queues + digest
+# ---------------------------------------------------------------------------
+
+STALL_DAYS = 4   # no rights-holder reply after this many days → flag a follow-up
+
+
+def _last_outbound_at(item):
+    for turn in reversed(item.negotiation_log or []):
+        if turn.get("role") == "outbound" and turn.get("ts"):
+            try:
+                return datetime.fromisoformat(turn["ts"])
+            except Exception:
+                return item.ai_outreach_sent_at
+    return item.ai_outreach_sent_at
+
+
+def _scan_submitter_actions(sub):
+    """What does the submitter need to do, right now, across this submission?"""
+    actions = []
+    for it in sub.clearance_items:
+        if it.status in ("cleared", "waived", "n_a", "under_review"):
+            continue
+        if it.neg_state == "needs_approval":
+            rec = it.ai_recommendation or {}
+            if rec.get("recommended_action") == "send_for_signature":
+                actions.append({"item_id": it.id, "label": it.item_label, "urgency": "high",
+                                "action": "Approve & send for signature",
+                                "detail": "AI says terms are agreed — one click to send the agreement."})
+            else:
+                actions.append({"item_id": it.id, "label": it.item_label, "urgency": "high",
+                                "action": "Approve the AI's drafted reply",
+                                "detail": rec.get("assessment") or "AI has drafted your next move."})
+        elif it.neg_state == "awaiting_reply":
+            last = _last_outbound_at(it)
+            if last and (datetime.utcnow() - last) > timedelta(days=STALL_DAYS):
+                days = (datetime.utcnow() - last).days
+                actions.append({"item_id": it.id, "label": it.item_label, "urgency": "medium",
+                                "action": "Follow up — no reply",
+                                "detail": f"No response in {days} days. Record a reply or send a nudge."})
+        elif it.status == "pending":
+            actions.append({"item_id": it.id, "label": it.item_label, "urgency": "low",
+                            "action": "Start clearance", "detail": "Not started yet."})
+        elif it.status == "in_progress" and not it.ai_outreach_sent_at:
+            actions.append({"item_id": it.id, "label": it.item_label, "urgency": "medium",
+                            "action": "Send outreach",
+                            "detail": "Add the rights holder contact and send the request."})
+    return actions
+
+
+def _scan_ba_actions(platform):
+    """What does the platform BA need to sign off on or review?"""
+    actions = []
+    for sub in Submission.query.filter_by(platform_id=platform.id).all():
+        if sub.is_fully_cleared and sub.status != "cleared":
+            actions.append({"sub_id": sub.id, "title": sub.title, "item": None, "urgency": "high",
+                            "action": "Give final clearance sign-off",
+                            "detail": "All items approved — mark the submission cleared."})
+        for it in sub.clearance_items:
+            if it.status == "under_review":
+                actions.append({"sub_id": sub.id, "title": sub.title, "item": it.item_label, "urgency": "high",
+                                "action": "Sign off or reject",
+                                "detail": "Submitter sent this for your review."})
+            elif it.neg_state == "needs_approval" and (it.ai_recommendation or {}).get("recommended_action") == "escalate_to_ba":
+                actions.append({"sub_id": sub.id, "title": sub.title, "item": it.item_label, "urgency": "medium",
+                                "action": "AI escalated — advise submitter",
+                                "detail": (it.ai_recommendation or {}).get("assessment") or "Outside standard authority."})
+            elif it.status == "docusign_pending":
+                actions.append({"sub_id": sub.id, "title": sub.title, "item": it.item_label, "urgency": "low",
+                                "action": "Awaiting signature", "detail": "Out for DocuSign signature."})
+    return actions
+
+
+def _send_digest_email(to_addr, subject, html_body):
+    resend_key = os.getenv("RESEND_API_KEY")
+    if not resend_key:
+        return False
+    try:
+        import resend as _resend
+        _resend.api_key = resend_key
+        _resend.Emails.send({
+            "from": "Cleared.live <clear@cleared.live>",
+            "to": [to_addr],
+            "subject": subject,
+            "html": html_body,
+        })
+        return True
+    except Exception as e:
+        app.logger.error(f"DIGEST SEND ERROR — {type(e).__name__}: {e}")
+        return False
+
+
+def _digest_rows(actions, link):
+    rows = ""
+    order = {"high": 0, "medium": 1, "low": 2}
+    for a in sorted(actions, key=lambda x: order.get(x.get("urgency"), 3)):
+        color = {"high": "#dc2626", "medium": "#d97706", "low": "#64748b"}.get(a.get("urgency"), "#64748b")
+        label = a.get("label") or a.get("item") or a.get("title") or ""
+        rows += (
+            f'<tr><td style="padding:8px 0;border-bottom:1px solid #eee;">'
+            f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{color};margin-right:8px;"></span>'
+            f'<strong>{a.get("action","")}</strong> — {label}'
+            f'<div style="color:#64748b;font-size:13px;margin-left:16px;">{a.get("detail","")}</div></td></tr>'
+        )
+    return (
+        f'<div style="font-family:system-ui,Arial,sans-serif;max-width:600px;margin:0 auto;">'
+        f'<table style="width:100%;border-collapse:collapse;">{rows}</table>'
+        f'<p style="margin-top:20px;"><a href="{link}" '
+        f'style="background:#0d3b6e;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">Open Cleared.live</a></p></div>'
+    )
+
+
+@app.route("/cron/digest", methods=["GET", "POST"])
+def cron_digest():
+    """Cron-triggered: email submitters and BAs whatever needs their attention."""
+    secret = request.args.get("secret") or request.headers.get("X-Cron-Secret")
+    if os.getenv("CRON_SECRET") and secret != os.getenv("CRON_SECRET"):
+        abort(403)
+    base = request.url_root.rstrip("/")
+    sent = {"submitters": 0, "ba": 0}
+
+    active = Submission.query.filter(
+        Submission.status.in_(["submitted", "in_review", "in_clearance"])
+    ).all()
+    for sub in active:
+        acts = [a for a in _scan_submitter_actions(sub) if a["urgency"] in ("high", "medium")]
+        if acts and sub.submitter_email:
+            link = f"{base}{url_for('track', token=sub.token)}"
+            if _send_digest_email(sub.submitter_email,
+                                  f"Your clearance to-do — {sub.title} ({len(acts)})",
+                                  _digest_rows(acts, link)):
+                sent["submitters"] += 1
+
+    for platform in Platform.query.filter_by(is_active=True).all():
+        acts = [a for a in _scan_ba_actions(platform) if a["urgency"] in ("high", "medium")]
+        emails = {u.email for u in platform.users if u.email}
+        if platform.ba_contact_email:
+            emails.add(platform.ba_contact_email)
+        if acts and emails:
+            link = f"{base}{url_for('platform_dashboard')}"
+            for em in emails:
+                _send_digest_email(em, f"Clearance queue — {platform.name}: {len(acts)} need you",
+                                   _digest_rows(acts, link))
+            sent["ba"] += 1
+
+    return {"ok": True, "sent": sent}, 200
+
+
+# ---------------------------------------------------------------------------
+# Inbound email — auto-capture rights-holder replies into the negotiation
+# ---------------------------------------------------------------------------
+
+def _reply_address(item):
+    """Per-item Reply-To so inbound replies route back to the right negotiation."""
+    if not item.reply_token:
+        item.reply_token = secrets.token_urlsafe(12)
+    domain = os.getenv("INBOUND_DOMAIN", "cleared.live")
+    return f"reply+{item.reply_token}@{domain}"
+
+
+def _extract_reply_token(to_field):
+    import re
+    # to_field may be a string, a list of strings, or a list of {address|email} dicts
+    candidates = []
+    if isinstance(to_field, str):
+        candidates = [to_field]
+    elif isinstance(to_field, list):
+        for t in to_field:
+            if isinstance(t, str):
+                candidates.append(t)
+            elif isinstance(t, dict):
+                candidates.append(t.get("address") or t.get("email") or "")
+    for c in candidates:
+        m = re.search(r"reply\+([A-Za-z0-9_\-]+)@", c or "")
+        if m:
+            return m.group(1)
+    return None
+
+
+def _clean_reply(text):
+    """Trim the most common quoted-history markers so the AI sees just the new message."""
+    if not text:
+        return ""
+    lines, out = text.splitlines(), []
+    for ln in lines:
+        s = ln.strip()
+        if s.startswith(">"):
+            break
+        if s.startswith("On ") and ("wrote:" in s or s.endswith("wrote:")):
+            break
+        if "-----Original Message-----" in s or s.startswith("From: "):
+            break
+        out.append(ln)
+    return "\n".join(out).strip() or text.strip()
+
+
+@app.route("/inbound/email", methods=["POST"])
+def inbound_email():
+    """Resend inbound webhook → append the reply to the thread and run the AI agent."""
+    secret = request.args.get("secret")
+    if os.getenv("INBOUND_SECRET") and secret != os.getenv("INBOUND_SECRET"):
+        abort(403)
+    data = request.get_json(silent=True) or {}
+    payload = data.get("data", data)
+    to_field = payload.get("to") or payload.get("to_address") or payload.get("recipient") or ""
+    text = payload.get("text") or payload.get("body") or payload.get("html") or ""
+    token = _extract_reply_token(to_field)
+    if not token:
+        return {"ok": False, "reason": "no reply token in recipient"}, 200
+    item = ClearanceItem.query.filter_by(reply_token=token).first()
+    if not item:
+        return {"ok": False, "reason": "no matching item"}, 200
+    item.negotiation_log_add({
+        "role": "inbound", "label": "Rights holder reply (email)",
+        "body": _clean_reply(text), "ts": datetime.utcnow().isoformat(),
+    })
+    item.neg_state = "analyzing"
+    item.ai_recommendation_save(None)
+    db.session.commit()
+    threading.Thread(target=_negotiation_agent, args=(item.id,), daemon=True).start()
+    return {"ok": True, "item": item.id}, 200
+
+
+# ---------------------------------------------------------------------------
 # DB init CLI
 # ---------------------------------------------------------------------------
 
@@ -2874,6 +3366,10 @@ def migrate_db_cmd():
             ("rh_response", "VARCHAR(20)"),
             ("rh_response_notes", "TEXT"),
             ("rh_response_at", "TIMESTAMP"),
+            ("neg_state", "VARCHAR(30)"),
+            ("negotiation_log_json", "TEXT"),
+            ("ai_recommendation_json", "TEXT"),
+            ("reply_token", "VARCHAR(60)"),
         ]:
             try:
                 conn.execute(sa_text(f"ALTER TABLE clearance_items ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))

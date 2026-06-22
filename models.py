@@ -385,6 +385,13 @@ class ClearanceItem(db.Model):
     rh_response_notes = db.Column(db.Text)
     rh_response_at    = db.Column(db.DateTime)
 
+    # AI negotiation agent
+    reply_token            = db.Column(db.String(60))   # per-item inbound Reply-To token
+    neg_state              = db.Column(db.String(30))
+    # awaiting_reply | analyzing | needs_approval | signature_sent | agreed | stalled
+    negotiation_log_json   = db.Column(db.Text)   # JSON list of thread turns
+    ai_recommendation_json = db.Column(db.Text)   # JSON dict — AI's latest move
+
     deal_terms_json = db.Column(db.Text)
 
     documents = db.relationship("SubmissionDocument", backref="clearance_item", lazy=True)
@@ -397,6 +404,32 @@ class ClearanceItem(db.Model):
     def deal_terms_save(self, terms_dict):
         import json
         self.deal_terms_json = json.dumps(terms_dict)
+
+    @property
+    def negotiation_log(self):
+        import json
+        try:
+            return json.loads(self.negotiation_log_json or "[]")
+        except Exception:
+            return []
+
+    def negotiation_log_add(self, entry):
+        import json
+        log = self.negotiation_log
+        log.append(entry)
+        self.negotiation_log_json = json.dumps(log)
+
+    @property
+    def ai_recommendation(self):
+        import json
+        try:
+            return json.loads(self.ai_recommendation_json or "{}")
+        except Exception:
+            return {}
+
+    def ai_recommendation_save(self, data):
+        import json
+        self.ai_recommendation_json = json.dumps(data) if data else None
 
     @property
     def status_label(self):

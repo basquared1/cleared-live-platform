@@ -93,6 +93,29 @@
     </div>
   </div>
 
+  <!-- Action queue (orchestrator) -->
+  {% if actions %}
+  <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid #0d3b6e !important;">
+    <div class="card-body p-4">
+      <div class="fw-semibold text-navy mb-3"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Needs your attention <span class="badge bg-navy ms-1">{{ actions|length }}</span></div>
+      <div class="d-flex flex-column gap-2">
+        {% for a in actions %}
+        <a href="#item-card-{{ a.item_id }}" class="text-decoration-none">
+          <div class="d-flex align-items-start p-2 rounded-3" style="background:#f8fafc;">
+            <span class="me-2 mt-1" style="display:inline-block;width:9px;height:9px;border-radius:50%;flex:0 0 auto;
+                 background:{% if a.urgency=='high' %}#dc2626{% elif a.urgency=='medium' %}#d97706{% else %}#64748b{% endif %};"></span>
+            <div>
+              <div class="small fw-semibold text-navy">{{ a.action }} — <span class="text-muted">{{ a.label }}</span></div>
+              <div class="text-muted" style="font-size:.78rem;">{{ a.detail }}</div>
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Clearance items workspace -->
   <div class="mb-4">
     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -467,11 +490,113 @@
 
           <!-- Send for Clearance CTA -->
           {% if item.ai_outreach_sent_at %}
-          <div class="alert alert-success py-2 px-3 mb-3 small">
-            <i class="bi bi-envelope-check-fill me-2"></i>
-            <strong>Outreach sent{% if item.party_email %} to {{ item.party_email }}{% endif %}</strong>
-            on {{ item.ai_outreach_sent_at.strftime('%B %d, %Y') }}.
-            Waiting for rights holder response — your BA team will update you.
+          {% set rec = item.ai_recommendation %}
+          <div class="border rounded-3 mb-3" style="background:#f8fafc;">
+            <div class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between"
+                 style="background:#0d3b6e;color:#fff;border-top-left-radius:.5rem;border-top-right-radius:.5rem;">
+              <span class="fw-semibold small"><i class="bi bi-robot me-2"></i>AI Negotiation Console</span>
+              <span class="small opacity-75">Outreach sent {{ item.ai_outreach_sent_at.strftime('%b %d, %Y') }}</span>
+            </div>
+
+            <!-- Thread -->
+            {% if item.negotiation_log %}
+            <div class="px-3 py-2" style="max-height:320px;overflow-y:auto;">
+              {% for turn in item.negotiation_log %}
+                {% if turn.role == 'system' %}
+                <div class="text-center my-2">
+                  <span class="badge bg-light text-muted border" style="font-size:.68rem;">
+                    <i class="bi bi-info-circle me-1"></i>{{ turn.label }}: {{ turn.body }}
+                  </span>
+                </div>
+                {% else %}
+                <div class="d-flex mb-2 {% if turn.role == 'outbound' %}justify-content-end{% endif %}">
+                  <div class="rounded-3 px-3 py-2 small {% if turn.role == 'outbound' %}text-white{% else %}border{% endif %}"
+                       style="max-width:82%;{% if turn.role == 'outbound' %}background:#2563eb;{% else %}background:#fff;{% endif %}white-space:pre-wrap;">
+                    <div class="fw-semibold mb-1" style="font-size:.68rem;opacity:.8;">
+                      {% if turn.role == 'outbound' %}<i class="bi bi-arrow-up-right me-1"></i>{% else %}<i class="bi bi-arrow-down-left me-1"></i>{% endif %}{{ turn.label }}
+                    </div>{{ turn.body }}
+                  </div>
+                </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="px-3 py-3 border-top">
+            {% if item.neg_state == 'analyzing' %}
+              <!-- AI working -->
+              <div class="d-flex align-items-center text-primary small">
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                AI is analyzing the reply and drafting the next move… this page will refresh automatically.
+              </div>
+              <script>setTimeout(function(){ location.reload(); }, 14000);</script>
+
+            {% elif item.neg_state == 'needs_approval' and rec %}
+              <!-- AI recommendation awaiting submitter sign-off -->
+              {% set cls = rec.get('classification','unclear') %}
+              {% set act = rec.get('recommended_action','send_reply') %}
+              <div class="mb-2">
+                <span class="badge bg-{{ 'success' if cls=='accepted' else 'danger' if cls=='declined' else 'warning' if cls=='counter' else 'info' }} me-1">{{ cls|title }}</span>
+                <span class="badge bg-light text-dark border">Confidence: {{ rec.get('confidence','—')|title }}</span>
+              </div>
+              <div class="small mb-2"><strong>AI assessment:</strong> {{ rec.get('assessment','') }}</div>
+              {% if rec.get('deal_term_changes') and rec.get('deal_term_changes')|lower != 'none' %}
+              <div class="small mb-2 text-warning-emphasis"><i class="bi bi-list-check me-1"></i><strong>Term movement:</strong> {{ rec.get('deal_term_changes') }}</div>
+              {% endif %}
+              <div class="alert alert-light border small py-2 px-2 mb-2">
+                <i class="bi bi-lightbulb me-1"></i><strong>Recommendation:</strong>
+                {% if act == 'send_for_signature' %}Terms are agreed — send the agreement for signature.
+                {% elif act == 'send_counter' %}Send a counter holding the platform's position.
+                {% elif act == 'answer_question' %}Answer the rights holder's question and keep moving.
+                {% elif act == 'escalate_to_ba' %}Escalate to BA — this is outside standard authority.
+                {% else %}Send the drafted reply.{% endif %}
+                <span class="text-muted d-block mt-1">{{ rec.get('rationale','') }}</span>
+              </div>
+
+              {% if act == 'escalate_to_ba' %}
+              <div class="alert alert-warning small py-2 px-2 mb-2">
+                <i class="bi bi-exclamation-triangle me-1"></i>The AI flagged this for BA review. You can still send the holding note below, or upload a signed document once resolved.
+              </div>
+              {% endif %}
+
+              <form method="POST" action="{{ url_for('track_item_edit_reply', token=sub.token, item_id=item.id) }}" class="mb-2">
+                <label class="small fw-semibold text-navy mb-1">
+                  {% if act == 'send_for_signature' %}Cover note (sent with the signature request){% else %}Drafted reply — edit before approving{% endif %}
+                </label>
+                <textarea name="draft_reply" rows="6" class="form-control form-control-sm" style="font-size:.82rem;">{{ rec.get('draft_reply','') }}</textarea>
+                <button type="submit" class="btn btn-sm btn-link px-0 text-decoration-none"><i class="bi bi-save me-1"></i>Save edits</button>
+              </form>
+
+              <div class="d-flex flex-wrap gap-2 align-items-center">
+                <form method="POST" action="{{ url_for('track_item_approve_send', token=sub.token, item_id=item.id) }}"
+                      onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>Sending…';">
+                  {% if act == 'send_for_signature' %}
+                  <button type="submit" class="btn btn-sm btn-success fw-semibold"><i class="bi bi-pen me-1"></i>Approve &amp; Send for Signature</button>
+                  {% else %}
+                  <button type="submit" class="btn btn-sm btn-primary fw-semibold"><i class="bi bi-send-check me-1"></i>Approve &amp; Send Reply</button>
+                  {% endif %}
+                </form>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('regen-{{ item.id }}').classList.toggle('d-none');">
+                  <i class="bi bi-arrow-clockwise me-1"></i>Regenerate
+                </button>
+              </div>
+              <form method="POST" action="{{ url_for('track_item_regenerate_reply', token=sub.token, item_id=item.id) }}" id="regen-{{ item.id }}" class="d-none mt-2">
+                <input type="text" name="guidance" class="form-control form-control-sm mb-2" placeholder="Optional: tell the AI what to change (e.g. 'hold firm on worldwide', 'offer a small fee')">
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-repeat me-1"></i>Regenerate recommendation</button>
+              </form>
+
+            {% else %}
+              <!-- Awaiting / record the rights holder reply -->
+              <div class="small text-muted mb-2">
+                <i class="bi bi-hourglass-split me-1"></i>Waiting for the rights holder. When they reply, paste it here and the AI will analyze it and draft your next move.
+              </div>
+              <form method="POST" action="{{ url_for('track_item_record_reply', token=sub.token, item_id=item.id) }}">
+                <textarea name="reply_body" rows="4" class="form-control form-control-sm mb-2" style="font-size:.82rem;"
+                          placeholder="Paste the rights holder's email reply here…" required></textarea>
+                <button type="submit" class="btn btn-sm btn-primary fw-semibold"><i class="bi bi-robot me-1"></i>Record reply &amp; run AI</button>
+              </form>
+            {% endif %}
+            </div>
           </div>
           {% elif item.party_email and item.ai_draft %}
           <div class="mb-3">
