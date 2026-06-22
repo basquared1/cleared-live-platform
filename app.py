@@ -375,6 +375,25 @@ def _sub_context(sub):
     )
 
 
+def _guideline_block(sub):
+    """The platform BA's approved internal clearance guideline for this project type,
+    formatted for inclusion in drafting/negotiation prompts. Empty string if none —
+    so the AI applies the BA's house rules rather than generic assumptions."""
+    try:
+        gl = ClearanceGuideline.query.filter_by(
+            platform_id=sub.platform_id, project_type=sub.project_type, status="approved",
+        ).first()
+    except Exception:
+        return ""
+    if not (gl and gl.content):
+        return ""
+    return (
+        "\n\nPLATFORM BA CLEARANCE GUIDELINES (authoritative house rules — follow these "
+        "when drafting; they take precedence over generic assumptions):\n"
+        + gl.content.strip() + "\n"
+    )
+
+
 def _build_clearance_doc_user_prompt(sub, item):
     is_label_waiver = (sub.platform.platform_mode == "label_waiver")
 
@@ -395,6 +414,7 @@ def _build_clearance_doc_user_prompt(sub, item):
             f"and under what conditions; require producer to represent all other clearances are in place; "
             f"be revocable if producer's representations are false; assign no rights from label to producer "
             f"beyond the limited waiver; and end with signature blocks for both parties."
+            + _guideline_block(sub)
         )
 
     return (
@@ -403,6 +423,7 @@ def _build_clearance_doc_user_prompt(sub, item):
         f"PROJECT DETAILS:\n{_sub_context(sub)}\n\n"
         f"CLEARANCE ITEM: {item.item_label}\n"
         + (f"Rights Holder / Counterparty: {item.party_name}\n" if item.party_name else "Rights Holder / Counterparty: [RIGHTS HOLDER]\n")
+        + _guideline_block(sub)
         + f"\nDraft the complete agreement now."
     )
 
@@ -481,6 +502,7 @@ def generate_outreach(sub, item):
         f"for which project and platform, reference event details, request a response within 5 business days, "
         f"and close professionally. Signature is: {sub.submitter_name or ''}"
         + (f"\n{sub.submitter_company}" if sub.submitter_company else "") + ". No 'on behalf of' in the closing."
+        + _guideline_block(sub)
     )
     return call_claude(system, user, max_tokens=600)
 
@@ -824,7 +846,8 @@ def _run_negotiation(sub, item):
         f"RIGHTS HOLDER: {item.party_name or '[unknown]'} ({item.party_company or ''}) <{item.party_email or 'no email'}>\n\n"
         f"PROJECT:\n{_sub_context(sub)}\n\n"
         f"DEAL TERMS WE ARE SEEKING:\n{deal_str}\n\n"
-        f"PLATFORM NEGOTIATION POSITIONS (primary first, then fallbacks):\n{_fmt_negotiation_positions(positions)}\n\n"
+        f"PLATFORM NEGOTIATION POSITIONS (primary first, then fallbacks):\n{_fmt_negotiation_positions(positions)}\n"
+        + _guideline_block(sub) + "\n"
         f"NEGOTIATION THREAD SO FAR (oldest first):\n{thread_str}\n\n"
         "Analyze the rights holder's most recent message and decide the next move. "
         "Return a JSON object with EXACTLY these fields:\n"
