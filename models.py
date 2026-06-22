@@ -30,8 +30,7 @@ CLEARANCE_TEMPLATES = {
         {"key": "performer_release",  "label": "Performer Releases",               "priority": 3},
         {"key": "venue_license",      "label": "Venue Filming License",            "priority": 4},
         {"key": "crowd_release",      "label": "Crowd / Audience Release",         "priority": 5},
-        {"key": "platform_agreement", "label": "Platform Distribution Agreement",  "priority": 6},
-        {"key": "eo_documentation",   "label": "E&O Insurance Documentation",      "priority": 7},
+        {"key": "eo_documentation",   "label": "E&O Insurance Documentation",      "priority": 6},
     ],
     "documentary": [
         {"key": "sync_license",        "label": "Music Sync License(s)",           "priority": 1},

@@ -3749,6 +3749,19 @@ def migrate_db_cmd():
             added += 1
     db.session.commit()
     print(f"  E&O backfill: added {added} item(s) to existing submissions")
+
+    # Remove the misplaced Platform Distribution Agreement item from existing live_music
+    # submissions (it's the platform deal, not a third-party clearance). Preserve any
+    # that already have uploaded documents or reached cleared/waived, to avoid data loss.
+    removed = skipped = 0
+    for ci in ClearanceItem.query.filter_by(item_key="platform_agreement").all():
+        if ci.documents or ci.status in ("cleared", "waived", "under_review"):
+            skipped += 1
+            continue
+        db.session.delete(ci)
+        removed += 1
+    db.session.commit()
+    print(f"  platform_agreement cleanup: removed {removed}, preserved {skipped} (had docs/were completed)")
     print("Migration complete.")
 
 
