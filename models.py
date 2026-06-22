@@ -90,6 +90,21 @@ CLEARANCE_TEMPLATES = {
     ],
 }
 
+# Clearance item keys that belong to the "Music Clearance" group on the submitter
+# workspace (sync, master, and general music items + the label-waiver review steps).
+# Single source of truth — used for grouping, music progress, and delegated access.
+MUSIC_ITEM_KEYS = {
+    "sync_license", "master_license", "music_license",
+    "music_clearance", "sample_clearance", "label_waiver",
+    "publishing_review", "master_license_review",
+}
+
+
+def is_music_item(item_key):
+    """True if a clearance item belongs to the Music Clearance group."""
+    return (item_key or "") in MUSIC_ITEM_KEYS
+
+
 PRICING_TIERS = {
     "basic":    {"label": "Basic",    "price": 500,  "desc": "Up to 5 clearance items. Single event or content piece."},
     "standard": {"label": "Standard", "price": 1000, "desc": "6–15 clearance items. Most film, series, and live content."},

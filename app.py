@@ -31,6 +31,7 @@ from models import (
     WebhookDelivery, PlatformUser, AdminUser, ClearanceGuideline, Invite,
     CLEARANCE_TEMPLATES, PRICING_TIERS, PROJECT_TYPE_LABELS,
     TERRITORY_LABELS, INTENDED_USE_OPTIONS,
+    MUSIC_ITEM_KEYS, is_music_item,
 )
 
 load_dotenv()
@@ -1074,11 +1075,15 @@ def track(token):
         status="approved", show_to_submitters=True,
     ).first()
     project_guidelines = gl.public_content if (gl and gl.public_content) else None
+    # Split clearance items into the Music Clearance group and everything else.
+    music_items   = [ci for ci in sub.clearance_items if is_music_item(ci.item_key)]
+    general_items = [ci for ci in sub.clearance_items if not is_music_item(ci.item_key)]
     return render_template("track.html", sub=sub,
                            publishing_notes=_get_publishing_notes(sub),
                            neg_positions=sub.platform.negotiation_positions,
                            actions=_scan_submitter_actions(sub),
-                           project_guidelines=project_guidelines)
+                           project_guidelines=project_guidelines,
+                           music_items=music_items, general_items=general_items)
 
 
 @app.route("/track/<token>/neg-status")
