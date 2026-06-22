@@ -3151,12 +3151,20 @@ def platform_guideline_detail(project_type):
             if not g:
                 g = ClearanceGuideline(platform_id=user.platform_id, project_type=project_type)
                 db.session.add(g)
-            g.content = request.form.get("content", "").strip()
-            g.public_content = request.form.get("public_content", "").strip()
-            g.show_to_submitters = request.form.get("show_to_submitters") == "1"
-            g.status = "draft"
+            # Each editor section saves independently — only touch the fields the
+            # submitted form actually carries, so saving one section never wipes
+            # the other's content or the visibility toggle.
+            if "content" in request.form:
+                g.content = request.form.get("content", "").strip()
+            if "public_content" in request.form:
+                g.public_content = request.form.get("public_content", "").strip()
+            if request.form.get("submitter_settings") == "1":
+                g.show_to_submitters = request.form.get("show_to_submitters") == "1"
+            # Preserve approval across edits — saving must not silently un-publish.
+            if not g.status:
+                g.status = "draft"
             db.session.commit()
-            flash("Guidelines saved as draft.", "success")
+            flash("Guidelines saved.", "success")
 
         elif action == "approve":
             if g and g.content:

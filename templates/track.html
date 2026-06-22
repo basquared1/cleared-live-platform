@@ -29,6 +29,25 @@
     </div>
   </div>
 
+  <!-- Clearance Guidelines (published by the platform BA) — surfaced first so submitters read them before starting -->
+  {% if project_guidelines %}
+  <div class="card border-0 shadow mb-4" style="border-left:5px solid {{ sub.platform.primary_color }} !important;">
+    <div class="card-header border-bottom d-flex align-items-center gap-2" style="background:{{ sub.platform.primary_color }}1a;" role="button"
+         data-bs-toggle="collapse" data-bs-target="#guidelines-panel-top" aria-expanded="true">
+      <i class="bi bi-book-half fs-5" style="color:{{ sub.platform.primary_color }};"></i>
+      <span class="fw-bold">Start here — {{ sub.platform.name }} Clearance Guidelines</span>
+      <span class="badge bg-light text-dark border ms-1" style="font-size:.7rem;">{{ sub.project_type_label }}</span>
+      <span class="text-muted small ms-auto"><i class="bi bi-chevron-up"></i> show / hide</span>
+    </div>
+    <div class="collapse show" id="guidelines-panel-top">
+      <div class="card-body" style="font-size:.9rem; line-height:1.7; white-space:pre-wrap;">{{ project_guidelines }}</div>
+      <div class="card-footer bg-white border-0 small text-muted pt-0">
+        <i class="bi bi-info-circle me-1"></i>Published by {{ sub.platform.name }} Business Affairs as guidance for this project type. Read this before working the items below.
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Status banner -->
   <div class="alert border-0 mb-4 py-3 px-4
     {% if sub.status == 'cleared' %}alert-success
@@ -59,25 +78,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Clearance Guidelines (published by the platform BA for this project type) -->
-  {% if project_guidelines %}
-  <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid {{ sub.platform.primary_color }} !important;">
-    <div class="card-header bg-white border-bottom d-flex align-items-center gap-2" role="button"
-         data-bs-toggle="collapse" data-bs-target="#guidelines-panel" aria-expanded="true">
-      <i class="bi bi-book text-navy"></i>
-      <span class="fw-semibold">Clearance Guidelines</span>
-      <span class="badge bg-light text-dark border ms-1" style="font-size:.7rem;">{{ sub.project_type_label }}</span>
-      <span class="text-muted small ms-auto"><i class="bi bi-chevron-up"></i> show / hide</span>
-    </div>
-    <div class="collapse show" id="guidelines-panel">
-      <div class="card-body" style="font-size:.875rem; line-height:1.7; white-space:pre-wrap;">{{ project_guidelines }}</div>
-      <div class="card-footer bg-white border-0 small text-muted pt-0">
-        <i class="bi bi-info-circle me-1"></i>Published by {{ sub.platform.name }} Business Affairs as guidance for this project type.
-      </div>
-    </div>
-  </div>
-  {% endif %}
 
   <!-- Progress summary -->
   {% set items_ready = sub.clearance_items | selectattr('status', 'in', ['under_review', 'cleared', 'waived', 'n_a']) | list | length %}
