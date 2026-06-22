@@ -344,19 +344,41 @@ def call_claude_document(system: str, user: str) -> str:
     return text
 
 
-def call_claude(system: str, user: str, max_tokens: int = 4000) -> str:
-    """Call Claude for shorter outputs (deal points, outreach emails)."""
+def call_claude(system: str, user: str, max_tokens: int = 4000, continue_on_truncation: bool = False) -> str:
+    """Call Claude for shorter outputs (deal points, outreach emails).
+
+    Set continue_on_truncation=True for longer outputs (e.g. guideline drafts with
+    tables/checklists) to re-prompt and append when a pass hits the max_tokens limit.
+    """
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY not set in environment.")
     client = _anthropic.Anthropic(api_key=api_key)
+    cached = _cached_system(system)
     message = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=max_tokens,
-        system=_cached_system(system),
+        system=cached,
         messages=[{"role": "user", "content": user}],
     )
-    return message.content[0].text
+    text = message.content[0].text
+    if continue_on_truncation:
+        # Re-prompt up to twice more if the model runs out of room mid-output.
+        for _ in range(2):
+            if message.stop_reason != "max_tokens":
+                break
+            message = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=max_tokens,
+                system=cached,
+                messages=[
+                    {"role": "user", "content": user},
+                    {"role": "assistant", "content": text},
+                    {"role": "user", "content": "Continue from exactly where you left off. Do not repeat any content. Complete all remaining sections."},
+                ],
+            )
+            text += "\n" + message.content[0].text
+    return text
 
 
 def _sub_context(sub):
@@ -3087,6 +3109,7 @@ def platform_guideline_detail(project_type):
                     _GUIDELINE_SYSTEM,
                     _guideline_user_prompt(project_type, platform.name, item_labels),
                     max_tokens=4000,
+                    continue_on_truncation=True,
                 )
             except Exception as e:
                 flash(f"AI draft failed: {e}", "danger")
@@ -3109,7 +3132,8 @@ def platform_guideline_detail(project_type):
                 public = call_claude(
                     _GUIDELINE_PUBLIC_SYSTEM,
                     _guideline_public_user_prompt(project_type, platform.name, source),
-                    max_tokens=2000,
+                    max_tokens=4000,
+                    continue_on_truncation=True,
                 )
             except Exception as e:
                 flash(f"Submitter draft failed: {e}", "danger")
@@ -3794,6 +3818,7 @@ def seed_guidelines_cmd():
                     _GUIDELINE_SYSTEM,
                     _guideline_user_prompt(ptype, platform.name, item_labels),
                     max_tokens=4000,
+                    continue_on_truncation=True,
                 )
                 g = ClearanceGuideline.query.filter_by(
                     platform_id=platform.id, project_type=ptype
