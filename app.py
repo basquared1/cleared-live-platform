@@ -550,7 +550,26 @@ def get_docusign_token():
     )
     if not resp.ok:
         raise Exception(f"DocuSign token {resp.status_code}: {resp.text}")
-    return resp.json()["access_token"]
+    access_token = resp.json()["access_token"]
+
+    # Resolve the account's region-correct base URI from userinfo (avoids hardcoded pod)
+    base_uri = DOCUSIGN_BASE_URL
+    try:
+        ui = http_requests.get(
+            f"https://{DOCUSIGN_AUTH_SERVER}/oauth/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"}, timeout=15,
+        )
+        if ui.ok:
+            accounts = ui.json().get("accounts", [])
+            target = os.getenv("DOCUSIGN_ACCOUNT_ID")
+            acct = (next((a for a in accounts if a.get("account_id") == target), None)
+                    or next((a for a in accounts if a.get("is_default")), None)
+                    or (accounts[0] if accounts else None))
+            if acct and acct.get("base_uri"):
+                base_uri = acct["base_uri"].rstrip("/") + "/restapi"
+    except Exception:
+        pass
+    return access_token, base_uri
 
 
 def _ds_tab(anchor, **extra):
@@ -653,13 +672,13 @@ def send_to_docusign(sub, item):
     }
 
     try:
-        access_token = get_docusign_token()
+        access_token, ds_base = get_docusign_token()
     except Exception as e:
         return None, f"DocuSign auth failed: {e}"
 
     account_id = os.getenv("DOCUSIGN_ACCOUNT_ID")
     resp = http_requests.post(
-        f"{DOCUSIGN_BASE_URL}/v2.1/accounts/{account_id}/envelopes",
+        f"{ds_base}/v2.1/accounts/{account_id}/envelopes",
         headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
         json=envelope,
         timeout=20,
