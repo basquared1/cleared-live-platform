@@ -1276,8 +1276,19 @@ def track_item_send_clearance(token, item_id):
         return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
     dt = item.deal_terms
     if not (dt.get("territory") or dt.get("media_rights")):
-        flash("Fill in deal terms (territory and media rights) before sending.", "danger")
-        return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+        # No per-item deal terms yet — default to the platform BA's primary
+        # negotiation position (which the platform already mandates) so the
+        # first-draft outreach can go out without the submitter re-entering it.
+        positions = sub.platform.negotiation_positions if sub.platform else []
+        primary = positions[0] if isinstance(positions, list) and positions else {}
+        dt = {
+            **dt,
+            "territory":    dt.get("territory")    or primary.get("territory") or "worldwide",
+            "term":         dt.get("term")         or primary.get("term")      or "perpetuity",
+            "media_rights": dt.get("media_rights") or primary.get("uses")      or ["streaming"],
+        }
+        item.deal_terms_save(dt)
+        db.session.commit()
     # Build outreach body
     outreach_body = item.ai_outreach_body
     if not outreach_body:
