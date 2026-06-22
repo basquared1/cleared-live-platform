@@ -1938,6 +1938,25 @@ def track_pub_groups_contact(token):
     })
 
 
+@app.route("/track/<token>/pub-groups/suggest-contact", methods=["POST"])
+def track_pub_groups_suggest_contact(token):
+    """AI-research the sync licensing contact for a publisher clearance group."""
+    from flask import jsonify
+    from types import SimpleNamespace
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    publisher = request.form.get("publisher", "").strip()
+    if not publisher:
+        return jsonify({"error": "Publisher name missing."}), 400
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return jsonify({"error": "AI unavailable."}), 503
+    # Stub item so the lookup runs in music-publishing mode (it only reads item_label).
+    item_stub = SimpleNamespace(item_label="Music Publishing / Sync Licensing")
+    data = _ai_contact_lookup(sub, item_stub, publisher)
+    if data is None:
+        return jsonify({"error": "AI did not respond or could not be parsed."}), 500
+    return jsonify(data)
+
+
 @app.route("/track/<token>/pub-groups/outreach", methods=["POST"])
 def track_pub_groups_outreach(token):
     from flask import jsonify

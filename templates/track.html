@@ -1275,9 +1275,14 @@
                        value="{{ g.get('contact_email','') }}" placeholder="sync@publisher.com">
               </div>
               <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-outline-primary"
+                        onclick="aiSuggestPubContact(this, {{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_suggest_contact', token=sub.token) }}')">
+                  <i class="bi bi-stars me-1"></i>AI find contact
+                </button>
                 <button type="submit" class="btn btn-sm btn-outline-secondary">Save</button>
               </div>
             </form>
+            <div id="pub-contact-airesult-{{ loop.index }}" class="mt-2" style="display:none;"></div>
           </div>
         </div>
 
@@ -1994,6 +1999,60 @@ function savePubContact(event, idx, publisher, url) {
     alert('Could not save contact — try again.');
   });
   return false;
+}
+
+function aiSuggestPubContact(btn, idx, publisher, url) {
+  var orig = btn.innerHTML;
+  var resultEl = document.getElementById('pub-contact-airesult-' + idx);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Researching…';
+  if (resultEl) resultEl.style.display = 'none';
+
+  var body = new URLSearchParams();
+  body.append('publisher', publisher);
+
+  fetch(url, { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    if (data.error) {
+      if (resultEl) { resultEl.style.display = ''; resultEl.innerHTML = '<div class="small text-danger">' + data.error + '</div>'; }
+      return;
+    }
+    // Fill the contact form fields — submitter reviews, then clicks Save.
+    var panel = document.getElementById('pub-contact-' + idx);
+    if (data.contact_name) panel.querySelector('[name=contact_name]').value = data.contact_name;
+    if (data.contact_email) panel.querySelector('[name=contact_email]').value = data.contact_email;
+
+    var confColor = data.confidence === 'high' ? 'success' : data.confidence === 'medium' ? 'warning' : 'secondary';
+    var coAdmins = data.co_admins || [];
+    var coAdminHtml = '';
+    if (coAdmins.length > 0) {
+      coAdminHtml = '<div class="mt-2 p-2 rounded" style="background:#fff3cd;border:1px solid #ffc107;">'
+        + '<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>'
+        + '<strong>Co-administered — these publishers must ALSO be contacted:</strong>'
+        + '<ul class="mb-0 mt-1 ps-3">'
+        + coAdmins.map(function(ca) {
+            return '<li><strong>' + ca.company + '</strong>'
+              + (ca.contact_email ? ' &lt;' + ca.contact_email + '&gt;' : '') + '</li>';
+          }).join('')
+        + '</ul></div>';
+    }
+    if (resultEl) {
+      resultEl.style.display = '';
+      resultEl.innerHTML =
+        '<div class="small"><span class="badge bg-' + confColor + ' me-1">' + (data.confidence || 'low') + ' confidence</span>'
+        + (data.note ? '<span class="text-muted">' + data.note + '</span>' : '')
+        + '<div class="text-muted mt-1"><i class="bi bi-info-circle me-1"></i>Review the filled-in contact, then click <strong>Save</strong>.</div>'
+        + coAdminHtml + '</div>';
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    if (resultEl) { resultEl.style.display = ''; resultEl.innerHTML = '<div class="small text-danger">Lookup failed — try again.</div>'; }
+  });
 }
 
 function editPubOutreach(idx) {
