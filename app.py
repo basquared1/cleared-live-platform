@@ -3093,15 +3093,52 @@ def _clean_reply(text):
 
 @app.route("/inbound/email", methods=["POST"])
 def inbound_email():
-    """Resend inbound webhook → append the reply to the thread and run the AI agent."""
+    """Inbound-email webhook → append the reply to the thread and run the AI agent.
+
+    Tolerant of three shapes:
+      • SendGrid Inbound Parse — multipart/form-data: `to`, `from`, `subject`,
+        `text`/`html`, `envelope` (JSON with the real RCPT TO).
+      • Mailgun Routes — multipart/form-data: `recipient`, `sender`,
+        `body-plain`/`stripped-text`, `To`.
+      • JSON (e.g. Resend, or manual/test posts): {data:{to,text,...}} or flat.
+    """
     secret = request.args.get("secret")
     if os.getenv("INBOUND_SECRET") and secret != os.getenv("INBOUND_SECRET"):
         abort(403)
+
+    # JSON payloads (Resend / manual test) ...
     data = request.get_json(silent=True) or {}
-    payload = data.get("data", data)
-    to_field = payload.get("to") or payload.get("to_address") or payload.get("recipient") or ""
-    text = payload.get("text") or payload.get("body") or payload.get("html") or ""
+    payload = data.get("data", data) if isinstance(data, dict) else {}
+    # ... merged with form fields (SendGrid Inbound Parse / Mailgun Routes).
+    form = request.form
+
+    def _f(*keys):
+        for k in keys:
+            v = payload.get(k) if isinstance(payload, dict) else None
+            if v:
+                return v
+        for k in keys:
+            v = form.get(k)
+            if v:
+                return v
+        return ""
+
+    # Recipient: SendGrid `to`/`To`, Mailgun `recipient`, JSON `to`/`to_address`.
+    to_field = _f("to", "To", "recipient", "to_address")
     token = _extract_reply_token(to_field)
+
+    # SendGrid puts the true RCPT TO in `envelope` (JSON) — fall back to it.
+    if not token:
+        env_raw = _f("envelope")
+        if env_raw:
+            try:
+                env = env_raw if isinstance(env_raw, dict) else json.loads(env_raw)
+                token = _extract_reply_token(env.get("to") or "")
+            except (ValueError, TypeError):
+                pass
+
+    # Body: prefer plain text, drop to HTML last. Mailgun uses `body-plain`/`stripped-text`.
+    text = _f("text", "stripped-text", "body-plain", "body", "html", "body-html")
     if not token:
         return {"ok": False, "reason": "no reply token in recipient"}, 200
     item = ClearanceItem.query.filter_by(reply_token=token).first()
