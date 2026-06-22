@@ -656,9 +656,9 @@ def send_to_docusign(sub, item):
         })
 
     envelope = {
-        "emailSubject": f"Please sign: {item.item_label} — {sub.title} ({sub.platform.name})",
+        "emailSubject": f"Please sign: {item.item_label} — {sub.title}",
         "emailBlurb": (
-            f"{sub.submitter_name or sub.submitter_company} on behalf of {sub.platform.name} — {sub.title}\n\n"
+            f"{sub.submitter_company or sub.submitter_name} — {sub.title}\n\n"
             "Please review and sign the attached clearance agreement."
         ),
         "documents": [{
@@ -668,6 +668,10 @@ def send_to_docusign(sub, item):
             "documentId": "1",
         }],
         "recipients": {"signers": ds_signers},
+        "emailSettings": {
+            "replyEmailAddressOverride": "clear@cleared.live",
+            "replyEmailNameOverride": "Cleared.live",
+        },
         "status": "sent",
     }
 
