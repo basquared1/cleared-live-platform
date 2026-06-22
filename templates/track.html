@@ -48,7 +48,19 @@
   </div>
   {% endif %}
 
+  {% if music_only %}
+  <div class="alert alert-info border-0 mb-4 py-3 px-4 d-flex gap-3 align-items-start" style="border-left:4px solid #0d6efd !important;">
+    <i class="bi bi-music-note-beamed fs-5 mt-1 flex-shrink-0"></i>
+    <div class="small">
+      <strong>Music clearance workspace.</strong> You're working the music clearance for
+      <strong>{{ sub.title }}</strong>{% if sub.artist_name %} ({{ sub.artist_name }}){% endif %}
+      as the designated music contact. This view shows the music clearances only — sync, master, publishing, and the publisher groups.
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Status banner -->
+  {% if not music_only %}
   <div class="alert border-0 mb-4 py-3 px-4
     {% if sub.status == 'cleared' %}alert-success
     {% elif sub.status == 'in_clearance' %}alert-warning
@@ -111,9 +123,10 @@
       </div>
     </div>
   </div>
+  {% endif %}{# not music_only: status banner + overall progress #}
 
   <!-- Action queue (orchestrator) -->
-  {% if actions %}
+  {% if actions and not music_only %}
   <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid #0d3b6e !important;">
     <div class="card-body p-4">
       <div class="fw-semibold text-navy mb-3"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Needs your attention <span class="badge bg-navy ms-1">{{ actions|length }}</span></div>
@@ -165,6 +178,43 @@
     {% for item in music_items %}
     {% include "_clearance_item_card.html" %}
     {% endfor %}
+
+    {% if not music_only %}
+    <!-- Delegate music clearance to a music supervisor -->
+    <div class="card border-0 shadow-sm mb-3" style="border-left:4px solid {{ sub.platform.primary_color }} !important;">
+      <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <i class="bi bi-person-plus text-navy"></i>
+          <span class="fw-semibold small">Hand music clearance to someone else</span>
+        </div>
+        <p class="text-muted small mb-2">Share a private link that opens <strong>only</strong> this music clearance section — for a music supervisor or clearance specialist. They won't see the rest of your submission.</p>
+        <div id="music-delegate-active" class="small mb-2 {% if not sub.music_access_token %}d-none{% endif %}">
+          <span class="badge bg-success me-1"><i class="bi bi-check2 me-1"></i>Shared</span>
+          <span id="music-delegate-with">{% if sub.music_contact_email %}with {{ sub.music_contact_name or sub.music_contact_email }}{% endif %}</span>
+          <div class="input-group input-group-sm mt-1" style="max-width:520px;">
+            <input type="text" id="music-delegate-link" class="form-control" readonly
+                   value="{% if sub.music_access_token %}{{ url_for('track', token=sub.music_access_token, _external=True) }}{% endif %}">
+            <button class="btn btn-outline-secondary" type="button" onclick="copyMusicLink()">Copy</button>
+            <button class="btn btn-outline-danger" type="button" onclick="revokeMusicDelegate('{{ url_for('track_music_delegate', token=access_token) }}')">Revoke</button>
+          </div>
+        </div>
+        <form class="row g-2 align-items-end" onsubmit="return inviteMusicDelegate(event, '{{ url_for('track_music_delegate', token=access_token) }}')">
+          <div class="col-12 col-sm-4">
+            <label class="form-label small mb-1">Music contact name</label>
+            <input type="text" name="music_contact_name" class="form-control form-control-sm" value="{{ sub.music_contact_name or '' }}" placeholder="e.g. Music Supervisor">
+          </div>
+          <div class="col-12 col-sm-5">
+            <label class="form-label small mb-1">Email</label>
+            <input type="email" name="music_contact_email" class="form-control form-control-sm" value="{{ sub.music_contact_email or '' }}" placeholder="supervisor@example.com" required>
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-send me-1"></i>{% if sub.music_access_token %}Resend link{% else %}Create link{% endif %}</button>
+          </div>
+        </form>
+        <div id="music-delegate-result" class="small mt-2" style="display:none;"></div>
+      </div>
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 
@@ -182,7 +232,7 @@
                 data-bs-toggle="collapse" data-bs-target="#publishing-ref-panel">
           <i class="bi bi-database me-1"></i>Publishing Reference
         </button>
-        <form method="POST" action="{{ url_for('track_ai_fill_songs', token=sub.token) }}"
+        <form method="POST" action="{{ url_for('track_ai_fill_songs', token=access_token) }}"
               onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>Researching…';">
           <button type="submit" class="btn btn-sm btn-outline-warning fw-semibold">
             <i class="bi bi-stars me-1"></i>{% if sub.songs %}Re-research All{% else %}AI Find Setlist &amp; Publishers{% endif %}
@@ -201,7 +251,7 @@
 
     <!-- Publishing Reference panel -->
     <div class="collapse" id="publishing-ref-panel">
-      <form method="POST" action="{{ url_for('track_save_publishing_notes', token=sub.token) }}"
+      <form method="POST" action="{{ url_for('track_save_publishing_notes', token=access_token) }}"
             class="p-3 border-bottom bg-light">
         <div class="fw-semibold small mb-1 text-navy"><i class="bi bi-stars me-1 text-warning"></i>Publishing Reference</div>
         <p class="text-muted small mb-2">
@@ -217,7 +267,7 @@
 
     <!-- Bulk Deal Terms panel -->
     <div class="collapse" id="bulk-deal-panel">
-      <form method="POST" action="{{ url_for('track_song_bulk_deal_terms', token=sub.token) }}"
+      <form method="POST" action="{{ url_for('track_song_bulk_deal_terms', token=access_token) }}"
             class="p-3 border-bottom bg-light deal-terms-form">
         <div class="fw-semibold small mb-2 text-muted">Bulk Deal Terms — apply to all songs at once</div>
         {% if neg_positions %}
@@ -328,7 +378,7 @@
 
     <!-- Add song form -->
     <div class="collapse" id="add-song-form">
-      <form method="POST" action="{{ url_for('track_song_add', token=sub.token) }}"
+      <form method="POST" action="{{ url_for('track_song_add', token=access_token) }}"
             class="p-3 border-bottom bg-light">
         <div class="fw-semibold small mb-2 text-muted">Add Song</div>
         <div class="row g-2 align-items-end">
@@ -405,7 +455,7 @@
                     data-bs-target="#deal-terms-{{ sidx }}">
               <i class="bi bi-file-text me-1"></i>Deal Terms
             </button>
-            <form method="POST" action="{{ url_for('track_song_update', token=sub.token, idx=sidx) }}"
+            <form method="POST" action="{{ url_for('track_song_update', token=access_token, idx=sidx) }}"
                   class="d-inline">
               <input type="hidden" name="title" value="{{ song.title }}">
               <input type="hidden" name="is_cover" value="{{ '1' if song.is_cover else '' }}">
@@ -417,7 +467,7 @@
                 {% endfor %}
               </select>
             </form>
-            <form method="POST" action="{{ url_for('track_song_delete', token=sub.token, idx=sidx) }}"
+            <form method="POST" action="{{ url_for('track_song_delete', token=access_token, idx=sidx) }}"
                   onsubmit="return confirm('Remove {{ song.title }}?')">
               <button type="submit" class="btn btn-sm btn-outline-danger py-0" style="font-size:.75rem;">
                 <i class="bi bi-trash"></i>
@@ -454,7 +504,7 @@
                     <i class="bi bi-pencil" style="font-size:.75rem;"></i>
                   </button>
                   <form method="POST" class="d-inline"
-                        action="{{ url_for('track_song_writer_delete', token=sub.token, idx=sidx, widx=widx) }}"
+                        action="{{ url_for('track_song_writer_delete', token=access_token, idx=sidx, widx=widx) }}"
                         onsubmit="return confirm('Remove {{ w.name }}?')">
                     <button type="submit" class="btn btn-link btn-sm p-0 text-danger">
                       <i class="bi bi-x-lg" style="font-size:.75rem;"></i>
@@ -464,7 +514,7 @@
               </tr>
               <tr id="we-{{ sidx }}-{{ widx }}" class="d-none bg-light">
                 <td colspan="5" class="py-2 px-3">
-                  <form method="POST" action="{{ url_for('track_song_writer_update', token=sub.token, idx=sidx, widx=widx) }}"
+                  <form method="POST" action="{{ url_for('track_song_writer_update', token=access_token, idx=sidx, widx=widx) }}"
                         class="row g-2 align-items-end">
                     <div class="col-12 col-md-3">
                       <label class="form-label small mb-0">Name</label>
@@ -513,7 +563,7 @@
           {% endif %}
 
           <!-- Add writer + AI fill -->
-          <form method="POST" action="{{ url_for('track_song_writer_add', token=sub.token, idx=sidx) }}"
+          <form method="POST" action="{{ url_for('track_song_writer_add', token=access_token, idx=sidx) }}"
                 class="row g-2 align-items-end mb-2" id="add-writer-form-{{ sidx }}">
             <div class="col-12 col-md-4">
               <input type="text" name="writer_name" class="form-control form-control-sm"
@@ -538,7 +588,7 @@
               <button type="submit" class="btn btn-sm btn-outline-primary">+ Add Writer</button>
             </div>
           </form>
-          <form method="POST" action="{{ url_for('track_song_ai_fill_writers', token=sub.token, idx=sidx) }}"
+          <form method="POST" action="{{ url_for('track_song_ai_fill_writers', token=access_token, idx=sidx) }}"
                 class="d-inline">
             <button type="submit" class="btn btn-sm btn-outline-warning">
               <i class="bi bi-stars me-1"></i>AI Fill Writers
@@ -548,7 +598,7 @@
 
         <!-- Per-song deal terms panel -->
         <div class="collapse" id="deal-terms-{{ sidx }}">
-          <form method="POST" action="{{ url_for('track_song_deal_terms', token=sub.token, idx=sidx) }}"
+          <form method="POST" action="{{ url_for('track_song_deal_terms', token=access_token, idx=sidx) }}"
                 class="p-3 border-top bg-light deal-terms-form" style="font-size:.82rem;">
             <div class="fw-semibold small mb-2 text-muted">Deal Terms — {{ song.title }}</div>
             {% if neg_positions %}
@@ -678,7 +728,7 @@
           <span class="badge bg-light text-dark border ms-1">{{ sub.publisher_clearances|length }} publishers</span>
         {% endif %}
       </div>
-      <form method="POST" action="{{ url_for('track_pub_groups_generate', token=sub.token) }}">
+      <form method="POST" action="{{ url_for('track_pub_groups_generate', token=access_token) }}">
         <button type="submit" class="btn btn-sm btn-outline-warning fw-semibold">
           <i class="bi bi-arrow-repeat me-1"></i>
           {% if sub.publisher_clearances %}Re-generate from Songs{% else %}Generate from Songs{% endif %}
@@ -742,7 +792,7 @@
           </button>
           <div class="collapse mt-2" id="pub-contact-{{ loop.index }}">
             <form class="row g-2 align-items-end"
-                  onsubmit="return savePubContact(event, {{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_contact', token=sub.token) }}')">
+                  onsubmit="return savePubContact(event, {{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_contact', token=access_token) }}')">
               <div class="col-12 col-sm-4">
                 <label class="form-label small mb-1">Contact name / dept</label>
                 <input type="text" name="contact_name" class="form-control form-control-sm"
@@ -755,7 +805,7 @@
               </div>
               <div class="col-auto">
                 <button type="button" class="btn btn-sm btn-outline-primary"
-                        onclick="aiSuggestPubContact(this, {{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_suggest_contact', token=sub.token) }}')">
+                        onclick="aiSuggestPubContact(this, {{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_suggest_contact', token=access_token) }}')">
                   <i class="bi bi-stars me-1"></i>AI find contact
                 </button>
                 <button type="submit" class="btn btn-sm btn-outline-secondary">Save</button>
@@ -768,13 +818,13 @@
         <!-- Outreach -->
         <div class="mb-2 d-flex flex-wrap gap-2 align-items-center">
           <button class="btn btn-sm btn-warning fw-semibold"
-                  onclick="generatePubOutreach(this, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_outreach', token=sub.token) }}')">
+                  onclick="generatePubOutreach(this, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_outreach', token=access_token) }}')">
             <i class="bi bi-stars me-1"></i>{% if g.get('ai_outreach') %}Re-draft Outreach{% else %}Draft Grouped Outreach{% endif %}
           </button>
           {% if g.get('ai_outreach') and not g.get('outreach_sent_at') %}
           <button id="pub-send-{{ loop.index }}"
                   class="btn btn-sm btn-primary fw-semibold {% if not g.get('contact_email') %}d-none{% endif %}"
-                  onclick="sendPubOutreach(this, {{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_send', token=sub.token) }}')">
+                  onclick="sendPubOutreach(this, {{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_send', token=access_token) }}')">
             <i class="bi bi-send me-1"></i>Send to {{ pub_name }}
           </button>
           {% endif %}
@@ -798,7 +848,7 @@
                       rows="12" style="font-family:Georgia,serif;font-size:.78rem;line-height:1.6;">{{ g.ai_outreach }}</textarea>
             <div class="d-flex gap-2 mt-2 align-items-center">
               <button class="btn btn-sm btn-primary fw-semibold" type="button"
-                      onclick="savePubOutreach({{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_save_outreach', token=sub.token) }}', this)">
+                      onclick="savePubOutreach({{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_save_outreach', token=access_token) }}', this)">
                 <i class="bi bi-floppy me-1"></i>Save draft
               </button>
               <button class="btn btn-sm btn-outline-secondary" type="button"
@@ -816,7 +866,7 @@
         {% if not g.get('rh_response') %}
         <div id="pub-awaiting-{{ loop.index }}" class="mt-2 p-2 rounded {% if not g.get('outreach_sent_at') %}d-none{% endif %}" style="background:#fff3cd;border:1px solid #ffc107;">
           <div class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Awaiting response — log when received:</div>
-          <form method="POST" action="{{ url_for('track_pub_groups_response', token=sub.token) }}" class="row g-2">
+          <form method="POST" action="{{ url_for('track_pub_groups_response', token=access_token) }}" class="row g-2">
             <input type="hidden" name="publisher" value="{{ pub_name }}">
             <div class="col-auto">
               <select name="rh_response" class="form-select form-select-sm">
@@ -852,7 +902,7 @@
   {% endif %}
 
   <!-- General Clearances -->
-  {% if general_items %}
+  {% if general_items and not music_only %}
   <div class="mb-4">
     <div class="fw-semibold text-navy mb-3"><i class="bi bi-list-check me-2"></i>General Clearances</div>
     {% for item in general_items %}
@@ -861,6 +911,7 @@
   </div>
   {% endif %}
 
+  {% if not music_only %}
   <!-- Project details -->
   <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-light border-0 py-3">
@@ -922,6 +973,12 @@
     <i class="bi bi-shield-lock me-1"></i>This page is accessible via your private tracking link only. Bookmark it.<br>
     Questions or urgent deadline? Email <a href="mailto:clear@cleared.live">clear@cleared.live</a> with your tracking token: <code>{{ sub.token }}</code>
   </div>
+  {% else %}
+  <div class="small text-muted">
+    <i class="bi bi-shield-lock me-1"></i>This is a private music-clearance link shared with you. Bookmark it.<br>
+    Questions? Email <a href="mailto:clear@cleared.live">clear@cleared.live</a>.
+  </div>
+  {% endif %}
 
 </div>
 </div>
@@ -1110,7 +1167,7 @@ function suggestDealTerms(btn, itemLabel) {
   body.append('item_label', itemLabel || 'music publishing rights');
   mediaRights.forEach(function(r) { body.append('media_rights', r); });
 
-  fetch('{{ url_for("track_suggest_deal_terms", token=sub.token) }}', {
+  fetch('{{ url_for("track_suggest_deal_terms", token=access_token) }}', {
     method: 'POST', body: body,
     headers: {'Content-Type': 'application/x-www-form-urlencoded'}
   })
@@ -1172,6 +1229,55 @@ function copyLink() {
       btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy tracking link';
       btn.classList.replace('btn-success', 'btn-outline-dark');
     }, 2500);
+  });
+}
+
+function copyMusicLink() {
+  var el = document.getElementById('music-delegate-link');
+  navigator.clipboard.writeText(el.value);
+}
+
+function inviteMusicDelegate(event, url) {
+  event.preventDefault();
+  var form = event.target;
+  var btn = form.querySelector('button[type=submit]');
+  var orig = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = 'Sending…';
+  var body = new URLSearchParams();
+  body.append('action', 'invite');
+  body.append('music_contact_name', form.querySelector('[name=music_contact_name]').value);
+  body.append('music_contact_email', form.querySelector('[name=music_contact_email]').value);
+  fetch(url, { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    btn.disabled = false; btn.innerHTML = orig;
+    var res = document.getElementById('music-delegate-result');
+    if (data.error) { res.style.display=''; res.innerHTML = '<span class="text-danger">'+data.error+'</span>'; return; }
+    document.getElementById('music-delegate-link').value = data.link;
+    document.getElementById('music-delegate-active').classList.remove('d-none');
+    if (data.contact_name || data.contact_email)
+      document.getElementById('music-delegate-with').textContent = 'with ' + (data.contact_name || data.contact_email);
+    res.style.display = '';
+    res.innerHTML = data.sent
+      ? '<span class="text-success"><i class="bi bi-check2 me-1"></i>Link emailed to ' + (data.contact_email||'') + '.</span>'
+      : '<span class="text-muted">Link created — copy it below and share it (email not configured).</span>';
+  })
+  .catch(function() { btn.disabled = false; btn.innerHTML = orig; alert('Could not create link — try again.'); });
+  return false;
+}
+
+function revokeMusicDelegate(url) {
+  if (!confirm('Revoke the music contact link? They will lose access immediately.')) return;
+  var body = new URLSearchParams(); body.append('action', 'revoke');
+  fetch(url, { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      document.getElementById('music-delegate-active').classList.add('d-none');
+      document.getElementById('music-delegate-link').value = '';
+      var res = document.getElementById('music-delegate-result');
+      res.style.display=''; res.innerHTML = '<span class="text-muted">Access revoked.</span>';
+    }
   });
 }
 
@@ -1291,7 +1397,7 @@ function aiAutoFillVars(id) {
   var body = new URLSearchParams();
   unfilled.forEach(function(v) { body.append('vars', v); });
 
-  fetch('/track/{{ sub.token }}/item/' + id + '/ai-fill-vars', {
+  fetch('/track/{{ access_token }}/item/' + id + '/ai-fill-vars', {
     method: 'POST', body: body,
     headers: {'Content-Type': 'application/x-www-form-urlencoded'}
   })
@@ -1619,7 +1725,7 @@ function savePubOutreach(idx, publisher, url, btn) {
 
   function fillBatch(start, soFar) {
     updateProgress(Math.min(soFar, TOTAL), TOTAL);
-    fetch('{{ url_for("track_fill_next_writers", token=sub.token) }}', {
+    fetch('{{ url_for("track_fill_next_writers", token=access_token) }}', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: 'start=' + start + '&force=1',
@@ -1653,7 +1759,7 @@ function savePubOutreach(idx, publisher, url, btn) {
 // Replaces the old blanket 14s / 90s location.reload() calls.
 {% if sub.status not in ('cleared', 'rejected') %}
 (function(){
-  const STATUS_URL = "{{ url_for('track_neg_status', token=sub.token) }}";
+  const STATUS_URL = "{{ url_for('track_neg_status', token=access_token) }}";
   // Item states at page render — the baseline we compare each poll against.
   const baseline = { {% for it in sub.clearance_items %}"{{ it.id }}":"{{ it.neg_state or '' }}"{{ "," if not loop.last }}{% endfor %} };
 

@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 import click
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, flash, jsonify, abort, send_file, Response,
+    session, flash, jsonify, abort, send_file, Response, g,
 )
 from sqlalchemy import text as sa_text
 from werkzeug.security import check_password_hash
@@ -1058,7 +1058,7 @@ def submit(platform_slug):
 
 @app.route("/submit/confirm/<token>")
 def submit_confirm(token):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     return render_template("submit_confirm.html", sub=sub)
 
 
@@ -1066,9 +1066,75 @@ def submit_confirm(token):
 # Submitter — token-based status tracker (no login)
 # ---------------------------------------------------------------------------
 
+# A submission is reachable by two tokens: the primary `token` (full access) and
+# an optional `music_access_token` (delegated music supervisor — Music Clearance
+# section only). _MUSIC_SCOPE_ENDPOINTS lists the view functions a music-scope
+# token may reach; item-level endpoints are further restricted to music items.
+_MUSIC_SCOPE_ENDPOINTS = {
+    "track", "track_neg_status", "track_save_publishing_notes",
+    "track_ai_fill_songs", "track_fill_next_writers",
+    "track_song_add", "track_song_delete", "track_song_update",
+    "track_song_writer_add", "track_song_writer_delete", "track_song_writer_update",
+    "track_song_ai_fill_writers", "track_song_deal_terms", "track_song_bulk_deal_terms",
+    "track_suggest_deal_terms",
+    "track_pub_groups_generate", "track_pub_groups_contact", "track_pub_groups_suggest_contact",
+    "track_pub_groups_outreach", "track_pub_groups_save_outreach", "track_pub_groups_send",
+    "track_pub_groups_response",
+    "track_item_start", "track_item_upload", "track_item_submit_review",
+    "track_item_gen_draft", "track_item_save_outreach", "track_item_save_draft",
+    "track_item_set_contact", "track_item_ai_suggest_contact", "track_item_ai_fill_vars",
+    "track_item_send_clearance", "track_item_record_reply", "track_item_regenerate_reply",
+    "track_item_edit_reply", "track_item_approve_send", "track_item_deal_terms",
+}
+
+
+def _resolve_token(token):
+    """Return (submission, scope) where scope is 'full' or 'music'; (None, None) if no match."""
+    sub = Submission.query.filter_by(token=token).first()
+    if sub:
+        return sub, "full"
+    if token:
+        sub = Submission.query.filter_by(music_access_token=token).first()
+        if sub:
+            return sub, "music"
+    return None, None
+
+
+@app.before_request
+def _gate_submitter_scope():
+    """Central access gate for the submitter tracker. The music-scope token may only
+    reach allowed endpoints, and item endpoints only for music items."""
+    ep = request.endpoint
+    va = request.view_args or {}
+    if not ep or "token" not in va:
+        return
+    if not (ep == "track" or ep.startswith("track_")):
+        return  # only the submitter tracker family is token-gated here
+    sub, scope = _resolve_token(va.get("token"))
+    if sub is None:
+        abort(404)
+    g.sub = sub
+    g.scope = scope
+    if scope == "music":
+        if ep not in _MUSIC_SCOPE_ENDPOINTS:
+            abort(403)
+        if "item_id" in va:
+            it = ClearanceItem.query.get(va.get("item_id"))
+            if not it or it.submission_id != sub.id or not is_music_item(it.item_key):
+                abort(403)
+
+
+def _sub(token):
+    """Resolve the submission for a submitter route. Reuses the scope resolved by the
+    gate (which accepts the music token for allowed endpoints); otherwise primary-only."""
+    if getattr(g, "sub", None) is not None:
+        return g.sub
+    return Submission.query.filter_by(token=token).first_or_404()
+
+
 @app.route("/track/<token>")
 def track(token):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     # Published clearance guideline for this project type, if the BA has shared one.
     gl = ClearanceGuideline.query.filter_by(
         platform_id=sub.platform_id, project_type=sub.project_type,
@@ -1078,12 +1144,55 @@ def track(token):
     # Split clearance items into the Music Clearance group and everything else.
     music_items   = [ci for ci in sub.clearance_items if is_music_item(ci.item_key)]
     general_items = [ci for ci in sub.clearance_items if not is_music_item(ci.item_key)]
+    music_only = getattr(g, "scope", "full") == "music"
     return render_template("track.html", sub=sub,
+                           access_token=token,
                            publishing_notes=_get_publishing_notes(sub),
                            neg_positions=sub.platform.negotiation_positions,
                            actions=_scan_submitter_actions(sub),
                            project_guidelines=project_guidelines,
-                           music_items=music_items, general_items=general_items)
+                           music_items=music_items, general_items=general_items,
+                           music_only=music_only)
+
+
+@app.route("/track/<token>/music-delegate", methods=["POST"])
+def track_music_delegate(token):
+    """Primary-token only: create or revoke a delegated music-contact access link."""
+    sub = _sub(token)
+    action = request.form.get("action", "invite")
+    if action == "revoke":
+        sub.music_access_token = None
+        db.session.commit()
+        return jsonify({"ok": True, "revoked": True})
+    name  = request.form.get("music_contact_name", "").strip()
+    email = request.form.get("music_contact_email", "").strip()
+    if not email:
+        return jsonify({"error": "Enter the music contact's email."}), 400
+    sub.music_contact_name  = name
+    sub.music_contact_email = email
+    if not sub.music_access_token:
+        sub.music_access_token = secrets.token_urlsafe(24)
+    db.session.commit()
+    link = url_for("track", token=sub.music_access_token, _external=True)
+    sent = False
+    if os.getenv("RESEND_API_KEY"):
+        try:
+            import resend as _resend
+            _resend.api_key = os.getenv("RESEND_API_KEY")
+            _resend.Emails.send({
+                "from": f"{sub.submitter_name or 'Cleared.live'} <clear@cleared.live>",
+                "to": email,
+                "subject": f"Music clearance access — {sub.title}",
+                "text": (f"You've been asked to handle music clearance for \"{sub.title}\".\n\n"
+                         f"Open your music clearance workspace here:\n{link}\n\n"
+                         f"This link gives access to the music clearance section only."),
+            })
+            sent = True
+        except Exception:
+            sent = False
+    return jsonify({"ok": True, "link": link, "sent": sent,
+                    "contact_name": sub.music_contact_name,
+                    "contact_email": sub.music_contact_email})
 
 
 @app.route("/track/<token>/neg-status")
@@ -1091,13 +1200,13 @@ def track_neg_status(token):
     """Lightweight JSON snapshot of each item's negotiation state, polled by the
     submitter workspace so it can refresh only when the AI agent finishes —
     instead of blindly reloading and clobbering in-progress edits."""
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     return jsonify({str(it.id): (it.neg_state or "") for it in sub.clearance_items})
 
 
 @app.route("/track/<token>/save-publishing-notes", methods=["POST"])
 def track_save_publishing_notes(token):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     pub = request.form.get("publishing_notes", "").strip()
     _set_publishing_notes(sub, _get_ba_notes_only(sub), pub)
     db.session.commit()
@@ -1111,7 +1220,7 @@ def track_save_publishing_notes(token):
 
 @app.route("/track/<token>/item/<int:item_id>/start", methods=["POST"])
 def track_item_start(token, item_id):
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1126,7 +1235,7 @@ def track_item_start(token, item_id):
 
 @app.route("/track/<token>/item/<int:item_id>/upload", methods=["POST"])
 def track_item_upload(token, item_id):
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1151,7 +1260,7 @@ def track_item_upload(token, item_id):
 
 @app.route("/track/<token>/item/<int:item_id>/submit-review", methods=["POST"])
 def track_item_submit_review(token, item_id):
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1170,7 +1279,7 @@ def track_item_submit_review(token, item_id):
 
 @app.route("/track/<token>/item/<int:item_id>/gen-draft", methods=["POST"])
 def track_item_gen_draft(token, item_id):
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1185,7 +1294,7 @@ def track_item_gen_draft(token, item_id):
 
 @app.route("/track/<token>/item/<int:item_id>/save-outreach", methods=["POST"])
 def track_item_save_outreach(token, item_id):
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1197,7 +1306,7 @@ def track_item_save_outreach(token, item_id):
 
 @app.route("/track/<token>/item/<int:item_id>/save-draft", methods=["POST"])
 def track_item_save_draft(token, item_id):
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1209,7 +1318,7 @@ def track_item_save_draft(token, item_id):
 
 @app.route("/track/<token>/item/<int:item_id>/set-contact", methods=["POST"])
 def track_item_set_contact(token, item_id):
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1289,7 +1398,7 @@ def _ai_contact_lookup(sub, item, company):
 @app.route("/track/<token>/item/<int:item_id>/ai-suggest-contact", methods=["POST"])
 def track_item_ai_suggest_contact(token, item_id):
     from flask import jsonify
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1315,7 +1424,7 @@ def track_item_ai_suggest_contact(token, item_id):
 def track_item_ai_fill_vars(token, item_id):
     from flask import jsonify
     import json as _json
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1364,7 +1473,7 @@ def track_item_ai_fill_vars(token, item_id):
 
 @app.route("/track/<token>/item/<int:item_id>/send-clearance", methods=["POST"])
 def track_item_send_clearance(token, item_id):
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1423,7 +1532,7 @@ def _neg_redirect(token, item_id):
 @app.route("/track/<token>/item/<int:item_id>/record-reply", methods=["POST"])
 def track_item_record_reply(token, item_id):
     """Submitter brings the rights holder's reply into the platform; AI then analyzes it."""
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1446,7 +1555,7 @@ def track_item_record_reply(token, item_id):
 @app.route("/track/<token>/item/<int:item_id>/regenerate-reply", methods=["POST"])
 def track_item_regenerate_reply(token, item_id):
     """Re-run the negotiation agent, optionally with submitter guidance."""
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1467,7 +1576,7 @@ def track_item_regenerate_reply(token, item_id):
 @app.route("/track/<token>/item/<int:item_id>/edit-reply", methods=["POST"])
 def track_item_edit_reply(token, item_id):
     """Submitter edits the AI's drafted reply before approving."""
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1483,7 +1592,7 @@ def track_item_edit_reply(token, item_id):
 @app.route("/track/<token>/item/<int:item_id>/approve-send", methods=["POST"])
 def track_item_approve_send(token, item_id):
     """Submitter signs off on the AI's recommended move and it goes out."""
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1549,7 +1658,7 @@ def track_item_approve_send(token, item_id):
 @app.route("/track/<token>/suggest-deal-terms", methods=["POST"])
 def track_suggest_deal_terms(token):
     from flask import jsonify
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return jsonify({"error": "AI unavailable"}), 503
@@ -1598,7 +1707,7 @@ def track_suggest_deal_terms(token):
 
 @app.route("/track/<token>/item/<int:item_id>/deal-terms", methods=["POST"])
 def track_item_deal_terms(token, item_id):
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
@@ -1769,7 +1878,7 @@ def _ai_fill_song_writers(sub_id, idx):
 
 @app.route("/track/<token>/ai-fill-songs", methods=["POST"])
 def track_ai_fill_songs(token):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     _ai_fill_songs(sub.id)   # Phase 1: setlist titles only, synchronous
     # Phase 2 handled client-side via /fill-next-writers batched JSON calls
     return redirect(url_for("track", token=token) + "#songs-section")
@@ -1779,7 +1888,7 @@ def track_ai_fill_songs(token):
 def track_fill_next_writers(token):
     """Fill writers for a batch of songs. Called repeatedly by JS until done."""
     from flask import jsonify
-    sub  = Submission.query.filter_by(token=token).first_or_404()
+    sub  = _sub(token)
     songs = sub.songs
     start = int(request.form.get("start", 0))
     force = request.form.get("force") == "1"
@@ -1800,7 +1909,7 @@ def track_fill_next_writers(token):
 
 @app.route("/track/<token>/songs/add", methods=["POST"])
 def track_song_add(token):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     songs = sub.songs
     writer_name = request.form.get("writer_name", "").strip()
     writer_entry = {
@@ -1829,7 +1938,7 @@ def track_song_add(token):
 
 @app.route("/track/<token>/songs/delete/<int:idx>", methods=["POST"])
 def track_song_delete(token, idx):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     songs = sub.songs
     if 0 <= idx < len(songs):
         songs.pop(idx)
@@ -1840,7 +1949,7 @@ def track_song_delete(token, idx):
 
 @app.route("/track/<token>/songs/update/<int:idx>", methods=["POST"])
 def track_song_update(token, idx):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     songs = sub.songs
     if 0 <= idx < len(songs):
         songs[idx]["title"]         = request.form.get("title", songs[idx].get("title", ""))
@@ -1854,7 +1963,7 @@ def track_song_update(token, idx):
 
 @app.route("/track/<token>/songs/<int:idx>/writer/add", methods=["POST"])
 def track_song_writer_add(token, idx):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     songs = sub.songs
     if 0 <= idx < len(songs):
         writer = {
@@ -1871,7 +1980,7 @@ def track_song_writer_add(token, idx):
 
 @app.route("/track/<token>/songs/<int:idx>/writer/<int:widx>/delete", methods=["POST"])
 def track_song_writer_delete(token, idx, widx):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     songs = sub.songs
     if 0 <= idx < len(songs):
         writers = songs[idx].get("writers", [])
@@ -1885,7 +1994,7 @@ def track_song_writer_delete(token, idx, widx):
 
 @app.route("/track/<token>/songs/<int:idx>/writer/<int:widx>/update", methods=["POST"])
 def track_song_writer_update(token, idx, widx):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     songs = sub.songs
     if 0 <= idx < len(songs):
         writers = songs[idx].get("writers", [])
@@ -1905,14 +2014,14 @@ def track_song_writer_update(token, idx, widx):
 
 @app.route("/track/<token>/songs/<int:idx>/ai-fill-writers", methods=["POST"])
 def track_song_ai_fill_writers(token, idx):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     _ai_fill_song_writers(sub.id, idx)
     return redirect(url_for("track", token=token) + "#songs-section")
 
 
 @app.route("/track/<token>/pub-groups/generate", methods=["POST"])
 def track_pub_groups_generate(token):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     groups = _compute_publisher_groups(sub)
     # Merge with existing saved data (preserve contact/outreach/status)
     existing = sub.publisher_clearances
@@ -1933,7 +2042,7 @@ def track_pub_groups_generate(token):
 @app.route("/track/<token>/pub-groups/contact", methods=["POST"])
 def track_pub_groups_contact(token):
     from flask import jsonify
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     publisher = request.form.get("publisher", "").strip()
     groups = sub.publisher_clearances
     if publisher not in groups:
@@ -1957,7 +2066,7 @@ def track_pub_groups_suggest_contact(token):
     """AI-research the sync licensing contact for a publisher clearance group."""
     from flask import jsonify
     from types import SimpleNamespace
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     publisher = request.form.get("publisher", "").strip()
     if not publisher:
         return jsonify({"error": "Publisher name missing."}), 400
@@ -1974,7 +2083,7 @@ def track_pub_groups_suggest_contact(token):
 @app.route("/track/<token>/pub-groups/outreach", methods=["POST"])
 def track_pub_groups_outreach(token):
     from flask import jsonify
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     publisher = request.form.get("publisher", "").strip()
     groups = sub.publisher_clearances
     if publisher not in groups:
@@ -2034,7 +2143,7 @@ def track_pub_groups_outreach(token):
 def track_pub_groups_save_outreach(token):
     """Save a hand-edited grouped outreach draft (no AI regeneration)."""
     from flask import jsonify
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     publisher = request.form.get("publisher", "").strip()
     body = request.form.get("outreach", "").strip()
     groups = sub.publisher_clearances
@@ -2050,7 +2159,7 @@ def track_pub_groups_save_outreach(token):
 def track_pub_groups_send(token):
     from flask import jsonify
     import resend as _resend
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     publisher = request.form.get("publisher", "").strip()
     groups = sub.publisher_clearances
     if publisher not in groups:
@@ -2096,7 +2205,7 @@ def _maybe_advance_publishing_item(sub):
 
 @app.route("/track/<token>/pub-groups/response", methods=["POST"])
 def track_pub_groups_response(token):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     publisher = request.form.get("publisher", "").strip()
     groups = sub.publisher_clearances
     if publisher not in groups:
@@ -2120,7 +2229,7 @@ def track_pub_groups_response(token):
 
 @app.route("/track/<token>/songs/<int:idx>/deal-terms", methods=["POST"])
 def track_song_deal_terms(token, idx):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     songs = sub.songs
     if 0 <= idx < len(songs):
         songs[idx]["deal_terms"] = {
@@ -2140,7 +2249,7 @@ def track_song_deal_terms(token, idx):
 
 @app.route("/track/<token>/songs/bulk-deal-terms", methods=["POST"])
 def track_song_bulk_deal_terms(token):
-    sub = Submission.query.filter_by(token=token).first_or_404()
+    sub = _sub(token)
     terms = {
         "fee":           request.form.get("fee") or None,
         "fee_type":      request.form.get("fee_type") or None,
@@ -3800,6 +3909,18 @@ def migrate_db_cmd():
         except Exception as exc:
             conn.rollback()
             print(f"  submissions.publisher_clearances_json: {exc}")
+        for col_name, col_type in [
+            ("music_access_token", "VARCHAR(40)"),
+            ("music_contact_name", "VARCHAR(200)"),
+            ("music_contact_email", "VARCHAR(200)"),
+        ]:
+            try:
+                conn.execute(sa_text(f"ALTER TABLE submissions ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                conn.commit()
+                print(f"  submissions.{col_name} OK")
+            except Exception as exc:
+                conn.rollback()
+                print(f"  submissions.{col_name}: {exc}")
 
     # Backfill: ensure every existing submission carries the E&O item its template
     # now requires (added to all project types except UGC). Idempotent.

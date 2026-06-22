@@ -231,6 +231,12 @@ class Submission(db.Model):
     deal_terms_json     = db.Column(db.Text)    # JSON dict of bulk deal terms
     publisher_clearances_json = db.Column(db.Text)  # JSON dict of publisher clearance groups
 
+    # Delegated music-contact access: a separate scoped token that grants a music
+    # supervisor access to ONLY the Music Clearance section of this submission.
+    music_access_token  = db.Column(db.String(40), unique=True)
+    music_contact_name  = db.Column(db.String(200))
+    music_contact_email = db.Column(db.String(200))
+
     created_at          = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at          = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     cleared_at          = db.Column(db.DateTime)

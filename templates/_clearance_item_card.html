@@ -56,7 +56,7 @@
 
         <!-- Pending: start button -->
         {% elif item.status == 'pending' %}
-        <form method="POST" action="{{ url_for('track_item_start', token=sub.token, item_id=item.id) }}">
+        <form method="POST" action="{{ url_for('track_item_start', token=access_token, item_id=item.id) }}">
           <button type="submit" class="btn btn-outline-primary btn-sm fw-semibold">
             <i class="bi bi-play-circle me-1"></i>Start Working on This Item
           </button>
@@ -86,14 +86,14 @@
                        value="{{ item.party_company or '' }}" placeholder="e.g. Live Nation, ASCAP, Kobalt">
               </div>
               <button type="button" class="btn btn-sm btn-warning fw-semibold"
-                      onclick="aiSuggestContact({{ item.id }}, '{{ url_for('track_item_ai_suggest_contact', token=sub.token, item_id=item.id) }}')">
+                      onclick="aiSuggestContact({{ item.id }}, '{{ url_for('track_item_ai_suggest_contact', token=access_token, item_id=item.id) }}')">
                 <i class="bi bi-stars me-1"></i>AI Fill Contact
               </button>
             </div>
             <div id="contact-result-{{ item.id }}" class="mb-2" style="display:none;"></div>
 
             <!-- Manual override form -->
-            <form method="POST" action="{{ url_for('track_item_set_contact', token=sub.token, item_id=item.id) }}"
+            <form method="POST" action="{{ url_for('track_item_set_contact', token=access_token, item_id=item.id) }}"
                   id="contact-form-{{ item.id }}" class="row g-2">
               <input type="hidden" name="party_company" id="party-company-{{ item.id }}"
                      value="{{ item.party_company or '' }}">
@@ -121,7 +121,7 @@
               <div class="fw-semibold small text-navy">Agreement draft not generated yet</div>
               <div class="text-muted" style="font-size:.78rem;">AI will draft the agreement for this item. Click to generate now.</div>
             </div>
-            <form method="POST" action="{{ url_for('track_item_gen_draft', token=sub.token, item_id=item.id) }}">
+            <form method="POST" action="{{ url_for('track_item_gen_draft', token=access_token, item_id=item.id) }}">
               <button type="submit" class="btn btn-sm btn-warning fw-semibold text-dark">
                 <i class="bi bi-stars me-1"></i>Generate Draft
               </button>
@@ -177,7 +177,7 @@
                         onclick="downloadFilled({{ item.id }}, '{{ item.item_label | replace("'","") | replace("/","_") }}')">
                   <i class="bi bi-download me-1"></i>Download (.txt)
                 </button>
-                <form method="POST" action="{{ url_for('track_item_save_draft', token=sub.token, item_id=item.id) }}"
+                <form method="POST" action="{{ url_for('track_item_save_draft', token=access_token, item_id=item.id) }}"
                       id="save-form-{{ item.id }}" class="d-inline">
                   <input type="hidden" name="draft_text" id="save-input-{{ item.id }}">
                   <button type="button" class="btn btn-sm btn-primary fw-semibold"
@@ -221,7 +221,7 @@
                       <i class="bi bi-eye me-1"></i>Preview
                     </button>
                     <form method="POST"
-                          action="{{ url_for('track_item_save_outreach', token=sub.token, item_id=item.id) }}"
+                          action="{{ url_for('track_item_save_outreach', token=access_token, item_id=item.id) }}"
                           id="outreach-save-form-{{ item.id }}" class="d-inline">
                       <input type="hidden" name="outreach_text" id="outreach-save-input-{{ item.id }}">
                       <button type="button" class="btn btn-sm btn-success fw-semibold d-none"
@@ -256,7 +256,7 @@
               <i class="bi bi-chevron-down ms-1" style="font-size:.7rem;"></i>
             </button>
             <div class="collapse mt-2" id="item-deal-terms-{{ item.id }}">
-              <form method="POST" action="{{ url_for('track_item_deal_terms', token=sub.token, item_id=item.id) }}"
+              <form method="POST" action="{{ url_for('track_item_deal_terms', token=access_token, item_id=item.id) }}"
                     class="p-3 rounded deal-terms-form" style="background:#f8f9fa;border:1px solid #dee2e6;font-size:.82rem;">
                 {% if neg_positions %}
                 <div class="mb-3 p-2 rounded" style="background:#f0f4ff;border:1px solid #c5d3f0;">
@@ -427,7 +427,7 @@
               </div>
               {% endif %}
 
-              <form method="POST" action="{{ url_for('track_item_edit_reply', token=sub.token, item_id=item.id) }}" class="mb-2">
+              <form method="POST" action="{{ url_for('track_item_edit_reply', token=access_token, item_id=item.id) }}" class="mb-2">
                 <label class="small fw-semibold text-navy mb-1">
                   {% if act == 'send_for_signature' %}Cover note (sent with the signature request){% else %}Drafted reply — edit before approving{% endif %}
                 </label>
@@ -436,7 +436,7 @@
               </form>
 
               <div class="d-flex flex-wrap gap-2 align-items-center">
-                <form method="POST" action="{{ url_for('track_item_approve_send', token=sub.token, item_id=item.id) }}"
+                <form method="POST" action="{{ url_for('track_item_approve_send', token=access_token, item_id=item.id) }}"
                       onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>Sending…';">
                   {% if act == 'send_for_signature' %}
                   <button type="submit" class="btn btn-sm btn-success fw-semibold"><i class="bi bi-pen me-1"></i>Approve &amp; Send for Signature</button>
@@ -448,7 +448,7 @@
                   <i class="bi bi-arrow-clockwise me-1"></i>Regenerate
                 </button>
               </div>
-              <form method="POST" action="{{ url_for('track_item_regenerate_reply', token=sub.token, item_id=item.id) }}" id="regen-{{ item.id }}" class="d-none mt-2">
+              <form method="POST" action="{{ url_for('track_item_regenerate_reply', token=access_token, item_id=item.id) }}" id="regen-{{ item.id }}" class="d-none mt-2">
                 <input type="text" name="guidance" class="form-control form-control-sm mb-2" placeholder="Optional: tell the AI what to change (e.g. 'hold firm on worldwide', 'offer a small fee')">
                 <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-repeat me-1"></i>Regenerate recommendation</button>
               </form>
@@ -458,7 +458,7 @@
               <div class="small text-muted mb-2">
                 <i class="bi bi-hourglass-split me-1"></i>Waiting for the rights holder. When they reply, paste it here and the AI will analyze it and draft your next move.
               </div>
-              <form method="POST" action="{{ url_for('track_item_record_reply', token=sub.token, item_id=item.id) }}">
+              <form method="POST" action="{{ url_for('track_item_record_reply', token=access_token, item_id=item.id) }}">
                 <textarea name="reply_body" rows="4" class="form-control form-control-sm mb-2" style="font-size:.82rem;"
                           placeholder="Paste the rights holder's email reply here…" required></textarea>
                 <button type="submit" class="btn btn-sm btn-primary fw-semibold"><i class="bi bi-robot me-1"></i>Record reply &amp; run AI</button>
@@ -468,7 +468,7 @@
           </div>
           {% elif item.party_email and item.ai_draft %}
           <div class="mb-3">
-            <form method="POST" action="{{ url_for('track_item_send_clearance', token=sub.token, item_id=item.id) }}"
+            <form method="POST" action="{{ url_for('track_item_send_clearance', token=access_token, item_id=item.id) }}"
                   onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('button[type=submit]').innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>Sending…';">
               <button type="submit" class="btn btn-primary fw-semibold">
                 <i class="bi bi-send-fill me-2"></i>Send for Clearance
@@ -493,7 +493,7 @@
           <!-- Upload section -->
           <div class="mb-3">
             <div class="fw-semibold small mb-2 text-navy">Upload Signed Document</div>
-            <form method="POST" action="{{ url_for('track_item_upload', token=sub.token, item_id=item.id) }}"
+            <form method="POST" action="{{ url_for('track_item_upload', token=access_token, item_id=item.id) }}"
                   enctype="multipart/form-data" class="d-flex gap-2 align-items-center flex-wrap">
               <input type="file" name="file" class="form-control form-control-sm" style="max-width:320px;" required>
               <button type="submit" class="btn btn-sm btn-primary fw-semibold">
@@ -520,7 +520,7 @@
 
           <!-- Submit for BA Review (only if at least one doc uploaded) -->
           {% if item_docs %}
-          <form method="POST" action="{{ url_for('track_item_submit_review', token=sub.token, item_id=item.id) }}">
+          <form method="POST" action="{{ url_for('track_item_submit_review', token=access_token, item_id=item.id) }}">
             <button type="submit" class="btn btn-primary fw-semibold">
               <i class="bi bi-send me-1"></i>Submit for BA Review
             </button>
