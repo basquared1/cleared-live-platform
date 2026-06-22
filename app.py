@@ -1928,6 +1928,22 @@ def track_pub_groups_outreach(token):
     return jsonify({"outreach": raw})
 
 
+@app.route("/track/<token>/pub-groups/save-outreach", methods=["POST"])
+def track_pub_groups_save_outreach(token):
+    """Save a hand-edited grouped outreach draft (no AI regeneration)."""
+    from flask import jsonify
+    sub = Submission.query.filter_by(token=token).first_or_404()
+    publisher = request.form.get("publisher", "").strip()
+    body = request.form.get("outreach", "").strip()
+    groups = sub.publisher_clearances
+    if publisher not in groups:
+        return jsonify({"error": "Publisher group not found"}), 404
+    groups[publisher]["ai_outreach"] = body
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
 @app.route("/track/<token>/pub-groups/send", methods=["POST"])
 def track_pub_groups_send(token):
     from flask import jsonify
@@ -1961,6 +1977,21 @@ def track_pub_groups_send(token):
         return jsonify({"error": str(e)}), 500
 
 
+def _maybe_advance_publishing_item(sub):
+    """When every publisher clearance group has been accepted (status 'cleared'),
+    move the submission's Publishing Clearance item into BA review so it enters
+    the approval queue — the same sign-off path every other item follows."""
+    groups = sub.publisher_clearances
+    if not groups or not all(g.get("status") == "cleared" for g in groups.values()):
+        return False
+    advanced = False
+    for it in sub.clearance_items:
+        if "publish" in (it.item_label or "").lower() and it.status not in ("under_review", "cleared", "waived"):
+            it.status = "under_review"
+            advanced = True
+    return advanced
+
+
 @app.route("/track/<token>/pub-groups/response", methods=["POST"])
 def track_pub_groups_response(token):
     sub = Submission.query.filter_by(token=token).first_or_404()
@@ -1978,6 +2009,9 @@ def track_pub_groups_response(token):
     elif resp == "declined":
         groups[publisher]["status"] = "pending"
     sub.publisher_clearances_save(groups)
+    # If that was the last publisher, route the Publishing Clearance item to BA sign-off.
+    if resp == "accepted":
+        _maybe_advance_publishing_item(sub)
     db.session.commit()
     return redirect(url_for("track", token=token) + "#pub-clearance-section")
 

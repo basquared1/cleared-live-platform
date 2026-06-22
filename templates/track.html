@@ -1282,10 +1282,30 @@
           {% endif %}
         </div>
 
-        <!-- Outreach preview -->
+        <!-- Outreach preview / edit -->
         {% if g.get('ai_outreach') %}
         <div class="collapse" id="pub-outreach-{{ loop.index }}">
-          <div class="p-2 rounded small" style="background:#f8f9fa;border:1px solid #dee2e6;white-space:pre-wrap;font-family:Georgia,serif;font-size:.76rem;line-height:1.6;max-height:300px;overflow-y:auto;">{{ g.ai_outreach }}</div>
+          <!-- read-only view -->
+          <div id="pub-outreach-view-{{ loop.index }}" class="p-2 rounded small" style="background:#f8f9fa;border:1px solid #dee2e6;white-space:pre-wrap;font-family:Georgia,serif;font-size:.76rem;line-height:1.6;max-height:300px;overflow-y:auto;">{{ g.ai_outreach }}</div>
+          <div class="mt-1">
+            <button id="pub-outreach-editbtn-{{ loop.index }}" class="btn btn-link btn-sm p-0 text-decoration-none"
+                    type="button" onclick="editPubOutreach({{ loop.index }})">
+              <i class="bi bi-pencil me-1"></i>Edit draft
+            </button>
+          </div>
+          <!-- edit mode -->
+          <div id="pub-outreach-edit-wrap-{{ loop.index }}" class="d-none mt-1">
+            <textarea id="pub-outreach-edit-{{ loop.index }}" class="form-control form-control-sm"
+                      rows="12" style="font-family:Georgia,serif;font-size:.78rem;line-height:1.6;">{{ g.ai_outreach }}</textarea>
+            <div class="d-flex gap-2 mt-2 align-items-center">
+              <button class="btn btn-sm btn-primary fw-semibold" type="button"
+                      onclick="savePubOutreach({{ loop.index }}, '{{ pub_name|e }}', '{{ url_for('track_pub_groups_save_outreach', token=sub.token) }}', this)">
+                <i class="bi bi-floppy me-1"></i>Save draft
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" type="button"
+                      onclick="cancelPubOutreach({{ loop.index }})">Cancel</button>
+            </div>
+          </div>
         </div>
         <button class="btn btn-link btn-sm p-0 text-decoration-none text-muted mt-1" type="button"
                 data-bs-toggle="collapse" data-bs-target="#pub-outreach-{{ loop.index }}">
@@ -1913,6 +1933,46 @@ function sendPubOutreach(btn, publisher, url) {
     location.reload();
   })
   .catch(function() { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>Send'; });
+}
+
+function editPubOutreach(idx) {
+  document.getElementById('pub-outreach-view-' + idx).classList.add('d-none');
+  document.getElementById('pub-outreach-editbtn-' + idx).classList.add('d-none');
+  document.getElementById('pub-outreach-edit-wrap-' + idx).classList.remove('d-none');
+  document.getElementById('pub-outreach-edit-' + idx).focus();
+}
+
+function cancelPubOutreach(idx) {
+  // Discard unsaved changes: restore textarea to the currently-shown view text.
+  document.getElementById('pub-outreach-edit-' + idx).value =
+    document.getElementById('pub-outreach-view-' + idx).textContent;
+  document.getElementById('pub-outreach-edit-wrap-' + idx).classList.add('d-none');
+  document.getElementById('pub-outreach-view-' + idx).classList.remove('d-none');
+  document.getElementById('pub-outreach-editbtn-' + idx).classList.remove('d-none');
+}
+
+function savePubOutreach(idx, publisher, url, btn) {
+  var text = document.getElementById('pub-outreach-edit-' + idx).value;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving…';
+  var body = new URLSearchParams();
+  body.append('publisher', publisher);
+  body.append('outreach', text);
+  fetch(url, { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-floppy me-1"></i>Save draft';
+    if (data.error) { alert(data.error); return; }
+    // Reflect the saved text in the read-only view and exit edit mode.
+    document.getElementById('pub-outreach-view-' + idx).textContent = text;
+    cancelPubOutreach(idx);
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-floppy me-1"></i>Save draft';
+    alert('Could not save — try again.');
+  });
 }
 
 
