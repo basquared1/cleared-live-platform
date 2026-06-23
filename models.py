@@ -21,6 +21,12 @@ PROJECT_TYPE_LABELS = {
     "podcast":     "Podcast / Audio",
     "social":      "Social Media Campaign",
     "ugc":         "User-Generated Content",
+    # Production-legal intakes (folded in from Production Legal Binder) — these spin up
+    # the full production-legal document package (crew, talent, releases, E&O, chain of title)
+    # alongside rights clearance, so the platform is the system of record for the whole project.
+    "feature_film": "Feature Film (Narrative)",
+    "tv_series":    "TV / Streaming Series",
+    "branded":      "Commercial / Branded Content",
 }
 
 CLEARANCE_TEMPLATES = {
@@ -87,6 +93,43 @@ CLEARANCE_TEMPLATES = {
         {"key": "music_license",      "label": "Music License",             "priority": 2},
         {"key": "appearance_consent", "label": "Appearance Consent",        "priority": 3},
         {"key": "platform_terms",     "label": "Platform Terms Compliance", "priority": 4},
+    ],
+    # ── Production-legal packages folded in from Production Legal Binder (PLB) ──
+    # Each item is an agreement the platform's system of record can AI-draft, route for
+    # signature (DocuSign or on-site), and track to delivery — combining production paperwork
+    # with rights clearance in one workspace.
+    "feature_film": [
+        {"key": "option_purchase_agreement", "label": "Option / Purchase Agreement",        "priority": 1},
+        {"key": "writer_agreement",          "label": "Writer Agreement (WGA-compliant)",   "priority": 2},
+        {"key": "director_agreement",        "label": "Director Agreement (DGA-compliant)",  "priority": 3},
+        {"key": "talent_agreement",          "label": "Talent Agreements",                   "priority": 4},
+        {"key": "crew_deal_memo",            "label": "Crew Deal Memos",                     "priority": 5},
+        {"key": "location_release",          "label": "Location Releases",                   "priority": 6},
+        {"key": "appearance_release",        "label": "Appearance / Extra Releases",         "priority": 7},
+        {"key": "music_clearance",           "label": "Music Clearance (Sync + Master)",     "priority": 8},
+        {"key": "chain_of_title",            "label": "Chain of Title",                      "priority": 9},
+        {"key": "eo_schedule",               "label": "E&O Insurance Schedule",              "priority": 10},
+    ],
+    "tv_series": [
+        {"key": "series_talent_agreement", "label": "Series Talent Agreements",          "priority": 1},
+        {"key": "ep_agreement",            "label": "Executive Producer Agreements",      "priority": 2},
+        {"key": "writer_agreement",        "label": "Writer Agreements (WGA-compliant)",  "priority": 3},
+        {"key": "director_agreement",      "label": "Director Agreements (DGA-compliant)", "priority": 4},
+        {"key": "crew_deal_memo",          "label": "Crew Deal Memos",                    "priority": 5},
+        {"key": "location_release",        "label": "Location Releases",                  "priority": 6},
+        {"key": "appearance_release",      "label": "Appearance / Guest Releases",        "priority": 7},
+        {"key": "music_clearance",         "label": "Music Clearance (Sync + Master)",    "priority": 8},
+        {"key": "chain_of_title",          "label": "Chain of Title",                     "priority": 9},
+        {"key": "eo_schedule",             "label": "E&O Insurance Schedule",             "priority": 10},
+    ],
+    "branded": [
+        {"key": "crew_deal_memo",     "label": "Crew Deal Memos",              "priority": 1},
+        {"key": "talent_agreement",   "label": "Talent / Performer Agreements", "priority": 2},
+        {"key": "appearance_release", "label": "Appearance Releases",          "priority": 3},
+        {"key": "location_release",   "label": "Location Releases",            "priority": 4},
+        {"key": "music_license",      "label": "Music License",                "priority": 5},
+        {"key": "brand_clearance",    "label": "Brand / Trademark Clearance",  "priority": 6},
+        {"key": "eo_documentation",   "label": "E&O Insurance Documentation",  "priority": 7},
     ],
 }
 
@@ -596,6 +639,46 @@ class Invite(db.Model):
     @property
     def is_used(self):
         return self.used_at is not None
+
+
+class Template(db.Model):
+    """Firm-approved agreement template (folded in from Production Legal Binder).
+    The AI drafter uses the matching template (by doc_type == clearance item key) as the
+    structural basis for a generated agreement."""
+    __tablename__ = "templates"
+    id          = db.Column(db.Integer, primary_key=True)
+    doc_type    = db.Column(db.String(100), unique=True, nullable=False)
+    name        = db.Column(db.String(300), nullable=False)
+    description = db.Column(db.Text)
+    content     = db.Column(db.Text)
+    is_active   = db.Column(db.Boolean, default=True)
+    times_used  = db.Column(db.Integer, default=0)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DealTerm(db.Model):
+    """A single negotiable clause on a clearance item's deal (folded in from PLB's
+    DealTerm board). Tracks our position vs. theirs vs. the agreed value, per clause."""
+    __tablename__ = "deal_terms_board"
+    id                = db.Column(db.Integer, primary_key=True)
+    clearance_item_id = db.Column(db.Integer, db.ForeignKey("clearance_items.id"), nullable=False)
+    label             = db.Column(db.String(200), nullable=False)   # e.g. "Fee", "Term", "Territory"
+    our_position      = db.Column(db.Text)
+    their_position    = db.Column(db.Text)
+    agreed            = db.Column(db.Text)
+    status            = db.Column(db.String(20), default="open")    # open | agreed | deadlocked
+    sort_order        = db.Column(db.Integer, default=0)
+    created_at        = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at        = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    item = db.relationship("ClearanceItem", backref=db.backref("deal_board", lazy=True,
+                                                               cascade="all, delete-orphan",
+                                                               order_by="DealTerm.sort_order"))
+
+    @property
+    def status_color(self):
+        return {"open": "warning", "agreed": "success", "deadlocked": "danger"}.get(self.status, "secondary")
 
 
 class ClearanceGuideline(db.Model):

@@ -29,6 +29,7 @@ def generate_password_hash(s):
 from models import (
     db, Platform, Submission, ClearanceItem, SubmissionDocument,
     WebhookDelivery, PlatformUser, AdminUser, ClearanceGuideline, Invite,
+    Template, DealTerm,
     CLEARANCE_TEMPLATES, PRICING_TIERS, PROJECT_TYPE_LABELS,
     TERRITORY_LABELS, INTENDED_USE_OPTIONS,
     MUSIC_ITEM_KEYS, is_music_item,
@@ -450,7 +451,30 @@ def _build_clearance_doc_user_prompt(sub, item):
         f"CLEARANCE ITEM: {item.item_label}\n"
         + (f"Rights Holder / Counterparty: {item.party_name}\n" if item.party_name else "Rights Holder / Counterparty: [RIGHTS HOLDER]\n")
         + _guideline_block(sub)
+        + _template_block(item)
         + f"\nDraft the complete agreement now."
+    )
+
+
+def _template_block(item):
+    """If a firm-approved template exists for this item type (folded in from PLB),
+    instruct the model to use it as the structural basis. Empty string if none."""
+    try:
+        tpl = Template.query.filter_by(doc_type=item.item_key, is_active=True).first()
+    except Exception:
+        tpl = None
+    if not tpl or not tpl.content:
+        return ""
+    try:
+        tpl.times_used = (tpl.times_used or 0) + 1
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    return (
+        f"\n\nFIRM-APPROVED TEMPLATE — use this as the structural and clause basis for your draft. "
+        f"Preserve its structure, defined terms, and protective language; adapt the bracketed "
+        f"placeholders to the project details above and tighten anything project-specific:\n"
+        f"-----8<----- TEMPLATE: {tpl.name} -----8<-----\n{tpl.content}\n-----8<----- END TEMPLATE -----8<-----\n"
     )
 
 
@@ -1277,6 +1301,151 @@ def track_item_upload(token, item_id):
     db.session.add(doc)
     db.session.commit()
     return redirect(url_for("track", token=token))
+
+
+@app.route("/track/<token>/item/<int:item_id>/agreement.docx")
+def track_item_agreement_docx(token, item_id):
+    """Download the item's AI-drafted agreement as a Word .docx (folded in from PLB)."""
+    sub  = _sub(token)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    draft_text = item.ai_draft or f"[AI draft pending for {item.item_label}]"
+    doc_bytes  = build_docx(_DocxProxy(title=item.item_label, content=draft_text))
+    safe = re.sub(r"[^A-Za-z0-9]+", "-", item.item_label).strip("-").lower() or "agreement"
+    return send_file(
+        io.BytesIO(doc_bytes),
+        as_attachment=True,
+        download_name=f"{safe}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@app.route("/track/<token>/item/<int:item_id>/sign-onsite", methods=["GET", "POST"])
+def track_item_sign_onsite(token, item_id):
+    """On-site signing (folded in from PLB): capture a canvas signature + printed name,
+    store it as a signed document, and send the item for review — no DocuSign needed."""
+    sub  = _sub(token)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    if request.method == "POST":
+        printed_name = request.form.get("printed_name", "").strip()
+        sig_data     = request.form.get("signature_data", "")
+        if not printed_name or not sig_data.startswith("data:image"):
+            flash("Please print your name and draw your signature.", "warning")
+            return redirect(url_for("track_item_sign_onsite", token=token, item_id=item.id))
+        try:
+            png = base64.b64decode(sig_data.split(",", 1)[1])
+        except Exception:
+            flash("Signature could not be read. Please try again.", "danger")
+            return redirect(url_for("track_item_sign_onsite", token=token, item_id=item.id))
+        db.session.add(SubmissionDocument(
+            submission_id     = sub.id,
+            clearance_item_id = item.id,
+            title             = f"On-site signature — {item.item_label}",
+            doc_type          = "onsite_signature",
+            filename          = "signature.png",
+            file_data         = png,
+            mimetype          = "image/png",
+            notes             = f"Signed on-site by {printed_name}",
+            uploaded_by       = printed_name,
+        ))
+        item.docusign_status = "signed_onsite"
+        item.status          = "under_review"
+        db.session.commit()
+        flash(f"Signed on-site by {printed_name}. Sent for review.", "success")
+        return redirect(url_for("track", token=token))
+    return render_template("sign_onsite.html", sub=sub, item=item)
+
+
+# ── Deal-Term negotiation board (folded in from PLB) ────────────────────────
+def _board_item(token, item_id):
+    sub  = _sub(token)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    return sub, item
+
+
+@app.route("/track/<token>/item/<int:item_id>/board/add", methods=["POST"])
+def track_board_add(token, item_id):
+    sub, item = _board_item(token, item_id)
+    label = request.form.get("label", "").strip()
+    if not label:
+        flash("Enter a term name (e.g. Fee, Term, Territory).", "warning")
+        return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    nxt = (max([t.sort_order for t in item.deal_board], default=0) + 1) if item.deal_board else 1
+    db.session.add(DealTerm(
+        clearance_item_id=item.id, label=label,
+        our_position=request.form.get("our_position", "").strip(),
+        sort_order=nxt,
+    ))
+    db.session.commit()
+    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+@app.route("/track/<token>/item/<int:item_id>/board/<int:term_id>/update", methods=["POST"])
+def track_board_update(token, item_id, term_id):
+    sub, item = _board_item(token, item_id)
+    term = DealTerm.query.get_or_404(term_id)
+    if term.clearance_item_id != item.id:
+        abort(403)
+    term.our_position   = request.form.get("our_position", term.our_position)
+    term.their_position = request.form.get("their_position", term.their_position)
+    term.agreed         = request.form.get("agreed", term.agreed)
+    term.status         = request.form.get("status", term.status)
+    db.session.commit()
+    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+@app.route("/track/<token>/item/<int:item_id>/board/<int:term_id>/delete", methods=["POST"])
+def track_board_delete(token, item_id, term_id):
+    sub, item = _board_item(token, item_id)
+    term = DealTerm.query.get_or_404(term_id)
+    if term.clearance_item_id != item.id:
+        abort(403)
+    db.session.delete(term)
+    db.session.commit()
+    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+
+
+@app.route("/track/<token>/item/<int:item_id>/board/<int:term_id>/suggest-counter", methods=["POST"])
+def track_board_suggest_counter(token, item_id, term_id):
+    sub, item = _board_item(token, item_id)
+    term = DealTerm.query.get_or_404(term_id)
+    if term.clearance_item_id != item.id:
+        abort(403)
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return jsonify({"ok": False, "error": "AI not configured."}), 503
+    agreed_context = "\n".join(
+        f"- {t.label}: {t.agreed}" for t in item.deal_board if t.agreed and t.id != term_id
+    ) or "None agreed yet."
+    system = (
+        "You are an entertainment attorney advising the producer/submitter on deal negotiations. "
+        "Be direct and specific — name figures, timeframes, or exact language. No disclaimers."
+    )
+    user = (
+        f"Agreement: {item.item_label}\nProject: {sub.title} ({sub.project_type_label})\n\n"
+        f"Term being negotiated: {term.label}\n"
+        f"Our current position: {term.our_position or '(not set)'}\n"
+        f"Their position: {term.their_position or '(not set)'}\n\n"
+        f"Other terms already agreed:\n{agreed_context}\n\n"
+        f"Suggest a specific counter-position for \"{term.label}\" that advances our client's interests, "
+        f"is commercially reasonable and likely to close, and reflects market norms. Respond with ONLY:\n"
+        f"COUNTER: [one clear sentence or figure]\nRATIONALE: [1-2 sentences]"
+    )
+    try:
+        text = call_claude(system, user, max_tokens=400)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    counter = rationale = ""
+    for line in text.splitlines():
+        if line.startswith("COUNTER:"):
+            counter = line[len("COUNTER:"):].strip()
+        elif line.startswith("RATIONALE:"):
+            rationale = line[len("RATIONALE:"):].strip()
+    return jsonify({"ok": True, "counter": counter or text.strip(), "rationale": rationale})
 
 
 @app.route("/track/<token>/item/<int:item_id>/submit-review", methods=["POST"])
@@ -2900,6 +3069,7 @@ def admin_new_platform():
             ba_contact_email= request.form.get("ba_contact_email", "").strip(),
             webhook_url     = request.form.get("webhook_url", "").strip() or None,
             tier            = request.form.get("tier", "standard"),
+            platform_mode   = request.form.get("platform_mode", "clearance"),
             primary_color   = request.form.get("primary_color", "#0d3b6e").strip(),
             accepted_types  = ",".join(request.form.getlist("accepted_types")) or "live_music",
         )
@@ -2939,6 +3109,7 @@ def admin_edit_platform(platform_id):
         p.ba_contact_email = request.form.get("ba_contact_email", "").strip() or None
         p.webhook_url    = request.form.get("webhook_url", "").strip() or None
         p.tier           = request.form.get("tier", p.tier)
+        p.platform_mode  = request.form.get("platform_mode", p.platform_mode or "clearance")
         p.accepted_types = ",".join(request.form.getlist("accepted_types")) or p.accepted_types
         p.is_active      = bool(request.form.get("is_active"))
         db.session.commit()
@@ -3645,6 +3816,7 @@ def inbound_email():
 @app.cli.command("init-db")
 def init_db():
     db.create_all()
+    seed_templates()
 
     if not AdminUser.query.filter_by(username="admin").first():
         db.session.add(AdminUser(
@@ -4000,7 +4172,45 @@ def migrate_db_cmd():
         removed += 1
     db.session.commit()
     print(f"  platform_agreement cleanup: removed {removed}, preserved {skipped} (had docs/were completed)")
+    # Create new tables folded in from PLB (templates, deal_terms_board) — cross-DB safe.
+    try:
+        db.create_all()
+        print("  templates + deal_terms_board tables OK")
+    except Exception as exc:
+        print(f"  create_all: {exc}")
+    n = seed_templates()
+    print(f"  templates seeded/updated: {n}")
     print("Migration complete.")
+
+
+def seed_templates():
+    """Load the firm-approved agreement templates (folded in from PLB) into the DB.
+    Idempotent — inserts missing doc_types, refreshes content on existing ones."""
+    try:
+        from entertainment_templates import ENTERTAINMENT_TEMPLATES
+    except Exception as exc:
+        print(f"  seed_templates: could not import templates ({exc})")
+        return 0
+    count = 0
+    for t in ENTERTAINMENT_TEMPLATES:
+        row = Template.query.filter_by(doc_type=t["doc_type"]).first()
+        if row is None:
+            row = Template(doc_type=t["doc_type"])
+            db.session.add(row)
+        row.name        = t.get("name", t["doc_type"])
+        row.description = t.get("description", "")
+        row.content     = t.get("content", "")
+        row.is_active   = True
+        count += 1
+    db.session.commit()
+    return count
+
+
+@app.cli.command("seed-templates")
+def seed_templates_cmd():
+    """Seed/refresh the firm-approved agreement template library. Safe to re-run."""
+    n = seed_templates()
+    print(f"Seeded/updated {n} templates.")
 
 
 @app.cli.command("seed-guidelines")
@@ -4051,6 +4261,23 @@ def seed_guidelines_cmd():
                 print(f" FAILED: {e}")
 
     print("\nGuideline seeding complete.")
+
+
+def _ensure_foldin_schema():
+    """On boot, make sure the PLB fold-in tables exist and templates are seeded.
+    Idempotent and safe on both SQLite and Postgres — create_all() only creates
+    missing tables and never alters existing ones. Guarded so a transient DB error
+    at startup never takes the app down (manual `flask migrate-db` remains the path
+    for column changes on existing tables)."""
+    try:
+        with app.app_context():
+            db.create_all()
+            seed_templates()
+    except Exception as exc:
+        print(f"[startup] fold-in schema check skipped: {exc}")
+
+
+_ensure_foldin_schema()
 
 
 if __name__ == "__main__":

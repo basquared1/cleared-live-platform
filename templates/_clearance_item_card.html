@@ -177,6 +177,14 @@
                         onclick="downloadFilled({{ item.id }}, '{{ item.item_label | replace("'","") | replace("/","_") }}')">
                   <i class="bi bi-download me-1"></i>Download (.txt)
                 </button>
+                <a class="btn btn-sm btn-outline-primary"
+                   href="{{ url_for('track_item_agreement_docx', token=access_token, item_id=item.id) }}">
+                  <i class="bi bi-file-earmark-word me-1"></i>Download (.docx)
+                </a>
+                <a class="btn btn-sm btn-outline-dark"
+                   href="{{ url_for('track_item_sign_onsite', token=access_token, item_id=item.id) }}">
+                  <i class="bi bi-pen me-1"></i>Sign On-Site
+                </a>
                 <form method="POST" action="{{ url_for('track_item_save_draft', token=access_token, item_id=item.id) }}"
                       id="save-form-{{ item.id }}" class="d-inline">
                   <input type="hidden" name="draft_text" id="save-input-{{ item.id }}">
@@ -190,6 +198,72 @@
             </div>
           </div>
           {% endif %}
+
+          <!-- Deal-Term Negotiation Board (folded in from PLB) -->
+          <div class="mb-3">
+            <button class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold text-navy"
+                    type="button" data-bs-toggle="collapse" data-bs-target="#board-{{ item.id }}">
+              <i class="bi bi-table me-1"></i>Deal Terms ({{ item.deal_board|length }})
+              <i class="bi bi-chevron-down ms-1" style="font-size:.7rem;"></i>
+            </button>
+            <div class="collapse mt-2" id="board-{{ item.id }}">
+              {% for term in item.deal_board %}
+              <div class="border rounded p-2 mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="fw-semibold small">{{ term.label }}</span>
+                  <span class="badge bg-{{ term.status_color }}">{{ term.status }}</span>
+                </div>
+                <form method="POST" action="{{ url_for('track_board_update', token=access_token, item_id=item.id, term_id=term.id) }}">
+                  <div class="row g-2">
+                    <div class="col-md-4"><input name="our_position" class="form-control form-control-sm" placeholder="Our position" value="{{ term.our_position or '' }}"></div>
+                    <div class="col-md-4"><input name="their_position" class="form-control form-control-sm" placeholder="Their position" value="{{ term.their_position or '' }}"></div>
+                    <div class="col-md-4"><input name="agreed" class="form-control form-control-sm" placeholder="Agreed" value="{{ term.agreed or '' }}"></div>
+                  </div>
+                  <div class="d-flex gap-2 mt-2 align-items-center flex-wrap">
+                    <select name="status" class="form-select form-select-sm" style="max-width:130px;">
+                      {% for s in ['open','agreed','deadlocked'] %}<option value="{{ s }}" {% if term.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+                    </select>
+                    <button class="btn btn-sm btn-primary">Save</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            onclick="aiCounter('{{ url_for('track_board_suggest_counter', token=access_token, item_id=item.id, term_id=term.id) }}', this)">
+                      <i class="bi bi-stars me-1"></i>AI counter
+                    </button>
+                  </div>
+                  <div class="ai-counter-out small text-primary mt-1"></div>
+                </form>
+                <form method="POST" action="{{ url_for('track_board_delete', token=access_token, item_id=item.id, term_id=term.id) }}" class="mt-1">
+                  <button class="btn btn-sm btn-link text-danger p-0" onclick="return confirm('Delete this term?')">Delete</button>
+                </form>
+              </div>
+              {% else %}
+              <div class="text-muted small mb-2">No deal terms yet — add the negotiable clauses below, then track each side's position and let AI suggest counters.</div>
+              {% endfor %}
+              <form method="POST" action="{{ url_for('track_board_add', token=access_token, item_id=item.id) }}" class="d-flex gap-2 flex-wrap">
+                <input name="label" class="form-control form-control-sm" placeholder="Add a term (Fee, Term, Territory…)" style="max-width:230px;" required>
+                <input name="our_position" class="form-control form-control-sm" placeholder="Our opening position (optional)" style="max-width:260px;">
+                <button class="btn btn-sm btn-outline-primary">Add term</button>
+              </form>
+            </div>
+          </div>
+          <script>
+          if (!window.aiCounter) {
+            window.aiCounter = function(url, btn) {
+              var out = btn.closest('form').querySelector('.ai-counter-out');
+              out.textContent = 'Thinking…';
+              fetch(url, {method:'POST', headers:{'X-Requested-With':'fetch'}})
+                .then(function(r){return r.json();})
+                .then(function(d){
+                  if (!d.ok) { out.textContent = d.error || 'Failed.'; return; }
+                  var ourInput = btn.closest('form').querySelector('input[name="our_position"]');
+                  if (ourInput && d.counter) ourInput.value = d.counter;
+                  out.innerHTML = '<strong>Suggested:</strong> ' + (d.counter||'') +
+                    (d.rationale ? ' <span class="text-muted">— ' + d.rationale + '</span>' : '') +
+                    ' <em class="text-muted">(applied to “Our position” — Save to keep)</em>';
+                })
+                .catch(function(){ out.textContent = 'Request failed.'; });
+            };
+          }
+          </script>
 
           <!-- AI Outreach Email -->
           {% if item.ai_outreach_body %}
