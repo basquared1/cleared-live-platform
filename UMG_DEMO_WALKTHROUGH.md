@@ -2,7 +2,7 @@
 
 **Goal:** Mara walks the UMG General Counsel through Cleared.live in **Label · Issuer mode** on the live site — how a major label reviews a producer's clearances and **issues a conditional label waiver** for a filmed live performance, in one rail, with AI doing the drafting.
 
-**Driver:** Mara (relationship owner). **Setup:** Alex (pre-flight, before the call).
+**Driver:** Mara (relationship owner). **Setup:** Brian (pre-flight, before the call).
 **Product:** the deployed unified rail — `https://cleared-live-platform.onrender.com`
 **Time:** ~15 min + Q&A.
 
@@ -13,13 +13,13 @@
 ## ⚠️ Frame it right (read first — from the council)
 
 - **Mara leads.** The warm relationship (Mara ↔ GC) is the asset. Open as colleagues solving a real UMG pain, not as a cold vendor.
-- **Conflicts, pre-cleared in one breath.** Say it before the GC's team wonders: *"The software is built and sold by **Bliss Tech LLC** — a separate company from our law practice. Alex and I are entertainment attorneys, which is why the work product is sound, but you're evaluating a tech product, not retaining counsel."* That turns the founder credentials into trust instead of a flag.
+- **Conflicts, pre-cleared in one breath.** Say it before the GC's team wonders: *"The software is built and sold by **Bliss Tech LLC** — a separate company from our law practice. Brian and I are entertainment attorneys, which is why the work product is sound, but you're evaluating a tech product, not retaining counsel."* That turns the founder credentials into trust instead of a flag.
 - **Demo what exists; name what's next.** Be precise about live-vs-roadmap (section at the end). Don't oversell.
-- **One project, pre-baked.** No live AI spinners in front of the GC. Alex generates the drafts the day before.
+- **One project, pre-baked.** No live AI spinners in front of the GC. Brian generates the drafts the day before.
 
 ---
 
-## ✅ Pre-flight (Alex, before the call — ~15 min)
+## ✅ Pre-flight (Brian, before the call — ~15 min)
 
 1. **Confirm a UMG tenant exists in Issuer mode.**
    - Log into `/admin` → **Platforms**. If there's no UMG label tenant, **Add Platform**:
