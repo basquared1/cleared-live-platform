@@ -1283,11 +1283,14 @@ function aiSuggestContact(itemId, url) {
       resultEl.innerHTML = '<div class="small text-danger">' + data.error + '</div>';
       return;
     }
-    // Fill form fields
-    document.getElementById('party-company-' + itemId).value = company;
-    document.getElementById('company-input-' + itemId).value = company;
-    if (data.contact_name) document.getElementById('party-name-' + itemId).value = data.contact_name;
-    if (data.contact_email) document.getElementById('party-email-' + itemId).value = data.contact_email;
+    // Fill form fields. Company becomes the AI-identified rights-holder ENTITY
+    // (e.g. the label for a master), not the artist name that was typed as the search.
+    var resolvedCompany = ((data.contact_company || '').trim()) || company;
+    var pc = document.getElementById('party-company-' + itemId); if (pc) pc.value = resolvedCompany;
+    document.getElementById('company-input-' + itemId).value = resolvedCompany;
+    if (data.contact_name) { var nm = document.getElementById('party-name-' + itemId); if (nm) nm.value = data.contact_name; }
+    if (data.contact_email) { var em = document.getElementById('party-email-' + itemId); if (em) em.value = data.contact_email; }
+    company = resolvedCompany;
 
     var confColor = data.confidence === 'high' ? 'success' : data.confidence === 'medium' ? 'warning' : 'secondary';
     var coAdmins = data.co_admins || [];

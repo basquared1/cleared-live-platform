@@ -949,10 +949,12 @@ def _auto_outreach_agent(item_id):
         # AI-fill the rights-holder contact if we don't have one yet, so the
         # Send button is actionable. The submitter still confirms by clicking Send.
         if not item.party_email:
+            # The artist is only SEARCH context for the lookup — never the company.
             hint = item.party_company or sub.artist_name or sub.label or sub.title
             data = _ai_contact_lookup(sub, item, hint)
             if data and data.get("contact_email"):
-                item.party_company = item.party_company or hint
+                item.party_company = (item.party_company or (data.get("contact_company") or "").strip()
+                                      or _item_rights_holder(sub, item) or None)
                 item.party_name    = item.party_name or data.get("contact_name")
                 item.party_email   = (data.get("contact_email") or "").lower()
 
@@ -1720,19 +1722,39 @@ def _ai_contact_lookup(sub, item, company):
         "contacted to obtain sync/master/clearance licenses. "
         "Respond ONLY with valid JSON — no markdown, no explanation outside the JSON."
     )
-    # Determine if this is a music clearance item — if so, treat company as artist/song context
-    is_music_item = any(k in (item.item_label or "").lower()
-                        for k in ("sync", "music", "master", "publishing", "song", "track", "record"))
-    if is_music_item:
+    # Master vs publishing vs general — each names a different rights-holder ENTITY.
+    is_master = "master" in (item.item_key or "").lower() or "master" in (item.item_label or "").lower()
+    is_music  = any(k in (item.item_label or "").lower()
+                    for k in ("sync", "music", "master", "publishing", "song", "track", "record"))
+    if is_master:
+        user = (
+            f"Identify the MASTER RECORDING rights-holder licensing contact for:\n"
+            f"Artist: {company}\n"
+            f"Item type: {item.item_label}\n"
+            f"Project: {sub.project_type_label} — {sub.title} on {sub.platform.name}\n\n"
+            f"The master recording is controlled by the artist's RECORD LABEL — identify the label and its "
+            f"film/TV (master-use) licensing contact. The licensor ENTITY is the LABEL, never the artist's name.\n\n"
+            f"Return JSON:\n"
+            f"  contact_company: string — the record label / master rights-holder ENTITY (e.g. "
+            f"'Republic Records (Universal Music Group)') — NEVER the artist's personal name\n"
+            f"  contact_name: string — the master / film-TV licensing department\n"
+            f"  contact_email: string — the label's licensing email\n"
+            f"  confidence: 'high' | 'medium' | 'low'\n"
+            f"  note: string — note that a separate publishing/sync license is also required, plus any MFN considerations\n"
+            f"  co_admins: array of {{company, contact_email}} — empty [] unless multiple labels control the master"
+        )
+    elif is_music:
         user = (
             f"Identify the publishing ADMINISTRATOR(S) that handle sync licensing for:\n"
             f"Artist / Rights Holder: {company}\n"
             f"Item type: {item.item_label}\n"
             f"Project: {sub.project_type_label} — {sub.title} on {sub.platform.name}\n\n"
             f"CRITICAL: Return the major publishing ADMINISTRATOR (Sony Music Publishing, UMPG, "
-            f"Warner Chappell, Kobalt, BMG, etc.) — NOT a personal publishing entity, NOT a record label.\n"
+            f"Warner Chappell, Kobalt, BMG, etc.) — NOT a personal publishing entity, NOT the artist's name.\n"
             f"If the songs are CO-ADMINISTERED by multiple publishers, set co_admins to a list of all.\n\n"
             f"Return JSON:\n"
+            f"  contact_company: string — the publishing administrator ENTITY to name as licensor "
+            f"(e.g. 'Universal Music Publishing Group') — NEVER the artist's personal name\n"
             f"  contact_name: string — sync licensing department name\n"
             f"  contact_email: string — sync licensing email for the PRIMARY administrator\n"
             f"  confidence: 'high' | 'medium' | 'low'\n"
@@ -1750,6 +1772,7 @@ def _ai_contact_lookup(sub, item, company):
             f"Project context: {sub.project_type_label} — {sub.title}\n"
             f"Platform: {sub.platform.name}\n\n"
             f"Return JSON:\n"
+            f"  contact_company: string — the rights-holder ENTITY to name as licensor (the company above, refined)\n"
             f"  contact_name: string — department or person name\n"
             f"  contact_email: string — best clearance/licensing email\n"
             f"  confidence: 'high' | 'medium' | 'low'\n"
@@ -1767,6 +1790,10 @@ def _ai_contact_lookup(sub, item, company):
         data = _json.loads(clean)
         if "co_admins" not in data:
             data["co_admins"] = []
+        # The licensor entity, never the artist. Fall back to the resolved rights
+        # holder (label for master/label items) when the model omits it.
+        if not (data.get("contact_company") or "").strip():
+            data["contact_company"] = _item_rights_holder(sub, item)
         return data
     except Exception:
         return None
