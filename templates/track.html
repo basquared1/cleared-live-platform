@@ -833,6 +833,24 @@
   }
   </script>
 
+  <!-- MFN Watch — advisory across publishing + master deals (flag + suggest) -->
+  {% if mfn_ledger %}
+  <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid #f2a900 !important;">
+    <div class="card-body py-3 px-4">
+      <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+        <i class="bi bi-shield-check text-warning"></i>
+        <span class="fw-semibold text-navy">MFN Watch</span>
+        <span class="badge bg-light text-dark border">{{ mfn_ledger.mfn_deals|length }} MFN deal{{ 's' if mfn_ledger.mfn_deals|length != 1 }}</span>
+        {% if mfn_ledger.benchmark_per_song is not none %}<span class="badge bg-warning text-dark">Benchmark ${{ '%0.0f'|format(mfn_ledger.benchmark_per_song) }}/song</span>{% endif %}
+      </div>
+      <p class="text-muted small mb-2">Most Favored Nations is in play — terms granted to one rights holder may need to be matched to the others. The AI flags this during negotiation; you decide whether to level.</p>
+      <ul class="small mb-0" style="padding-left:1.1rem;">
+        {% for f in mfn_ledger.flags %}<li class="mb-1">{{ f }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Publisher Clearance Groups -->
   <div class="card border-0 shadow-sm mb-4" id="pub-clearance-section">
     <div class="card-header bg-white border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2 py-3">

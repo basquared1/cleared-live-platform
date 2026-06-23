@@ -1299,6 +1299,7 @@ def _render_track(token, view):
                            actions=_scan_submitter_actions(sub),
                            project_guidelines=project_guidelines,
                            music_items=music_items, general_items=general_items,
+                           mfn_ledger=_mfn_ledger(sub),
                            view=view)
 
 
@@ -2475,6 +2476,85 @@ def _format_group_offer(sub, group, primary):
     return lines, fee_instruction, mfn_instruction
 
 
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _mfn_ledger(sub):
+    """Advisory Most-Favored-Nations view across the project's music deals
+    (publisher groups + master recording license). Flag + suggest only — never
+    changes terms. Returns a dict, or None when no deal is MFN-tagged."""
+    positions = sub.platform.negotiation_positions if sub.platform else []
+    primary = (positions or [{}])[0] if isinstance(positions, list) else {}
+    deals = []
+    for name, g in (sub.publisher_clearances or {}).items():
+        dt = (g.get("deal_terms") or sub.deal_terms or {})
+        n = max(1, len(g.get("songs", [])))
+        fee = _num(dt.get("fee"))
+        ft = (dt.get("fee_type") or "").lower()
+        per_song = fee if ("item" in ft or "song" in ft) else (fee / n if fee is not None else None)
+        deals.append({
+            "label": name, "kind": "publishing", "mfn": bool(dt.get("mfn")),
+            "fee": fee, "per_song": per_song, "fee_type": dt.get("fee_type"),
+            "territory": dt.get("territory") or primary.get("territory"),
+            "term": dt.get("term") or primary.get("term"),
+            "status": g.get("status"), "songs": n,
+        })
+    for it in sub.clearance_items:
+        if is_music_item(it.item_key) and "master" in (it.item_key or ""):
+            dt = it.deal_terms or {}
+            deals.append({
+                "label": it.item_label, "kind": "master", "mfn": bool(dt.get("mfn")),
+                "fee": _num(dt.get("fee")), "per_song": None, "fee_type": dt.get("fee_type"),
+                "territory": dt.get("territory"), "term": dt.get("term"),
+                "status": it.status, "songs": None,
+            })
+
+    mfn_deals = [d for d in deals if d["mfn"]]
+    if not mfn_deals:
+        return None
+
+    pub = [d for d in mfn_deals if d["kind"] == "publishing" and d["per_song"] is not None]
+    bench = max((d["per_song"] for d in pub), default=None)
+    flags = []
+    if bench is not None:
+        leaders = [d["label"] for d in pub if d["per_song"] == bench]
+        for d in pub:
+            if d["per_song"] is not None and d["per_song"] < bench:
+                flags.append(
+                    f"{d['label']} is MFN-tagged at ${d['per_song']:,.0f}/song, but the MFN benchmark on "
+                    f"this project is ${bench:,.0f}/song ({', '.join(leaders)}). Level it up to honor MFN, "
+                    f"or remove its MFN flag.")
+    if any(d["kind"] == "master" for d in mfn_deals):
+        flags.append(
+            "The master recording license is MFN-tagged — confirm its terms match the most favorable "
+            "master deal granted on this project before signing.")
+    if not flags:
+        flags.append(
+            f"MFN is in play across {len(mfn_deals)} deal(s) and current terms are consistent. Any new "
+            "concession to one rights holder must be matched to the others.")
+    return {"deals": deals, "mfn_deals": mfn_deals, "benchmark_per_song": bench, "flags": flags}
+
+
+def _mfn_block(sub):
+    """MFN-awareness paragraph for negotiation prompts. Empty string if no MFN."""
+    led = _mfn_ledger(sub)
+    if not led:
+        return ""
+    bench = led.get("benchmark_per_song")
+    parts = ["\n\nMOST FAVORED NATIONS (MFN) — IN PLAY ON THIS PROJECT:"]
+    if bench is not None:
+        parts.append(f"  Current publishing MFN benchmark: ${bench:,.0f} per song.")
+    parts.append(
+        "  Because MFN is in play, do NOT agree terms MORE favorable to this rights holder than the benchmark "
+        "without flagging it — any better term granted here must be matched to every other MFN-tagged rights "
+        "holder. If they demand above-benchmark terms, recommend escalate_to_ba rather than silently conceding.")
+    return "\n".join(parts)
+
+
 def _parse_neg_json(raw):
     """Extract the negotiation recommendation JSON from a model response."""
     import json as _json
@@ -2525,6 +2605,7 @@ def _run_group_negotiation(sub, group, publisher):
         f"DEAL TERMS WE ARE OFFERING:\n{offer_lines}\n\n"
         f"PLATFORM NEGOTIATION POSITIONS (primary first, then fallbacks):\n"
         f"{_fmt_negotiation_positions(positions)}\n"
+        + _mfn_block(sub) + "\n"
         + _guideline_block(sub) + "\n"
         f"NEGOTIATION THREAD SO FAR (oldest first):\n{thread_str}\n\n"
         "Analyze the publisher's most recent message and decide the next move for this blanket sync license. "
