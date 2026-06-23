@@ -61,6 +61,20 @@
   </div>
 </div>
 
+<!-- Sub-tab bar -->
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <a class="nav-link active" href="{{ url_for('platform_project', sub_id=sub.id) }}">
+      <i class="bi bi-list-check me-1"></i>Clearances
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('platform_agreements', sub_id=sub.id) }}">
+      <i class="bi bi-file-earmark-text me-1"></i>Agreements
+    </a>
+  </li>
+</ul>
+
 <div class="row g-4">
 
   <!-- LEFT: clearance items -->

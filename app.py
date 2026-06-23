@@ -770,6 +770,112 @@ def send_to_docusign(sub, item):
     return None, f"DocuSign API error {resp.status_code}: {resp.text[:300]}"
 
 
+def _ds_envelope_status(ds_base, access_token, account_id, envelope_id):
+    """Current status of a DocuSign envelope (lowercased), or None on error."""
+    r = http_requests.get(
+        f"{ds_base}/v2.1/accounts/{account_id}/envelopes/{envelope_id}",
+        headers={"Authorization": f"Bearer {access_token}"}, timeout=20,
+    )
+    if r.ok:
+        return (r.json().get("status") or "").lower()
+    return None
+
+
+def _ds_download_combined_pdf(ds_base, access_token, account_id, envelope_id):
+    """Download the combined, fully-executed PDF (all documents + certificate)."""
+    r = http_requests.get(
+        f"{ds_base}/v2.1/accounts/{account_id}/envelopes/{envelope_id}/documents/combined",
+        headers={"Authorization": f"Bearer {access_token}", "Accept": "application/pdf"},
+        timeout=60,
+    )
+    if r.ok and r.content:
+        return r.content
+    return None
+
+
+def fetch_executed_envelope(item):
+    """If the item's DocuSign envelope is completed, download the executed PDF and
+    store it as an 'executed' SubmissionDocument so the agreement lands in the
+    record automatically. Idempotent — a no-op if a copy is already on file.
+
+    Mutates the session (adds the doc / updates docusign_status) but does NOT
+    commit — the caller commits. Returns (stored: bool, message: str)."""
+    if not item.docusign_envelope_id:
+        return False, "No DocuSign envelope on this item."
+    if not docusign_configured():
+        return False, "DocuSign not configured."
+    # Already captured the executed copy for this envelope? Nothing to do.
+    if SubmissionDocument.query.filter_by(
+            clearance_item_id=item.id, doc_type="executed").first():
+        return False, "Executed copy already on file."
+    try:
+        access_token, ds_base = get_docusign_token()
+    except Exception as e:
+        return False, f"DocuSign auth failed: {e}"
+    account_id = os.getenv("DOCUSIGN_ACCOUNT_ID")
+    status = _ds_envelope_status(ds_base, access_token, account_id, item.docusign_envelope_id)
+    if status != "completed":
+        if status and status != (item.docusign_status or "").lower():
+            item.docusign_status = status   # keep our local mirror current
+        return False, f"Envelope status is '{status or 'unknown'}', not completed yet."
+    pdf = _ds_download_combined_pdf(ds_base, access_token, account_id, item.docusign_envelope_id)
+    if not pdf:
+        return False, "Envelope completed but the executed PDF download failed."
+    safe = re.sub(r"[^A-Za-z0-9]+", "-", item.item_label).strip("-").lower() or "agreement"
+    db.session.add(SubmissionDocument(
+        submission_id     = item.submission_id,
+        clearance_item_id = item.id,
+        title             = f"Executed agreement — {item.item_label}",
+        doc_type          = "executed",
+        filename          = f"{safe}-executed.pdf",
+        file_data         = pdf,
+        mimetype          = "application/pdf",
+        uploaded_by       = "DocuSign",
+    ))
+    item.docusign_status = "completed"
+    item.negotiation_log_add({
+        "role": "system",
+        "label": "Executed agreement received from DocuSign",
+        "body": "The fully executed agreement was downloaded from DocuSign and stored to the project record.",
+        "ts": datetime.utcnow().isoformat(),
+    })
+    return True, "Executed agreement stored."
+
+
+def _parse_connect_payload(req):
+    """Extract (envelope_id, status) from a DocuSign Connect payload — tolerant of
+    the newer JSON ('Connect') format and the legacy XML/SOAP format."""
+    data = req.get_json(silent=True)
+    if isinstance(data, dict):
+        d = data.get("data") if isinstance(data.get("data"), dict) else {}
+        env = d.get("envelopeId") or data.get("envelopeId")
+        status = ((d.get("envelopeSummary") or {}).get("status")
+                  or data.get("status") or data.get("event"))
+        if env:
+            return env, (status or "").lower().replace("envelope-", "")
+    raw = req.get_data(as_text=True) or ""
+    if "<EnvelopeID>" in raw or "<EnvelopeStatus" in raw:
+        m_id = re.search(r"<EnvelopeID>([^<]+)</EnvelopeID>", raw)
+        m_st = re.search(r"<Status>([^<]+)</Status>", raw)
+        if m_id:
+            return m_id.group(1), (m_st.group(1).lower() if m_st else "")
+    return None, None
+
+
+def _connect_fetch_worker(item_id):
+    """Background: pull the executed PDF after a Connect 'completed' event so the
+    webhook can ack DocuSign immediately."""
+    with app.app_context():
+        item = ClearanceItem.query.get(item_id)
+        if not item:
+            return
+        try:
+            fetch_executed_envelope(item)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+
 # ---------------------------------------------------------------------------
 # Background agents
 # ---------------------------------------------------------------------------
@@ -1238,6 +1344,42 @@ def track_music_delegate(token):
     return jsonify({"ok": True, "link": link, "sent": sent,
                     "contact_name": sub.music_contact_name,
                     "contact_email": sub.music_contact_email})
+
+
+@app.route("/track/<token>/agreements")
+def track_agreements(token):
+    """Submitter-facing Agreements tab — every agreement with its lifecycle stage
+    (draft → negotiating → out for signature → executed) plus the full paper trail."""
+    sub = _sub(token)
+    items = sorted(
+        sub.clearance_items,
+        key=lambda it: (it.agreement_stage_order, it.agreement_last_activity or datetime.min),
+        reverse=True,
+    )
+    return render_template(
+        "track_agreements.html",
+        sub=sub,
+        access_token=token,
+        items=items,
+        paper_trail=_project_paper_trail(sub),
+        view="agreements",
+    )
+
+
+@app.route("/track/<token>/doc/<int:doc_id>/download")
+def track_download_doc(token, doc_id):
+    """Token-scoped document download for the submitter workspace."""
+    sub = _sub(token)
+    doc = SubmissionDocument.query.get_or_404(doc_id)
+    if doc.submission_id != sub.id:
+        abort(403)
+    inline = request.args.get("inline") == "1"
+    return send_file(
+        io.BytesIO(doc.file_data),
+        download_name=doc.filename,
+        as_attachment=not inline,
+        mimetype=doc.mimetype or "application/octet-stream",
+    )
 
 
 @app.route("/track/<token>/neg-status")
@@ -2768,6 +2910,78 @@ def platform_project(sub_id):
     )
 
 
+def _project_paper_trail(sub):
+    """Flatten every clearance item's negotiation thread into one chronological
+    list for the project — the audit trail of all negotiations in one place."""
+    trail = []
+    for item in sub.clearance_items:
+        for turn in item.negotiation_log:
+            ts = turn.get("ts")
+            when = None
+            if ts:
+                try:
+                    when = datetime.fromisoformat(ts)
+                except Exception:
+                    when = None
+            trail.append({
+                "item_id":    item.id,
+                "item_label": item.item_label,
+                "item_key":   item.item_key,
+                "role":       turn.get("role", "system"),
+                "label":      turn.get("label", ""),
+                "body":       turn.get("body", ""),
+                "ts":         ts,
+                "when":       when,
+            })
+    # Newest first; entries without a timestamp sink to the bottom.
+    trail.sort(key=lambda e: (e["when"] is not None, e["when"] or datetime.min), reverse=True)
+    return trail
+
+
+@app.route("/platform/project/<int:sub_id>/agreements")
+@require_platform
+def platform_agreements(sub_id):
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    # Surface every agreement, most-advanced + most-recently-active first.
+    items = sorted(
+        sub.clearance_items,
+        key=lambda it: (it.agreement_stage_order, it.agreement_last_activity or datetime.min),
+        reverse=True,
+    )
+    return render_template(
+        "platform/agreements.html",
+        sub=sub,
+        platform=user.platform,
+        items=items,
+        paper_trail=_project_paper_trail(sub),
+    )
+
+
+@app.route("/platform/project/<int:sub_id>/item/<int:item_id>/agreement.docx")
+@require_platform
+def platform_item_agreement_docx(sub_id, item_id):
+    """BA-side download of an item's AI-drafted agreement as a Word .docx."""
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    draft_text = item.ai_draft or f"[AI draft pending for {item.item_label}]"
+    doc_bytes  = build_docx(_DocxProxy(title=item.item_label, content=draft_text))
+    safe = re.sub(r"[^A-Za-z0-9]+", "-", item.item_label).strip("-").lower() or "agreement"
+    return send_file(
+        io.BytesIO(doc_bytes),
+        as_attachment=True,
+        download_name=f"{safe}-draft.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
 @app.route("/platform/project/<int:sub_id>/status", methods=["POST"])
 @require_platform
 def platform_set_status(sub_id):
@@ -3346,6 +3560,36 @@ def platform_docusign(sub_id, item_id):
     return redirect(url_for("platform_project", sub_id=sub_id))
 
 
+@app.route("/platform/project/<int:sub_id>/docusign-sync", methods=["POST"])
+@require_platform
+def platform_docusign_sync(sub_id):
+    """Poll fallback: check every pending envelope on this project and pull down
+    any that have completed — complements the automatic Connect webhook."""
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    if not docusign_configured():
+        flash("DocuSign is not configured.", "warning")
+        return redirect(url_for("platform_agreements", sub_id=sub_id))
+    pending = [it for it in sub.clearance_items
+               if it.docusign_envelope_id and not it.executed_documents]
+    stored = 0
+    for it in pending:
+        ok, _ = fetch_executed_envelope(it)
+        if ok:
+            stored += 1
+    db.session.commit()
+    if not pending:
+        flash("No pending DocuSign envelopes to sync.", "info")
+    elif stored:
+        flash(f"Synced {len(pending)} envelope(s) — {stored} executed agreement(s) "
+              f"downloaded and added to the record.", "success")
+    else:
+        flash(f"Checked {len(pending)} envelope(s) — none are completed yet.", "info")
+    return redirect(url_for("platform_agreements", sub_id=sub_id))
+
+
 @app.route("/platform/project/<int:sub_id>/item/<int:item_id>/log-response", methods=["POST"])
 @require_platform
 def platform_item_log_response(sub_id, item_id):
@@ -3743,6 +3987,35 @@ def _clean_reply(text):
             break
         out.append(ln)
     return "\n".join(out).strip() or text.strip()
+
+
+@app.route("/docusign/connect", methods=["POST"])
+def docusign_connect():
+    """DocuSign Connect webhook → when an envelope completes, store the executed
+    PDF automatically. Configure a Connect listener in DocuSign Admin pointing
+    here; for a signed payload set DOCUSIGN_CONNECT_HMAC_KEY to your Connect key."""
+    raw = request.get_data()
+    key = os.getenv("DOCUSIGN_CONNECT_HMAC_KEY")
+    if key:
+        import hmac, hashlib, base64 as _b64
+        sig = request.headers.get("X-DocuSign-Signature-1", "")
+        expected = _b64.b64encode(
+            hmac.new(key.encode(), raw, hashlib.sha256).digest()).decode()
+        if not hmac.compare_digest(sig, expected):
+            abort(403)
+    env_id, status = _parse_connect_payload(request)
+    if not env_id:
+        return ("", 200)   # ack payloads we can't parse so DocuSign won't retry
+    item = ClearanceItem.query.filter_by(docusign_envelope_id=env_id).first()
+    if not item:
+        return ("", 200)
+    if status:
+        item.docusign_status = status
+        db.session.commit()
+    if status == "completed":
+        # Ack DocuSign immediately; fetch the PDF off the request thread.
+        threading.Thread(target=_connect_fetch_worker, args=(item.id,), daemon=True).start()
+    return ("", 200)
 
 
 @app.route("/inbound/email", methods=["POST"])
