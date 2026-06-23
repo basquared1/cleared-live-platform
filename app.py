@@ -2419,6 +2419,60 @@ def track_pub_groups_suggest_contact(token):
     return jsonify(data)
 
 
+def _format_group_offer(sub, group, primary):
+    """Return (offer_lines, fee_instruction, mfn_instruction) describing the
+    submitter's proposed sync terms for a publisher group. Sourced from the
+    group's own deal terms, then the submission-level bulk deal terms, then the
+    platform's default position — so the outreach states a real money offer."""
+    dt = (group.get("deal_terms") or sub.deal_terms or {})
+
+    def _v(key, default):
+        val = dt.get(key)
+        return val if val not in (None, "", []) else default
+
+    territory = _v("territory", primary.get("territory", "Worldwide"))
+    term      = _v("term", primary.get("term", "Perpetuity"))
+    uses      = dt.get("media_rights") or primary.get("uses", ["Streaming"])
+    fee       = dt.get("fee")
+    fee_type  = (dt.get("fee_type") or "").strip()
+    mfn       = bool(dt.get("mfn"))
+    notes     = (dt.get("notes") or "").strip()
+
+    if str(fee) in ("0", "0.0") or fee_type.lower() == "gratis":
+        fee_line = "Gratis — no license fee (promotional / festival use)"
+        fee_instruction = "State clearly that the sender is requesting a gratis (no-fee) license."
+    elif fee not in (None, ""):
+        try:
+            fee_disp = f"${int(float(fee)):,}"
+        except (TypeError, ValueError):
+            fee_disp = f"${fee}"
+        per = ("per song" if ("item" in fee_type.lower() or "song" in fee_type.lower())
+               else "flat, covering all songs in one blanket license")
+        fee_line = f"{fee_disp} {per}"
+        fee_instruction = ("State the proposed license fee explicitly as the sender's opening "
+                           "offer — include the actual number, do not omit it.")
+    else:
+        fee_line = "open — invite the publisher to quote their standard sync rate for these songs"
+        fee_instruction = ("No fee was set; ask the publisher to quote their sync license rate "
+                           "for these songs.")
+
+    mfn_line = ("Yes — most favored nations requested across all publishers (and masters) "
+                "being cleared for this project") if mfn else "Not requested"
+    mfn_instruction = ("Explicitly request Most Favored Nations (MFN) treatment in the email."
+                       if mfn else
+                       "Only mention MFN if the songs span multiple co-publishers.")
+
+    lines = (
+        f"  License fee: {fee_line}\n"
+        f"  Territory: {territory}\n"
+        f"  Term: {term}\n"
+        f"  Media / uses: {', '.join(uses)}\n"
+        f"  Most Favored Nations: {mfn_line}"
+        + (f"\n  Additional notes: {notes}" if notes else "")
+    )
+    return lines, fee_instruction, mfn_instruction
+
+
 @app.route("/track/<token>/pub-groups/outreach", methods=["POST"])
 def track_pub_groups_outreach(token):
     from flask import jsonify
@@ -2436,12 +2490,20 @@ def track_pub_groups_outreach(token):
     neg = sub.platform.negotiation_positions if sub.platform else {}
     primary = (neg or [{}])[0] if isinstance(neg, list) else {}
     platform_name = sub.platform.name if sub.platform else "the platform"
+
+    # Build the OFFER from the submitter's saved deal terms so the email states a
+    # real proposal (incl. the fee) instead of vaguely asking to "discuss terms".
+    # Prefer this group's own terms, then the submission-level bulk terms, then the
+    # platform's default position for territory/term/uses.
+    offer_lines, fee_instruction, mfn_instruction = _format_group_offer(sub, g, primary)
+
     system = (
         "You are a music clearance professional helping a content producer draft sync license request emails. "
         "The email is sent BY the producer/submitter, in their own name and company — NOT by the platform. "
         "Reference the project and the platform it will stream on as context only; never write that the sender is "
         "contacting anyone 'on behalf of' the platform, and never imply the sender represents or works for the platform. "
-        "Write professional, concise outreach. Do not use placeholders — write real content."
+        "Write professional, concise outreach. Do not use placeholders — write real content. "
+        "State the proposed deal terms (including the fee) plainly as the sender's opening offer."
     )
     user = (
         f"Draft a sync license request email to {publisher}'s sync licensing department.\n\n"
@@ -2454,14 +2516,12 @@ def track_pub_groups_outreach(token):
         f"Date: {sub.event_date or 'TBD'}\n"
         f"Distribution platform (context only — where the finished project will stream): {platform_name}\n\n"
         f"Songs requesting clearance ({len(g.get('songs', []))} total):\n{song_list}\n\n"
-        f"Deal terms requested:\n"
-        f"  Territory: {primary.get('territory', 'Worldwide')}\n"
-        f"  Term: {primary.get('term', 'Perpetuity')}\n"
-        f"  Uses: {', '.join(primary.get('uses', ['Streaming']))}\n\n"
+        f"Deal terms the sender is OFFERING — state these as the proposed terms, do not be vague:\n"
+        + offer_lines + "\n\n"
+        f"{fee_instruction} {mfn_instruction} "
         f"The sender is the producer making this request for their own project, which will stream on {platform_name}. "
         f"Reference {platform_name} only as the distribution outlet — do NOT write 'on behalf of {platform_name}' or "
         f"state that the sender represents {platform_name}. "
-        f"Include MFN language if appropriate (this project is clearing rights with multiple publishers simultaneously). "
         f"Request that all songs be covered under one blanket sync license agreement for efficiency. "
         f"Sign off with just the sender's name and company. "
         f"Signature: {sub.submitter_name or ''}"
