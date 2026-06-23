@@ -862,20 +862,6 @@ def _parse_connect_payload(req):
     return None, None
 
 
-def _connect_fetch_worker(item_id):
-    """Background: pull the executed PDF after a Connect 'completed' event so the
-    webhook can ack DocuSign immediately."""
-    with app.app_context():
-        item = ClearanceItem.query.get(item_id)
-        if not item:
-            return
-        try:
-            fetch_executed_envelope(item)
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-
-
 # ---------------------------------------------------------------------------
 # Background agents
 # ---------------------------------------------------------------------------
@@ -4013,8 +3999,15 @@ def docusign_connect():
         item.docusign_status = status
         db.session.commit()
     if status == "completed":
-        # Ack DocuSign immediately; fetch the PDF off the request thread.
-        threading.Thread(target=_connect_fetch_worker, args=(item.id,), daemon=True).start()
+        # Pull the executed PDF synchronously before acking. Fire-and-forget
+        # threads are unreliable on a sync gunicorn worker (the request returns
+        # before the thread stores the doc), so do it inline — the fetch takes a
+        # few seconds and DocuSign Connect's delivery timeout is generous.
+        try:
+            fetch_executed_envelope(item)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
     return ("", 200)
 
 
