@@ -1197,6 +1197,7 @@ _MUSIC_SCOPE_ENDPOINTS = {
     "track_pub_groups_outreach", "track_pub_groups_save_outreach", "track_pub_groups_send",
     "track_pub_groups_response", "track_pub_groups_record_reply",
     "track_pub_groups_regenerate", "track_pub_groups_approve_send",
+    "track_pub_groups_gen_license", "track_pub_groups_license_download",
     "track_item_start", "track_item_upload", "track_item_submit_review",
     "track_item_gen_draft", "track_item_save_outreach", "track_item_save_draft",
     "track_item_set_contact", "track_item_ai_suggest_contact", "track_item_ai_fill_vars",
@@ -2545,6 +2546,65 @@ def _run_group_negotiation(sub, group, publisher):
     return _parse_neg_json(raw) if raw else None
 
 
+def _generate_group_license(sub, group, publisher):
+    """Draft the BLANKET sync license covering this publisher's songs at the
+    agreed terms. Returns the document text, or None."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return None
+    positions = sub.platform.negotiation_positions if sub.platform else []
+    primary = (positions or [{}])[0] if isinstance(positions, list) else {}
+    offer_lines, _, _ = _format_group_offer(sub, group, primary)
+    songs = group.get("songs", [])
+    song_str = "\n".join(
+        f"  - \"{s.get('title','')}\" (writer {s.get('writer','')}, "
+        f"{s.get('split_pct','')}% controlled by {publisher})"
+        for s in songs
+    ) or "  (no songs)"
+    platform_name = sub.platform.name if sub.platform else "the platform"
+    user = (
+        f"Draft a BLANKET SYNCHRONIZATION LICENSE covering MULTIPLE musical compositions, "
+        f"between the Producer (Licensee) and {publisher} (Licensor / music publisher).\n\n"
+        f"LICENSEE (Producer/Submitter): {sub.submitter_company or sub.submitter_name}. "
+        f"{platform_name} is named ONLY as permitted assignee/distributor of the finished program — it is NOT a "
+        f"contracting party, and the Producer does NOT act 'on behalf of' {platform_name}.\n\n"
+        f"LICENSOR (Music Publisher): {publisher}"
+        + (f" — contact {group.get('contact_name')}" if group.get('contact_name') else "") + "\n"
+        + (f"Performing Rights Org: {group.get('pro')}\n" if group.get('pro') else "")
+        + f"\nPROJECT DETAILS:\n{_sub_context(sub)}\n\n"
+        f"COMPOSITIONS COVERED BY THIS ONE BLANKET LICENSE ({len(songs)} — license ALL of them in a single agreement):\n{song_str}\n\n"
+        f"AGREED DEAL TERMS (these are the ACTUAL agreed terms — incorporate them verbatim, do NOT use placeholders):\n{offer_lines}\n"
+        + _guideline_block(sub) + "\n"
+        "Draft the complete blanket synchronization license now. It must: identify the parties; grant a synchronization "
+        "license for ALL listed compositions under one agreement; state the license fee, territory, term, and permitted "
+        "media/uses exactly as agreed above; include Most Favored Nations language if MFN is agreed; permit "
+        "assignment/distribution via the named platform; include standard representations & warranties, indemnity, and "
+        "signature blocks for both parties. Use the real agreed values for fee, territory, and term — no bracketed placeholders."
+    )
+    return call_claude_document(_CLP_SYSTEM_PROMPT, user)
+
+
+def _group_license_agent(sub_id, publisher):
+    """Background: draft the blanket sync license for a publisher group and store it."""
+    with app.app_context():
+        sub = Submission.query.get(sub_id)
+        if not sub:
+            return
+        groups = sub.publisher_clearances
+        g = groups.get(publisher)
+        if not g:
+            return
+        try:
+            doc = _generate_group_license(sub, g, publisher)
+        except Exception as e:
+            app.logger.error(f"GROUP LICENSE ERROR — {type(e).__name__}: {e}")
+            doc = None
+        if doc:
+            g["license_draft"] = doc
+            g["license_generated_at"] = datetime.utcnow().isoformat()
+            sub.publisher_clearances_save(groups)
+            db.session.commit()
+
+
 @app.route("/track/<token>/pub-groups/outreach", methods=["POST"])
 def track_pub_groups_outreach(token):
     from flask import jsonify
@@ -2799,7 +2859,9 @@ def track_pub_groups_approve_send(token):
         sub.publisher_clearances_save(groups)
         _maybe_advance_publishing_item(sub)
         db.session.commit()
-        flash(f"{publisher}: terms agreed and recorded.", "success")
+        # Draft the blanket sync license in the background (it's a long 2-pass call).
+        threading.Thread(target=_group_license_agent, args=(sub.id, publisher), daemon=True).start()
+        flash(f"{publisher}: terms agreed — drafting the blanket sync license (refresh in ~30–60s).", "success")
         return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
 
     # --- Otherwise send the drafted reply and wait for the next round ---
@@ -2831,6 +2893,32 @@ def track_pub_groups_approve_send(token):
           else "Drafted, but Resend isn't configured — copy the reply and send it manually.",
           "success" if sent else "warning")
     return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+
+
+@app.route("/track/<token>/pub-groups/gen-license", methods=["POST"])
+def track_pub_groups_gen_license(token):
+    """Manually (re)generate the blanket sync license for a publisher group."""
+    sub = _sub(token)
+    publisher = request.form.get("publisher", "").strip()
+    groups = sub.publisher_clearances
+    if publisher not in groups:
+        return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+    threading.Thread(target=_group_license_agent, args=(sub.id, publisher), daemon=True).start()
+    flash(f"Drafting the blanket sync license for {publisher} — refresh in ~30–60 seconds.", "info")
+    return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+
+
+@app.route("/track/<token>/pub-groups/license.txt")
+def track_pub_groups_license_download(token):
+    """Download a publisher group's blanket sync license as plain text."""
+    from flask import Response
+    sub = _sub(token)
+    publisher = request.args.get("publisher", "").strip()
+    g = (sub.publisher_clearances or {}).get(publisher) or {}
+    doc = g.get("license_draft") or ""
+    fname = (f"{publisher} - Blanket Sync License.txt").replace("/", "-")
+    return Response(doc, mimetype="text/plain",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 @app.route("/track/<token>/songs/<int:idx>/deal-terms", methods=["POST"])
