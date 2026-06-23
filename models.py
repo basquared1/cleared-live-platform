@@ -641,6 +641,46 @@ class Invite(db.Model):
         return self.used_at is not None
 
 
+class Template(db.Model):
+    """Firm-approved agreement template (folded in from Production Legal Binder).
+    The AI drafter uses the matching template (by doc_type == clearance item key) as the
+    structural basis for a generated agreement."""
+    __tablename__ = "templates"
+    id          = db.Column(db.Integer, primary_key=True)
+    doc_type    = db.Column(db.String(100), unique=True, nullable=False)
+    name        = db.Column(db.String(300), nullable=False)
+    description = db.Column(db.Text)
+    content     = db.Column(db.Text)
+    is_active   = db.Column(db.Boolean, default=True)
+    times_used  = db.Column(db.Integer, default=0)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DealTerm(db.Model):
+    """A single negotiable clause on a clearance item's deal (folded in from PLB's
+    DealTerm board). Tracks our position vs. theirs vs. the agreed value, per clause."""
+    __tablename__ = "deal_terms_board"
+    id                = db.Column(db.Integer, primary_key=True)
+    clearance_item_id = db.Column(db.Integer, db.ForeignKey("clearance_items.id"), nullable=False)
+    label             = db.Column(db.String(200), nullable=False)   # e.g. "Fee", "Term", "Territory"
+    our_position      = db.Column(db.Text)
+    their_position    = db.Column(db.Text)
+    agreed            = db.Column(db.Text)
+    status            = db.Column(db.String(20), default="open")    # open | agreed | deadlocked
+    sort_order        = db.Column(db.Integer, default=0)
+    created_at        = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at        = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    item = db.relationship("ClearanceItem", backref=db.backref("deal_board", lazy=True,
+                                                               cascade="all, delete-orphan",
+                                                               order_by="DealTerm.sort_order"))
+
+    @property
+    def status_color(self):
+        return {"open": "warning", "agreed": "success", "deadlocked": "danger"}.get(self.status, "secondary")
+
+
 class ClearanceGuideline(db.Model):
     """One set of clearance guidelines per platform per project type."""
     __tablename__ = "clearance_guidelines"
