@@ -994,7 +994,9 @@ def _run_negotiation(sub, item):
         f"RIGHTS HOLDER: {item.party_name or '[unknown]'} ({item.party_company or ''}) <{item.party_email or 'no email'}>\n\n"
         f"PROJECT:\n{_sub_context(sub)}\n\n"
         f"DEAL TERMS WE ARE SEEKING:\n{deal_str}\n\n"
-        f"PLATFORM NEGOTIATION POSITIONS (primary first, then fallbacks):\n{_fmt_negotiation_positions(positions)}\n"
+        + (f"DEAL POINTS ALREADY AGREED (do not reopen these):\n{_agreed_points_block(_item_deal_points(item))}\n\n"
+           if _agreed_points_block(_item_deal_points(item)) else "")
+        + f"PLATFORM NEGOTIATION POSITIONS (primary first, then fallbacks):\n{_fmt_negotiation_positions(positions)}\n"
         + _guideline_block(sub) + "\n"
         f"NEGOTIATION THREAD SO FAR (oldest first):\n{thread_str}\n\n"
         "Analyze the rights holder's most recent message and decide the next move. "
@@ -1198,6 +1200,8 @@ _MUSIC_SCOPE_ENDPOINTS = {
     "track_pub_groups_response", "track_pub_groups_record_reply",
     "track_pub_groups_regenerate", "track_pub_groups_approve_send",
     "track_pub_groups_gen_license", "track_pub_groups_license_download",
+    "track_pub_groups_deal_points", "track_pub_groups_point_counter",
+    "track_item_deal_points", "track_item_point_counter",
     "track_item_start", "track_item_upload", "track_item_submit_review",
     "track_item_gen_draft", "track_item_save_outreach", "track_item_save_draft",
     "track_item_set_contact", "track_item_ai_suggest_contact", "track_item_ai_fill_vars",
@@ -2493,7 +2497,9 @@ def _mfn_ledger(sub):
     for name, g in (sub.publisher_clearances or {}).items():
         dt = (g.get("deal_terms") or sub.deal_terms or {})
         n = max(1, len(g.get("songs", [])))
-        fee = _num(dt.get("fee"))
+        fee = _agreed_fee(_group_deal_points(sub, g))
+        if fee is None:
+            fee = _num(dt.get("fee"))
         ft = (dt.get("fee_type") or "").lower()
         per_song = fee if ("item" in ft or "song" in ft) else (fee / n if fee is not None else None)
         deals.append({
@@ -2506,9 +2512,12 @@ def _mfn_ledger(sub):
     for it in sub.clearance_items:
         if is_music_item(it.item_key) and "master" in (it.item_key or ""):
             dt = it.deal_terms or {}
+            mfee = _agreed_fee(_item_deal_points(it))
+            if mfee is None:
+                mfee = _num(dt.get("fee"))
             deals.append({
                 "label": it.item_label, "kind": "master", "mfn": bool(dt.get("mfn")),
-                "fee": _num(dt.get("fee")), "per_song": None, "fee_type": dt.get("fee_type"),
+                "fee": mfee, "per_song": None, "fee_type": dt.get("fee_type"),
                 "territory": dt.get("territory"), "term": dt.get("term"),
                 "status": it.status, "songs": None,
             })
@@ -2553,6 +2562,120 @@ def _mfn_block(sub):
         "without flagging it — any better term granted here must be matched to every other MFN-tagged rights "
         "holder. If they demand above-benchmark terms, recommend escalate_to_ba rather than silently conceding.")
     return "\n".join(parts)
+
+
+# ── Structured deal points (PLB-style our/their/agreed grid), unified across deal types ──
+_DEAL_POINT_SETS = {
+    "publishing": ["License Fee", "Territory", "Term", "Media / Permitted Uses",
+                   "Most Favored Nations", "Cue Sheet Deadline", "Credit"],
+    "master":     ["License Fee", "Territory", "Term", "Media / Permitted Uses",
+                   "Most Favored Nations", "Re-use / New Use Fees", "Credit"],
+    "generic":    ["Fee", "Territory", "Term", "Media / Permitted Uses",
+                   "Credit", "Most Favored Nations", "Indemnity"],
+}
+
+
+def _deal_type_for_item(item_key):
+    if is_music_item(item_key) and "master" in (item_key or ""):
+        return "master"
+    if is_music_item(item_key):
+        return "publishing"
+    return "generic"
+
+
+def _seed_deal_points(deal_type, terms=None):
+    """Fresh deal-points list for a deal type, pre-filling 'our' position from any
+    existing structured deal terms (fee/territory/term/media/MFN)."""
+    terms = terms or {}
+    labels = _DEAL_POINT_SETS.get(deal_type, _DEAL_POINT_SETS["generic"])
+    fee, ft = terms.get("fee"), (terms.get("fee_type") or "").strip()
+    fee_str = (f"${fee} {ft}".strip() if fee not in (None, "") else "")
+    our_for = {
+        "License Fee": fee_str, "Fee": fee_str,
+        "Territory": terms.get("territory") or "",
+        "Term": terms.get("term") or "",
+        "Media / Permitted Uses": ", ".join(terms.get("media_rights") or []),
+        "Most Favored Nations": ("Requested" if terms.get("mfn") else ""),
+    }
+    return [{"label": l, "our": our_for.get(l, ""), "their": "", "agreed": "", "status": "open"}
+            for l in labels]
+
+
+def _item_deal_points(item):
+    """Deal points for a clearance item, lazily seeded from its deal terms."""
+    return item.deal_points or _seed_deal_points(_deal_type_for_item(item.item_key), item.deal_terms)
+
+
+def _group_deal_points(sub, group):
+    """Deal points for a publisher group, lazily seeded from its/the bulk deal terms."""
+    return (group.get("deal_points")
+            or _seed_deal_points("publishing", group.get("deal_terms") or sub.deal_terms or {}))
+
+
+def _agreed_points_block(points):
+    """Render the agreed deal points for a prompt. Empty string if none agreed."""
+    agreed = [p for p in (points or []) if (p.get("agreed") or "").strip()]
+    return "\n".join(f"  - {p['label']}: {p['agreed']}" for p in agreed)
+
+
+def _agreed_fee(points):
+    """Numeric agreed fee parsed from the deal points' 'License Fee'/'Fee' row, or None."""
+    for p in (points or []):
+        if p.get("label") in ("License Fee", "Fee") and (p.get("agreed") or "").strip():
+            m = re.search(r"[\d,]+(?:\.\d+)?", p["agreed"].replace(",", ""))
+            if m:
+                return _num(m.group(0))
+    return None
+
+
+def _parse_points_form(form):
+    """Parse the parallel label[]/our[]/their[]/agreed[]/status[] arrays from a grid save."""
+    labels = form.getlist("label"); our = form.getlist("our"); their = form.getlist("their")
+    agreed = form.getlist("agreed"); status = form.getlist("status")
+    pts = []
+    for i, l in enumerate(labels):
+        if not (l or "").strip():
+            continue
+        g = lambda arr: (arr[i] if i < len(arr) else "").strip()
+        pts.append({"label": l.strip(), "our": g(our), "their": g(their),
+                    "agreed": g(agreed), "status": g(status) or "open"})
+    return pts
+
+
+def _suggest_point_counter(sub, deal_label, point, all_points):
+    """AI counter-position for one deal point, using already-agreed sibling terms as
+    leverage (the PLB pattern). Returns {counter, rationale, raw} or None."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return None
+    agreed_context = _agreed_points_block(all_points) or "None agreed yet."
+    prompt = (
+        "You are a senior entertainment business-affairs attorney advising the producer on a rights deal.\n\n"
+        f"Deal: {deal_label}\nProject: {sub.title} ({sub.project_type_label})\n\n"
+        f"Term being negotiated: {point.get('label')}\n"
+        f"Our current position: {point.get('our') or '(not set)'}\n"
+        f"Their position: {point.get('their') or '(not set)'}\n\n"
+        f"Other terms already agreed in this deal:\n{agreed_context}\n\n"
+        "Suggest a specific counter-position that advances our interests, is commercially reasonable and likely "
+        "to close, accounts for market norms, and uses leverage from the already-agreed terms.\n"
+        "Respond with ONLY:\n- COUNTER: [one clear sentence or figure]\n- RATIONALE: [1-2 sentences]"
+    )
+    raw = call_claude("You are a senior entertainment business-affairs attorney.", prompt, max_tokens=400)
+    if not raw:
+        return None
+    counter = rationale = ""
+    for line in raw.splitlines():
+        s = line.strip()
+        if s.startswith("COUNTER:"):
+            counter = s.split("COUNTER:", 1)[1].strip()
+        elif s.startswith("RATIONALE:"):
+            rationale = s.split("RATIONALE:", 1)[1].strip()
+    return {"counter": counter, "rationale": rationale, "raw": raw}
+
+
+app.jinja_env.globals.update(
+    deal_points_for_item=_item_deal_points,
+    deal_points_for_group=_group_deal_points,
+)
 
 
 def _parse_neg_json(raw):
@@ -2603,8 +2726,10 @@ def _run_group_negotiation(sub, group, publisher):
         f"PROJECT:\n{_sub_context(sub)}\n\n"
         f"THIS PUBLISHER'S SONGS IN THE PROJECT ({len(songs)}), covered by ONE blanket license:\n{song_str}\n\n"
         f"DEAL TERMS WE ARE OFFERING:\n{offer_lines}\n\n"
-        f"PLATFORM NEGOTIATION POSITIONS (primary first, then fallbacks):\n"
-        f"{_fmt_negotiation_positions(positions)}\n"
+        + (f"DEAL POINTS ALREADY AGREED (do not reopen these):\n{_agreed_points_block(_group_deal_points(sub, group))}\n\n"
+           if _agreed_points_block(_group_deal_points(sub, group)) else "")
+        + f"PLATFORM NEGOTIATION POSITIONS (primary first, then fallbacks):\n"
+        + f"{_fmt_negotiation_positions(positions)}\n"
         + _mfn_block(sub) + "\n"
         + _guideline_block(sub) + "\n"
         f"NEGOTIATION THREAD SO FAR (oldest first):\n{thread_str}\n\n"
@@ -3000,6 +3125,72 @@ def track_pub_groups_license_download(token):
     fname = (f"{publisher} - Blanket Sync License.txt").replace("/", "-")
     return Response(doc, mimetype="text/plain",
                     headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+# ── Structured deal-points grid (our / their / agreed) — works for items AND groups ──
+@app.route("/track/<token>/item/<int:item_id>/deal-points", methods=["POST"])
+def track_item_deal_points(token, item_id):
+    sub = _sub(token)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    item.deal_points_save(_parse_points_form(request.form))
+    db.session.commit()
+    flash("Deal points saved.", "success")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
+
+
+@app.route("/track/<token>/item/<int:item_id>/point-counter", methods=["POST"])
+def track_item_point_counter(token, item_id):
+    from flask import jsonify
+    sub = _sub(token)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    pts = _item_deal_points(item)
+    try:
+        idx = int(request.form.get("idx", -1))
+    except (TypeError, ValueError):
+        idx = -1
+    if not (0 <= idx < len(pts)):
+        return jsonify({"error": "Bad point index"}), 400
+    res = _suggest_point_counter(sub, item.item_label, pts[idx], pts)
+    if not res:
+        return jsonify({"error": "AI unavailable"}), 503
+    return jsonify(res)
+
+
+@app.route("/track/<token>/pub-groups/deal-points", methods=["POST"])
+def track_pub_groups_deal_points(token):
+    sub = _sub(token)
+    publisher = request.form.get("publisher", "").strip()
+    groups = sub.publisher_clearances
+    if publisher not in groups:
+        return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+    groups[publisher]["deal_points"] = _parse_points_form(request.form)
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    flash("Deal points saved.", "success")
+    return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+
+
+@app.route("/track/<token>/pub-groups/point-counter", methods=["POST"])
+def track_pub_groups_point_counter(token):
+    from flask import jsonify
+    sub = _sub(token)
+    publisher = request.form.get("publisher", "").strip()
+    g = (sub.publisher_clearances or {}).get(publisher) or {}
+    pts = _group_deal_points(sub, g)
+    try:
+        idx = int(request.form.get("idx", -1))
+    except (TypeError, ValueError):
+        idx = -1
+    if not (0 <= idx < len(pts)):
+        return jsonify({"error": "Bad point index"}), 400
+    res = _suggest_point_counter(sub, f"Sync license — {publisher}", pts[idx], pts)
+    if not res:
+        return jsonify({"error": "AI unavailable"}), 503
+    return jsonify(res)
 
 
 @app.route("/track/<token>/songs/<int:idx>/deal-terms", methods=["POST"])
@@ -4681,6 +4872,7 @@ def migrate_db_cmd():
         ("docusign_status",      "VARCHAR(50)"),
         ("party_email",          "VARCHAR(200)"),
         ("party_company",        "VARCHAR(200)"),
+        ("deal_points_json",     "TEXT"),
     ]
     with db.engine.connect() as conn:
         for col_name, col_type in item_cols:

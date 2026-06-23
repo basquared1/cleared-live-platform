@@ -483,6 +483,7 @@ class ClearanceItem(db.Model):
     ai_recommendation_json = db.Column(db.Text)   # JSON dict — AI's latest move
 
     deal_terms_json = db.Column(db.Text)
+    deal_points_json = db.Column(db.Text)   # JSON list — structured deal points (our/their/agreed grid)
 
     documents = db.relationship("SubmissionDocument", backref="clearance_item", lazy=True)
 
@@ -494,6 +495,19 @@ class ClearanceItem(db.Model):
     def deal_terms_save(self, terms_dict):
         import json
         self.deal_terms_json = json.dumps(terms_dict)
+
+    @property
+    def deal_points(self):
+        """Structured negotiable points: list of {label, our, their, agreed, status}."""
+        import json
+        try:
+            return json.loads(self.deal_points_json or "[]")
+        except Exception:
+            return []
+
+    def deal_points_save(self, points):
+        import json
+        self.deal_points_json = json.dumps(points)
 
     @property
     def negotiation_log(self):

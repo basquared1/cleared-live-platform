@@ -1,0 +1,52 @@
+{# Reusable deal-points grid (our / their / agreed) — used by clearance items and publisher groups.
+   save_url: POST endpoint that saves the whole grid.  counter_url: POST endpoint for AI counter.
+   hidden: dict of extra hidden fields (e.g. {'publisher': name}).  gid: unique id suffix. #}
+{% macro deal_points_grid(points, save_url, counter_url, hidden={}, gid='') %}
+{% set agreed_n = points | selectattr('agreed') | select | list | length %}
+<div class="mt-2">
+  <button class="btn btn-link btn-sm p-0 text-decoration-none text-navy" type="button"
+          data-bs-toggle="collapse" data-bs-target="#dp-{{ gid }}">
+    <i class="bi bi-table me-1"></i>Deal Points
+    <span class="badge bg-light text-dark border ms-1">{{ agreed_n }} agreed · {{ points|length }} terms</span>
+    <i class="bi bi-chevron-down ms-1"></i>
+  </button>
+  <div class="collapse mt-2" id="dp-{{ gid }}">
+    <form method="POST" action="{{ save_url }}">
+      {% for k, v in hidden.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-2" style="font-size:.76rem;">
+          <thead class="text-muted">
+            <tr><th style="min-width:120px;">Term</th><th>Our position</th><th>Their position</th><th>Agreed</th><th style="width:110px;">Status</th><th style="width:34px;"></th></tr>
+          </thead>
+          <tbody id="dp-body-{{ gid }}">
+            {% for p in points %}
+            <tr>
+              <td><input type="text" name="label" class="form-control form-control-sm" value="{{ p.label }}"></td>
+              <td><input type="text" name="our" class="form-control form-control-sm dp-our" value="{{ p.our }}"></td>
+              <td><input type="text" name="their" class="form-control form-control-sm" value="{{ p.their }}"></td>
+              <td><input type="text" name="agreed" class="form-control form-control-sm" value="{{ p.agreed }}"></td>
+              <td>
+                <select name="status" class="form-select form-select-sm">
+                  <option value="open"       {% if p.status == 'open' %}selected{% endif %}>Open</option>
+                  <option value="agreed"     {% if p.status == 'agreed' %}selected{% endif %}>Agreed</option>
+                  <option value="deadlocked" {% if p.status == 'deadlocked' %}selected{% endif %}>Deadlocked</option>
+                </select>
+              </td>
+              <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-primary dp-ai px-1 py-0"
+                        data-url="{{ counter_url }}" data-idx="{{ loop.index0 }}"
+                        {% for k, v in hidden.items() %}data-{{ k }}="{{ v }}"{% endfor %}
+                        title="AI counter-position"><i class="bi bi-stars"></i></button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-floppy me-1"></i>Save deal points</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="dpAddRow('dp-body-{{ gid }}')"><i class="bi bi-plus me-1"></i>Add term</button>
+      <span class="text-muted small ms-2">Agreed terms feed the AI negotiation, the MFN watch, and the drafted agreement.</span>
+    </form>
+  </div>
+</div>
+{% endmacro %}

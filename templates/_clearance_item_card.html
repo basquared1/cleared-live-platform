@@ -1,3 +1,4 @@
+    {% from "_deal_points.html" import deal_points_grid %}
     <div class="card border-0 shadow-sm mb-3
       {% if item.status == 'cleared' %}border-start border-success border-3
       {% elif item.status == 'under_review' %}border-start border-primary border-3
@@ -430,6 +431,12 @@
               </form>
             </div>
           </div>
+
+          <!-- Deal Points (our / their / agreed) -->
+          {{ deal_points_grid(deal_points_for_item(item),
+                url_for('track_item_deal_points', token=access_token, item_id=item.id),
+                url_for('track_item_point_counter', token=access_token, item_id=item.id),
+                {}, 'item' ~ item.id) }}
 
           <!-- Send for Clearance CTA -->
           {% if item.ai_outreach_sent_at %}
