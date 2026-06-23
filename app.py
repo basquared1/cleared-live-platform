@@ -1248,6 +1248,27 @@ def _sub(token):
     return Submission.query.filter_by(token=token).first_or_404()
 
 
+def _submitter_redirect(token, anchor="", music_only=False):
+    """Redirect back to whichever submitter page the POST came from.
+
+    After the music split, Songs & Publishing, the publisher groups, and the
+    music clearance items live on the dedicated /track/<token>/music page — so
+    actions there must return there, not bounce to the main workspace.
+      - delegate (music-scope token): only has the root view → 'track'
+      - music_only actions (songs/publishers): primary → 'track_music'
+      - otherwise (shared item cards): infer from the referring page so a
+        general item returns to the workspace and a music item to /music
+    """
+    if getattr(g, "scope", "full") == "music":
+        ep = "track"
+    elif music_only:
+        ep = "track_music"
+    else:
+        ref = (request.referrer or "").split("?")[0].split("#")[0].rstrip("/")
+        ep = "track_music" if ref.endswith("/music") else "track"
+    return redirect(url_for(ep, token=token) + anchor)
+
+
 def _render_track(token, view):
     """Render the submitter workspace in one of three views:
       'main'     — primary token, main workspace (general clearances + a compact
@@ -1384,7 +1405,7 @@ def track_save_publishing_notes(token):
     _set_publishing_notes(sub, _get_ba_notes_only(sub), pub)
     db.session.commit()
     flash("Publishing reference saved.", "success")
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1502,7 +1523,7 @@ def track_board_add(token, item_id):
     label = request.form.get("label", "").strip()
     if not label:
         flash("Enter a term name (e.g. Fee, Term, Territory).", "warning")
-        return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+        return _submitter_redirect(token, f"#item-card-{item_id}")
     nxt = (max([t.sort_order for t in item.deal_board], default=0) + 1) if item.deal_board else 1
     db.session.add(DealTerm(
         clearance_item_id=item.id, label=label,
@@ -1510,7 +1531,7 @@ def track_board_add(token, item_id):
         sort_order=nxt,
     ))
     db.session.commit()
-    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
 
 
 @app.route("/track/<token>/item/<int:item_id>/board/<int:term_id>/update", methods=["POST"])
@@ -1524,7 +1545,7 @@ def track_board_update(token, item_id, term_id):
     term.agreed         = request.form.get("agreed", term.agreed)
     term.status         = request.form.get("status", term.status)
     db.session.commit()
-    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
 
 
 @app.route("/track/<token>/item/<int:item_id>/board/<int:term_id>/delete", methods=["POST"])
@@ -1535,7 +1556,7 @@ def track_board_delete(token, item_id, term_id):
         abort(403)
     db.session.delete(term)
     db.session.commit()
-    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
 
 
 @app.route("/track/<token>/item/<int:item_id>/board/<int:term_id>/suggest-counter", methods=["POST"])
@@ -1607,7 +1628,7 @@ def track_item_gen_draft(token, item_id):
     if draft:
         item.ai_draft = draft
         db.session.commit()
-    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
 
 
 @app.route("/track/<token>/item/<int:item_id>/save-outreach", methods=["POST"])
@@ -1619,7 +1640,7 @@ def track_item_save_outreach(token, item_id):
     item.ai_outreach_body = request.form.get("outreach_text", item.ai_outreach_body)
     db.session.commit()
     flash("Outreach email saved.", "success")
-    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
 
 
 @app.route("/track/<token>/item/<int:item_id>/save-draft", methods=["POST"])
@@ -1631,7 +1652,7 @@ def track_item_save_draft(token, item_id):
     item.ai_draft = request.form.get("draft_text", item.ai_draft)
     db.session.commit()
     flash("Draft saved.", "success")
-    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
 
 
 @app.route("/track/<token>/item/<int:item_id>/set-contact", methods=["POST"])
@@ -1645,7 +1666,7 @@ def track_item_set_contact(token, item_id):
     item.party_email   = request.form.get("party_email", "").strip().lower() or None
     db.session.commit()
     flash("Contact saved.", "success")
-    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
 
 
 def _ai_contact_lookup(sub, item, company):
@@ -1797,10 +1818,10 @@ def track_item_send_clearance(token, item_id):
         abort(403)
     if not item.ai_draft:
         flash("Generate the AI draft agreement first.", "danger")
-        return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+        return _submitter_redirect(token, f"#item-card-{item_id}")
     if not item.party_email:
         flash("Add the rights holder email address first.", "danger")
-        return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+        return _submitter_redirect(token, f"#item-card-{item_id}")
     # Deal terms default to the platform BA's primary position when unset, so
     # the submitter never has to re-enter what the platform already mandates.
     dt = _ensure_deal_terms(sub, item)
@@ -1840,11 +1861,11 @@ def track_item_send_clearance(token, item_id):
         item.ai_outreach_sent_at = datetime.utcnow()
         db.session.commit()
         flash("Resend not configured — outreach drafted. Copy and send manually.", "warning")
-    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
 
 
 def _neg_redirect(token, item_id):
-    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
 
 
 @app.route("/track/<token>/item/<int:item_id>/record-reply", methods=["POST"])
@@ -2041,7 +2062,7 @@ def track_item_deal_terms(token, item_id):
     item.deal_terms_save(terms)
     db.session.commit()
     flash("Deal terms saved.", "success")
-    return redirect(url_for("track", token=token) + f"#item-card-{item_id}")
+    return _submitter_redirect(token, f"#item-card-{item_id}")
 
 
 def _ai_fill_songs(sub_id):
@@ -2199,7 +2220,7 @@ def track_ai_fill_songs(token):
     sub = _sub(token)
     _ai_fill_songs(sub.id)   # Phase 1: setlist titles only, synchronous
     # Phase 2 handled client-side via /fill-next-writers batched JSON calls
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 @app.route("/track/<token>/fill-next-writers", methods=["POST"])
@@ -2251,7 +2272,7 @@ def track_song_add(token):
     })
     sub.songs_save(songs)
     db.session.commit()
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 @app.route("/track/<token>/songs/delete/<int:idx>", methods=["POST"])
@@ -2262,7 +2283,7 @@ def track_song_delete(token, idx):
         songs.pop(idx)
         sub.songs_save(songs)
         db.session.commit()
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 @app.route("/track/<token>/songs/update/<int:idx>", methods=["POST"])
@@ -2276,7 +2297,7 @@ def track_song_update(token, idx):
         songs[idx]["status"]        = request.form.get("status", songs[idx].get("status", "pending"))
         sub.songs_save(songs)
         db.session.commit()
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 @app.route("/track/<token>/songs/<int:idx>/writer/add", methods=["POST"])
@@ -2293,7 +2314,7 @@ def track_song_writer_add(token, idx):
         songs[idx].setdefault("writers", []).append(writer)
         sub.songs_save(songs)
         db.session.commit()
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 @app.route("/track/<token>/songs/<int:idx>/writer/<int:widx>/delete", methods=["POST"])
@@ -2307,7 +2328,7 @@ def track_song_writer_delete(token, idx, widx):
             songs[idx]["writers"] = writers
             sub.songs_save(songs)
             db.session.commit()
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 @app.route("/track/<token>/songs/<int:idx>/writer/<int:widx>/update", methods=["POST"])
@@ -2327,14 +2348,14 @@ def track_song_writer_update(token, idx, widx):
             songs[idx]["writers"] = writers
             sub.songs_save(songs)
             db.session.commit()
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 @app.route("/track/<token>/songs/<int:idx>/ai-fill-writers", methods=["POST"])
 def track_song_ai_fill_writers(token, idx):
     sub = _sub(token)
     _ai_fill_song_writers(sub.id, idx)
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 @app.route("/track/<token>/pub-groups/generate", methods=["POST"])
@@ -2354,7 +2375,7 @@ def track_pub_groups_generate(token):
         g["status"]           = saved.get("status", "pending")
     sub.publisher_clearances_save(groups)
     db.session.commit()
-    return redirect(url_for("track", token=token) + "#pub-clearance-section")
+    return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
 
 
 @app.route("/track/<token>/pub-groups/contact", methods=["POST"])
@@ -2527,7 +2548,7 @@ def track_pub_groups_response(token):
     publisher = request.form.get("publisher", "").strip()
     groups = sub.publisher_clearances
     if publisher not in groups:
-        return redirect(url_for("track", token=token) + "#pub-clearance-section")
+        return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
     from datetime import datetime as _dt
     groups[publisher]["rh_response"]        = request.form.get("rh_response", "")
     groups[publisher]["rh_response_notes"]  = request.form.get("rh_response_notes", "")
@@ -2542,7 +2563,7 @@ def track_pub_groups_response(token):
     if resp == "accepted":
         _maybe_advance_publishing_item(sub)
     db.session.commit()
-    return redirect(url_for("track", token=token) + "#pub-clearance-section")
+    return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
 
 
 @app.route("/track/<token>/songs/<int:idx>/deal-terms", methods=["POST"])
@@ -2562,7 +2583,7 @@ def track_song_deal_terms(token, idx):
         }
         sub.songs_save(songs)
         db.session.commit()
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 @app.route("/track/<token>/songs/bulk-deal-terms", methods=["POST"])
@@ -2586,7 +2607,7 @@ def track_song_bulk_deal_terms(token):
         sub.songs_save(songs)
     db.session.commit()
     flash("Bulk deal terms saved.", "success")
-    return redirect(url_for("track", token=token) + "#songs-section")
+    return _submitter_redirect(token, "#songs-section", music_only=True)
 
 
 # ---------------------------------------------------------------------------
