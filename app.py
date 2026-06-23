@@ -1279,6 +1279,62 @@ def track_item_upload(token, item_id):
     return redirect(url_for("track", token=token))
 
 
+@app.route("/track/<token>/item/<int:item_id>/agreement.docx")
+def track_item_agreement_docx(token, item_id):
+    """Download the item's AI-drafted agreement as a Word .docx (folded in from PLB)."""
+    sub  = _sub(token)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    draft_text = item.ai_draft or f"[AI draft pending for {item.item_label}]"
+    doc_bytes  = build_docx(_DocxProxy(title=item.item_label, content=draft_text))
+    safe = re.sub(r"[^A-Za-z0-9]+", "-", item.item_label).strip("-").lower() or "agreement"
+    return send_file(
+        io.BytesIO(doc_bytes),
+        as_attachment=True,
+        download_name=f"{safe}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@app.route("/track/<token>/item/<int:item_id>/sign-onsite", methods=["GET", "POST"])
+def track_item_sign_onsite(token, item_id):
+    """On-site signing (folded in from PLB): capture a canvas signature + printed name,
+    store it as a signed document, and send the item for review — no DocuSign needed."""
+    sub  = _sub(token)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    if request.method == "POST":
+        printed_name = request.form.get("printed_name", "").strip()
+        sig_data     = request.form.get("signature_data", "")
+        if not printed_name or not sig_data.startswith("data:image"):
+            flash("Please print your name and draw your signature.", "warning")
+            return redirect(url_for("track_item_sign_onsite", token=token, item_id=item.id))
+        try:
+            png = base64.b64decode(sig_data.split(",", 1)[1])
+        except Exception:
+            flash("Signature could not be read. Please try again.", "danger")
+            return redirect(url_for("track_item_sign_onsite", token=token, item_id=item.id))
+        db.session.add(SubmissionDocument(
+            submission_id     = sub.id,
+            clearance_item_id = item.id,
+            title             = f"On-site signature — {item.item_label}",
+            doc_type          = "onsite_signature",
+            filename          = "signature.png",
+            file_data         = png,
+            mimetype          = "image/png",
+            notes             = f"Signed on-site by {printed_name}",
+            uploaded_by       = printed_name,
+        ))
+        item.docusign_status = "signed_onsite"
+        item.status          = "under_review"
+        db.session.commit()
+        flash(f"Signed on-site by {printed_name}. Sent for review.", "success")
+        return redirect(url_for("track", token=token))
+    return render_template("sign_onsite.html", sub=sub, item=item)
+
+
 @app.route("/track/<token>/item/<int:item_id>/submit-review", methods=["POST"])
 def track_item_submit_review(token, item_id):
     sub  = _sub(token)
@@ -2900,6 +2956,7 @@ def admin_new_platform():
             ba_contact_email= request.form.get("ba_contact_email", "").strip(),
             webhook_url     = request.form.get("webhook_url", "").strip() or None,
             tier            = request.form.get("tier", "standard"),
+            platform_mode   = request.form.get("platform_mode", "clearance"),
             primary_color   = request.form.get("primary_color", "#0d3b6e").strip(),
             accepted_types  = ",".join(request.form.getlist("accepted_types")) or "live_music",
         )
@@ -2939,6 +2996,7 @@ def admin_edit_platform(platform_id):
         p.ba_contact_email = request.form.get("ba_contact_email", "").strip() or None
         p.webhook_url    = request.form.get("webhook_url", "").strip() or None
         p.tier           = request.form.get("tier", p.tier)
+        p.platform_mode  = request.form.get("platform_mode", p.platform_mode or "clearance")
         p.accepted_types = ",".join(request.form.getlist("accepted_types")) or p.accepted_types
         p.is_active      = bool(request.form.get("is_active"))
         db.session.commit()

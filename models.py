@@ -21,6 +21,12 @@ PROJECT_TYPE_LABELS = {
     "podcast":     "Podcast / Audio",
     "social":      "Social Media Campaign",
     "ugc":         "User-Generated Content",
+    # Production-legal intakes (folded in from Production Legal Binder) — these spin up
+    # the full production-legal document package (crew, talent, releases, E&O, chain of title)
+    # alongside rights clearance, so the platform is the system of record for the whole project.
+    "feature_film": "Feature Film (Narrative)",
+    "tv_series":    "TV / Streaming Series",
+    "branded":      "Commercial / Branded Content",
 }
 
 CLEARANCE_TEMPLATES = {
@@ -87,6 +93,43 @@ CLEARANCE_TEMPLATES = {
         {"key": "music_license",      "label": "Music License",             "priority": 2},
         {"key": "appearance_consent", "label": "Appearance Consent",        "priority": 3},
         {"key": "platform_terms",     "label": "Platform Terms Compliance", "priority": 4},
+    ],
+    # ── Production-legal packages folded in from Production Legal Binder (PLB) ──
+    # Each item is an agreement the platform's system of record can AI-draft, route for
+    # signature (DocuSign or on-site), and track to delivery — combining production paperwork
+    # with rights clearance in one workspace.
+    "feature_film": [
+        {"key": "option_purchase_agreement", "label": "Option / Purchase Agreement",        "priority": 1},
+        {"key": "writer_agreement",          "label": "Writer Agreement (WGA-compliant)",   "priority": 2},
+        {"key": "director_agreement",        "label": "Director Agreement (DGA-compliant)",  "priority": 3},
+        {"key": "talent_agreement",          "label": "Talent Agreements",                   "priority": 4},
+        {"key": "crew_deal_memo",            "label": "Crew Deal Memos",                     "priority": 5},
+        {"key": "location_release",          "label": "Location Releases",                   "priority": 6},
+        {"key": "appearance_release",        "label": "Appearance / Extra Releases",         "priority": 7},
+        {"key": "music_clearance",           "label": "Music Clearance (Sync + Master)",     "priority": 8},
+        {"key": "chain_of_title",            "label": "Chain of Title",                      "priority": 9},
+        {"key": "eo_schedule",               "label": "E&O Insurance Schedule",              "priority": 10},
+    ],
+    "tv_series": [
+        {"key": "series_talent_agreement", "label": "Series Talent Agreements",          "priority": 1},
+        {"key": "ep_agreement",            "label": "Executive Producer Agreements",      "priority": 2},
+        {"key": "writer_agreement",        "label": "Writer Agreements (WGA-compliant)",  "priority": 3},
+        {"key": "director_agreement",      "label": "Director Agreements (DGA-compliant)", "priority": 4},
+        {"key": "crew_deal_memo",          "label": "Crew Deal Memos",                    "priority": 5},
+        {"key": "location_release",        "label": "Location Releases",                  "priority": 6},
+        {"key": "appearance_release",      "label": "Appearance / Guest Releases",        "priority": 7},
+        {"key": "music_clearance",         "label": "Music Clearance (Sync + Master)",    "priority": 8},
+        {"key": "chain_of_title",          "label": "Chain of Title",                     "priority": 9},
+        {"key": "eo_schedule",             "label": "E&O Insurance Schedule",             "priority": 10},
+    ],
+    "branded": [
+        {"key": "crew_deal_memo",     "label": "Crew Deal Memos",              "priority": 1},
+        {"key": "talent_agreement",   "label": "Talent / Performer Agreements", "priority": 2},
+        {"key": "appearance_release", "label": "Appearance Releases",          "priority": 3},
+        {"key": "location_release",   "label": "Location Releases",            "priority": 4},
+        {"key": "music_license",      "label": "Music License",                "priority": 5},
+        {"key": "brand_clearance",    "label": "Brand / Trademark Clearance",  "priority": 6},
+        {"key": "eo_documentation",   "label": "E&O Insurance Documentation",  "priority": 7},
     ],
 }
 
