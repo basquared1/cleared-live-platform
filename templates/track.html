@@ -1182,26 +1182,30 @@ const KNOWN_VARS = {
   'RECORD LABEL':           '{{ sub.label or "" }}',
   'SUBMITTER':              '{{ sub.submitter_name or "" }}',
   'CONTACT NAME':           '{{ sub.submitter_name or "" }}',
+  // Standard day-count defaults (notice / cure / cue-sheet periods)
+  'NUMBER':                 '5',
+  'DAYS':                   '5',
+  'NUMBER OF DAYS':         '5',
+  'NOTICE PERIOD':          '5',
+  'CURE PERIOD':            '5',
+  'CUE SHEET DAYS':         '{{ sub.deal_terms.cue_sheet_days or 30 }}',
 };
 
 // Cross-item variable cache — filled values shared across all agreements on this page
 const FILLED_VARS = {};
 
 function getItemVars(itemId) {
-  // Per-item known vars from contact info
-  var company = document.getElementById('party-company-' + itemId);
-  var name    = document.getElementById('party-name-' + itemId);
-  var email   = document.getElementById('party-email-' + itemId);
+  // Per-item known vars. Rights holder falls back to the item's known default
+  // (e.g. the record label for a master license) when no contact is set yet.
+  var company = document.getElementById('company-input-' + itemId);
+  var rh = (company && ((company.value || '').trim() || company.getAttribute('data-rh-default'))) || '';
   return {
-    'RIGHTS HOLDER':              (company && company.value) || '',
-    'RIGHTS HOLDER NAME':         (company && company.value) || '',
-    'RIGHTS HOLDER LEGAL NAME':   (company && company.value) || '',
-    'LICENSOR':                   (company && company.value) || '',
-    'PROMOTER':                   (company && company.value) || '',
-    'VENUE OWNER':                (company && company.value) || '',
-    'LICENSEE':                   (company && company.value) || '',
-    'CONTACT':                    (name && name.value) || '',
-    'EMAIL':                      (email && email.value) || '',
+    'RIGHTS HOLDER':              rh,
+    'RIGHTS HOLDER NAME':         rh,
+    'RIGHTS HOLDER LEGAL NAME':   rh,
+    'LICENSOR':                   rh,
+    'PROMOTER':                   rh,
+    'VENUE OWNER':                rh,
   };
 }
 

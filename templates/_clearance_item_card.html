@@ -84,7 +84,9 @@
               <div style="flex:1;min-width:160px;">
                 <label class="form-label small fw-semibold mb-1">Company</label>
                 <input type="text" id="company-input-{{ item.id }}" class="form-control form-control-sm"
-                       value="{{ item.party_company or '' }}" placeholder="e.g. Live Nation, ASCAP, Kobalt">
+                       value="{{ item.party_company or '' }}"
+                       data-rh-default="{{ item_rights_holder(sub, item) }}"
+                       placeholder="{{ item_rights_holder(sub, item) or 'e.g. Live Nation, ASCAP, Kobalt' }}">
               </div>
               <button type="button" class="btn btn-sm btn-warning fw-semibold"
                       onclick="aiSuggestContact({{ item.id }}, '{{ url_for('track_item_ai_suggest_contact', token=access_token, item_id=item.id) }}')">

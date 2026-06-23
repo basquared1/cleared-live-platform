@@ -418,6 +418,17 @@ def _guideline_block(sub):
     )
 
 
+def _item_rights_holder(sub, item):
+    """Best-known rights holder for a clearance item — the counterparty if set,
+    otherwise the record label for master/label items (the label controls the master)."""
+    if item.party_company or item.party_name:
+        return item.party_company or item.party_name
+    key = (item.item_key or "")
+    if ("master" in key or "label" in key) and (sub.label or "").strip():
+        return sub.label.strip()
+    return ""
+
+
 def _build_clearance_doc_user_prompt(sub, item):
     is_label_waiver = (sub.platform.platform_mode == "label_waiver")
 
@@ -441,6 +452,19 @@ def _build_clearance_doc_user_prompt(sub, item):
             + _guideline_block(sub)
         )
 
+    rh = _item_rights_holder(sub, item)
+    agreed_block = _agreed_points_block(_item_deal_points(item))
+    afee = _agreed_fee(_item_deal_points(item))
+    dtt = item.deal_terms or {}
+    cue_days = dtt.get("cue_sheet_days") or 30
+    if afee is not None:
+        fee_line = f"LICENSE FEE: ${afee:,.0f} (agreed) — insert this exact figure.\n"
+    elif dtt.get("fee"):
+        fee_line = (f"LICENSE FEE: ${dtt.get('fee')} (proposed, not yet agreed) — use it but note it is "
+                    "subject to final agreement.\n")
+    else:
+        fee_line = ("LICENSE FEE: not yet agreed — the fee is set after negotiation, so leave a single [FEE] "
+                    "placeholder and do NOT invent a number.\n")
     return (
         f"Draft a professional {item.item_label} for the following project.\n\n"
         f"CONTRACTING PARTY (Producer/Submitter): {sub.submitter_company or sub.submitter_name}. "
@@ -449,10 +473,17 @@ def _build_clearance_doc_user_prompt(sub, item):
         f"and the Producer/Submitter does NOT act 'on behalf of' {sub.platform.name}.\n\n"
         f"PROJECT DETAILS:\n{_sub_context(sub)}\n\n"
         f"CLEARANCE ITEM: {item.item_label}\n"
-        + (f"Rights Holder / Counterparty: {item.party_name}\n" if item.party_name else "Rights Holder / Counterparty: [RIGHTS HOLDER]\n")
+        + (f"LICENSOR / RIGHTS HOLDER: {rh}\n" if rh else "LICENSOR / RIGHTS HOLDER: [RIGHTS HOLDER]\n")
+        + (f"AGREED / PROPOSED DEAL TERMS (use these real values verbatim — do not bracket them):\n{agreed_block}\n"
+           if agreed_block else "")
+        + fee_line
+        + f"STANDARD PERIODS: use 5 business days for any notice or cure period, and {cue_days} days for "
+          f"cue-sheet delivery, unless a deal term says otherwise.\n"
         + _guideline_block(sub)
         + _template_block(item)
-        + f"\nDraft the complete agreement now."
+        + "\nUse the real values above wherever possible. Only bracket a value that is genuinely unknown — "
+          "e.g. the rights holder's exact legal entity type/state, or the fee if not yet agreed. "
+          "Draft the complete agreement now."
     )
 
 
@@ -1782,6 +1813,12 @@ def track_item_ai_fill_vars(token, item_id):
         return jsonify({}), 200
 
     dt = item.deal_terms
+    rh = _item_rights_holder(sub, item)
+    afee = _agreed_fee(_item_deal_points(item))
+    cue_days = (dt or {}).get("cue_sheet_days") or 30
+    amount_str = (f"${afee:,.0f} (agreed — use exactly)" if afee is not None
+                  else (f"${dt.get('fee')} (proposed, not yet agreed)" if dt.get("fee")
+                        else "not yet agreed"))
     system = (
         "You are a legal document specialist. Fill in contract variable fields with accurate, "
         "specific values based on the project context provided. "
@@ -1790,21 +1827,23 @@ def track_item_ai_fill_vars(token, item_id):
     user = (
         f"Fill in the following contract variables for a {item.item_label} agreement.\n\n"
         f"Project context:\n{_sub_context(sub)}\n\n"
-        f"Rights Holder: {item.party_company or item.party_name or 'Unknown'}\n"
+        f"Rights Holder / Licensor: {rh or 'Unknown'}\n"
         f"Rights Holder Email: {item.party_email or 'Unknown'}\n"
-        f"Deal Terms: fee=${dt.get('fee') or 'TBD'}, fee_type={dt.get('fee_type') or 'TBD'}, "
+        f"Deal Terms: agreed_fee={amount_str}, fee_type={dt.get('fee_type') or 'TBD'}, "
         f"territory={dt.get('territory') or 'Worldwide'}, term={dt.get('term') or 'Perpetuity'}, "
-        f"media_rights={', '.join(dt.get('media_rights') or ['Streaming'])}\n\n"
+        f"media_rights={', '.join(dt.get('media_rights') or ['Streaming'])}, cue_sheet_days={cue_days}\n\n"
         f"Variables to fill (return ONLY these keys in JSON):\n"
         + "\n".join(f"  - {v}" for v in var_names)
-        + "\n\nFor each variable, provide a specific, accurate value. Use the project data above. "
-        f"For STATE: use the state where the event/company is located. "
-        f"For ENTITY TYPE AND STATE: e.g. 'a California limited liability company'. "
-        f"For AMOUNT: use the fee from deal terms or suggest a reasonable market rate. "
-        f"For PAYMENT SCHEDULE: suggest standard terms like 'full upon execution' or '50% upon execution, 50% upon delivery'. "
-        f"For DATE/EFFECTIVE DATE: use the event date or today June 21 2026. "
-        f"For TERM: use the deal terms term. "
-        f"Never leave a value as a bracket placeholder."
+        + "\n\nFor each variable, provide a specific, accurate value from the project data above.\n"
+        f"For RIGHTS HOLDER / LICENSOR: use '{rh or 'the rights holder'}'.\n"
+        f"For AMOUNT / FEE: use the agreed fee ({amount_str}). If it is not yet agreed, return "
+        f"'TBD — pending negotiation' and do NOT invent a market rate (the fee is set after negotiation).\n"
+        f"For any NUMBER of days / NOTICE PERIOD / CURE PERIOD: use 5; for cue-sheet days use {cue_days}.\n"
+        f"For STATE: the state where the rights holder/company is based. "
+        f"For ENTITY TYPE AND STATE: e.g. 'a Delaware limited liability company'. "
+        f"For PAYMENT SCHEDULE: standard terms like 'full upon execution'. "
+        f"For DATE / EFFECTIVE DATE: use the event date.\n"
+        f"Never leave a value as a bracket placeholder unless it is the fee and the fee is not yet agreed."
     )
     raw = call_claude(system, user, max_tokens=600)
     if not raw:
@@ -2736,6 +2775,7 @@ def _suggest_point_counter(sub, deal_label, point, all_points):
 app.jinja_env.globals.update(
     deal_points_for_item=_item_deal_points,
     deal_points_for_group=_group_deal_points,
+    item_rights_holder=_item_rights_holder,
 )
 
 
