@@ -3120,29 +3120,37 @@ def platform_add_item(sub_id):
     db.session.commit()
     if gen_ai:
         import threading
-        def _draft():
+        # Capture plain values NOW, while the session is live. Passing the ORM
+        # objects (item/sub) into the thread fails: after the request closes,
+        # they're detached/expired and any attribute access raises
+        # DetachedInstanceError, killing the thread before it drafts.
+        item_id   = item.id
+        prompt = (
+            f"Draft a {category} agreement for: {label}.\n"
+            f"Project: {sub.title} ({sub.project_type}) for {sub.platform.name}.\n"
+            f"Territory: {sub.territory}. BA notes: {notes or 'none'}.\n"
+            f"Use [BRACKETS] for party names, dates, and amounts to fill in. "
+            f"Be concise and legally precise."
+        )
+
+        def _draft(item_id=item_id, prompt=prompt):
             with app.app_context():
-                it = ClearanceItem.query.get(item.id)
-                s  = Submission.query.get(sub.id)
-                prompt = (
-                    f"Draft a {category} agreement for: {label}.\n"
-                    f"Project: {s.title} ({s.project_type}) for {s.platform.name}.\n"
-                    f"Territory: {s.territory}. BA notes: {notes or 'none'}.\n"
-                    f"Use [BRACKETS] for party names, dates, and amounts to fill in. "
-                    f"Be concise and legally precise."
-                )
                 try:
                     import anthropic
                     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
                     resp = client.messages.create(
                         model="claude-sonnet-4-6",
                         max_tokens=1500,
-                        messages=[{"role": "user", "content": prompt}]
+                        messages=[{"role": "user", "content": prompt}],
                     )
-                    it.ai_draft = resp.content[0].text
-                    db.session.commit()
+                    it = ClearanceItem.query.get(item_id)   # re-query in this session
+                    if it:
+                        it.ai_draft = resp.content[0].text
+                        db.session.commit()
                 except Exception as e:
+                    db.session.rollback()
                     app.logger.error(f"AI draft for custom item failed: {e}")
+
         threading.Thread(target=_draft, daemon=True).start()
         flash(f"'{label}' added — AI draft generating in background (~30 sec).", "success")
     else:
