@@ -1,9 +1,9 @@
 # UMG Demo — Label Waiver Flow (Mara driving the GC)
 
-**Goal:** Mara walks the UMG General Counsel through Cleared.live in **Label · Issuer mode** on the live site — how a major label reviews a producer's clearances and **issues a conditional label waiver** for a filmed live performance, in one rail, with AI doing the drafting.
+**Goal:** Mara walks the UMG General Counsel through Cleared.live in **Label · Issuer mode** on the live site — how a major label reviews a producer's clearances and **issues a conditional label waiver** for a filmed live performance, in one system, with AI doing the drafting.
 
 **Driver:** Mara (relationship owner). **Setup:** Brian (pre-flight, before the call).
-**Product:** the deployed unified rail — `https://cleared-live-platform.onrender.com`
+**Product:** the deployed unified system — `https://cleared-live-platform.onrender.com`
 **Time:** ~15 min + Q&A.
 
 > Routes/labels below were mapped from the live codebase (`app.py`, `models.py`, `templates/`). This is the **issuer** counterpart to the producer-side `DEMO_WALKTHROUGH.md`.
@@ -24,7 +24,7 @@
 1. **Confirm a UMG tenant exists in Issuer mode.**
    - Log into `/admin` → **Platforms**. If there's no UMG label tenant, **Add Platform**:
      - Name `UMG`, slug `umg-label`, **Tenant Mode = Label · Issuer**, tier Enterprise.
-   - If a `UMG` tenant already exists in *Intake* mode, open **Edit Platform** and flip **Tenant Mode → Label · Issuer**. (This toggle is the thing we just shipped — it's what makes one rail serve both labels and platforms.)
+   - If a `UMG` tenant already exists in *Intake* mode, open **Edit Platform** and flip **Tenant Mode → Label · Issuer**. (This toggle is the thing we just shipped — it's what makes one system serve both labels and platforms.)
 2. **Create a UMG BA login:** Render shell → `flask create-ba-user umg-label umg_ba <password>` (or via admin if a UI exists). Confirm sign-in at `/platform/login`.
 3. **Pre-bake the demo project** so all drafts exist (no spinner live):
    - In the UMG BA dashboard → **Invites** → send an invite to **your own email** (`basquared@gmail.com`).
@@ -41,11 +41,11 @@
 ### Act 1 — The pain UMG already feels · 1 min
 Every time a third party films a UMG artist's live performance — a promoter, a streamer, a doc crew — UMG has to decide whether to **waive** and on what conditions. Today that's manual: emails, Word docs, chasing whether the producer actually cleared the promoter, publishing, performers, venue. **Talking point:** *"You're the gate. Nothing ships without your waiver — and right now that gate runs on email."*
 
-### Act 2 — UMG on the rail (Tab A) · 2 min
+### Act 2 — UMG on the system (Tab A) · 2 min
 Show the **UMG portal** (issuer mode). One dashboard, every incoming request to use a UMG live performance. **Talking point:** *"This is your system of record — every producer's request to use UMG content, in one place, instead of scattered inboxes."*
 
 ### Act 3 — The review queue (Tab B) · 4 min
-Open the project. Point out the **Verify & Review** checklist the rail builds automatically for a label:
+Open the project. Point out the **Verify & Review** checklist the system builds automatically for a label:
 1. Promoter Consent — Verify & Review
 2. Publishing Clearance — Verify & Review
 3. Master Recording License — Verify & Review
@@ -54,7 +54,7 @@ Open the project. Point out the **Verify & Review** checklist the rail builds au
 6. Crowd / Audience Release — Verify & Review
 7. E&O Insurance — Verify & Review
 
-**Talking point:** *"UMG isn't doing the clearing — the producer is. UMG verifies it's all actually in place before waiving. The rail makes the producer show their work."*
+**Talking point:** *"UMG isn't doing the clearing — the producer is. UMG verifies it's all actually in place before waiving. The system makes the producer show their work."*
 
 ### Act 4 — Issue the Conditional Label Waiver (the moment) · 4 min
 Open the final item, **Conditional Label Waiver — Issue**, and expand the **AI-drafted** waiver. Read the spine aloud (it's already in the draft):
@@ -70,7 +70,7 @@ Open the final item, **Conditional Label Waiver — Issue**, and expand the **AI
 Back in the BA dashboard: **nothing waives without UMG sign-off** (the approval gate), and every approval + document is tracked. **Webhooks + REST API** can push status back into UMG's own systems. **Talking point:** *"UMG stays in control and gets a clean record — the opposite of an email thread."*
 
 ### Act 6 — Where it goes · 1 min
-Be honest about the roadmap (see below): immutable audit log, provisional → final waiver lifecycle, reusable venue/promoter master lists, then the same rail across all the majors. **Talking point:** *"You'd be the first label on the rail — and the rail the platforms plug into on the other side."*
+Be honest about the roadmap (see below): immutable audit log, provisional → final waiver lifecycle, reusable venue/promoter master lists, then the same system across all the majors. **Talking point:** *"You'd be the first label on the system — and the system the platforms plug into on the other side."*
 
 ### Close · 1 min
 *"It's live in production today. The fastest path is a small paid pilot on a handful of real requests — we onboard UMG as the first label tenant and measure weeks-to-waiver."*
@@ -87,17 +87,17 @@ Be honest about the roadmap (see below): immutable audit log, provisional → fi
 ---
 
 ## Live today vs. roadmap (don't blur these)
-**Live on the deployed rail:**
+**Live on the deployed system:**
 - Per-tenant **Issuer mode** (UMG) vs. Intake mode (platforms) — the toggle we just shipped.
 - Auto-built **Verify & Review** checklist + **AI-drafted Conditional Label Waiver**.
 - BA approval gate, document upload / on-site signing, **.docx** export, webhooks + REST API.
 - Template-backed AI drafting (firm-approved templates) and a deal-term board.
 
-**Roadmap (built in the separate label-enterprise codebase; to fold into the rail):**
+**Roadmap (built in the separate label-enterprise codebase; to fold into the system):**
 - **Immutable AuditLog** (tamper-evident compliance trail).
 - **Provisional → Final** waiver lifecycle with cure deadlines.
 - Reusable **Venue / Promoter** master lists.
-- Multi-major rollout (Sony, Warner) on the same rail.
+- Multi-major rollout (Sony, Warner) on the same system.
 
 ---
 
