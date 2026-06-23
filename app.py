@@ -4263,5 +4263,22 @@ def seed_guidelines_cmd():
     print("\nGuideline seeding complete.")
 
 
+def _ensure_foldin_schema():
+    """On boot, make sure the PLB fold-in tables exist and templates are seeded.
+    Idempotent and safe on both SQLite and Postgres — create_all() only creates
+    missing tables and never alters existing ones. Guarded so a transient DB error
+    at startup never takes the app down (manual `flask migrate-db` remains the path
+    for column changes on existing tables)."""
+    try:
+        with app.app_context():
+            db.create_all()
+            seed_templates()
+    except Exception as exc:
+        print(f"[startup] fold-in schema check skipped: {exc}")
+
+
+_ensure_foldin_schema()
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=5002)
