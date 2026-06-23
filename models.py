@@ -561,6 +561,117 @@ class ClearanceItem(db.Model):
     def is_done(self):
         return self.status in ("cleared", "waived", "n_a")
 
+    # ----- Agreement lifecycle (derived from existing fields — no schema change) -----
+    # not_started → draft → negotiating → out_for_signature → signed_pending_copy → executed
+    # Doc types that count as a fully counter-signed agreement on file.
+    EXECUTED_DOC_TYPES = (
+        "signed_document", "onsite_signature", "executed",
+        "countersigned", "fully_executed",
+    )
+
+    @property
+    def executed_documents(self):
+        return [d for d in self.documents
+                if (d.doc_type or "") in self.EXECUTED_DOC_TYPES]
+
+    @property
+    def agreement_stage(self):
+        """Where this item's agreement sits in its lifecycle, inferred from
+        docusign_status, neg_state, status, and attached documents.
+
+        STRICT execution rule: an agreement is 'executed' ONLY when a
+        counter-signed document is actually on file. If the system believes
+        signing happened (BA cleared it, DocuSign reports completed, or the
+        negotiation agreed) but no executed copy is stored, it is flagged
+        'signed_pending_copy' so the missing final document is visible."""
+        if self.status == "n_a":
+            return "n_a"
+        if self.status == "waived":
+            return "waived"
+        # Fully executed — a counter-signed document must be on file.
+        if self.executed_documents:
+            return "executed"
+        ds = (self.docusign_status or "").lower()
+        ns = (self.neg_state or "")
+        # Signing is believed complete, but the executed copy isn't on file yet.
+        if (self.status == "cleared"
+                or ds in ("completed", "signed", "signed_onsite")
+                or ns == "agreed"):
+            return "signed_pending_copy"
+        # Out for signature
+        if (ds in ("sent", "delivered")
+                or self.status == "docusign_pending"
+                or ns == "signature_sent"):
+            return "out_for_signature"
+        # Negotiating — outreach went out, or a thread exists
+        if (ns in ("awaiting_reply", "analyzing", "needs_approval", "stalled")
+                or self.ai_outreach_sent_at
+                or self.negotiation_log):
+            return "negotiating"
+        # Draft generated / work started
+        if self.ai_draft or self.status == "in_progress":
+            return "draft"
+        return "not_started"
+
+    @property
+    def agreement_stage_label(self):
+        return {
+            "not_started":         "Not Started",
+            "draft":               "Draft",
+            "negotiating":         "Negotiating",
+            "out_for_signature":   "Out for Signature",
+            "signed_pending_copy": "Signed — Awaiting Copy",
+            "executed":            "Fully Executed",
+            "waived":              "Waived",
+            "n_a":                 "N/A",
+        }.get(self.agreement_stage, self.agreement_stage)
+
+    @property
+    def agreement_stage_color(self):
+        return {
+            "not_started":         "light",
+            "draft":               "secondary",
+            "negotiating":         "info",
+            "out_for_signature":   "primary",
+            "signed_pending_copy": "warning",
+            "executed":            "success",
+            "waived":              "light",
+            "n_a":                 "light",
+        }.get(self.agreement_stage, "secondary")
+
+    @property
+    def agreement_stage_order(self):
+        return {
+            "not_started": 0, "draft": 1, "negotiating": 2,
+            "out_for_signature": 3, "signed_pending_copy": 4, "executed": 5,
+            "waived": -1, "n_a": -1,
+        }.get(self.agreement_stage, 0)
+
+    @property
+    def needs_executed_copy(self):
+        """True when signing is believed done but no counter-signed file is stored."""
+        return self.agreement_stage == "signed_pending_copy"
+
+    @property
+    def agreement_last_activity(self):
+        """Most recent timestamp across clearance, outreach, replies, docs, and thread."""
+        import json as _json
+        cands = [self.created_at, self.ai_outreach_sent_at, self.rh_response_at, self.cleared_at]
+        for d in self.documents:
+            cands.append(d.created_at)
+        try:
+            for turn in _json.loads(self.negotiation_log_json or "[]"):
+                ts = turn.get("ts")
+                if ts:
+                    try:
+                        cands.append(datetime.fromisoformat(ts))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        cands = [c for c in cands if c]
+        return max(cands) if cands else None
+
     def to_api_dict(self):
         return {
             "key": self.item_key,

@@ -1240,6 +1240,42 @@ def track_music_delegate(token):
                     "contact_email": sub.music_contact_email})
 
 
+@app.route("/track/<token>/agreements")
+def track_agreements(token):
+    """Submitter-facing Agreements tab — every agreement with its lifecycle stage
+    (draft → negotiating → out for signature → executed) plus the full paper trail."""
+    sub = _sub(token)
+    items = sorted(
+        sub.clearance_items,
+        key=lambda it: (it.agreement_stage_order, it.agreement_last_activity or datetime.min),
+        reverse=True,
+    )
+    return render_template(
+        "track_agreements.html",
+        sub=sub,
+        access_token=token,
+        items=items,
+        paper_trail=_project_paper_trail(sub),
+        view="agreements",
+    )
+
+
+@app.route("/track/<token>/doc/<int:doc_id>/download")
+def track_download_doc(token, doc_id):
+    """Token-scoped document download for the submitter workspace."""
+    sub = _sub(token)
+    doc = SubmissionDocument.query.get_or_404(doc_id)
+    if doc.submission_id != sub.id:
+        abort(403)
+    inline = request.args.get("inline") == "1"
+    return send_file(
+        io.BytesIO(doc.file_data),
+        download_name=doc.filename,
+        as_attachment=not inline,
+        mimetype=doc.mimetype or "application/octet-stream",
+    )
+
+
 @app.route("/track/<token>/neg-status")
 def track_neg_status(token):
     """Lightweight JSON snapshot of each item's negotiation state, polled by the
@@ -2765,6 +2801,78 @@ def platform_project(sub_id):
         term_labels=TERM_LABELS,
         ba_notes_only=_get_ba_notes_only(sub),
         publishing_notes=_get_publishing_notes(sub),
+    )
+
+
+def _project_paper_trail(sub):
+    """Flatten every clearance item's negotiation thread into one chronological
+    list for the project — the audit trail of all negotiations in one place."""
+    trail = []
+    for item in sub.clearance_items:
+        for turn in item.negotiation_log:
+            ts = turn.get("ts")
+            when = None
+            if ts:
+                try:
+                    when = datetime.fromisoformat(ts)
+                except Exception:
+                    when = None
+            trail.append({
+                "item_id":    item.id,
+                "item_label": item.item_label,
+                "item_key":   item.item_key,
+                "role":       turn.get("role", "system"),
+                "label":      turn.get("label", ""),
+                "body":       turn.get("body", ""),
+                "ts":         ts,
+                "when":       when,
+            })
+    # Newest first; entries without a timestamp sink to the bottom.
+    trail.sort(key=lambda e: (e["when"] is not None, e["when"] or datetime.min), reverse=True)
+    return trail
+
+
+@app.route("/platform/project/<int:sub_id>/agreements")
+@require_platform
+def platform_agreements(sub_id):
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    # Surface every agreement, most-advanced + most-recently-active first.
+    items = sorted(
+        sub.clearance_items,
+        key=lambda it: (it.agreement_stage_order, it.agreement_last_activity or datetime.min),
+        reverse=True,
+    )
+    return render_template(
+        "platform/agreements.html",
+        sub=sub,
+        platform=user.platform,
+        items=items,
+        paper_trail=_project_paper_trail(sub),
+    )
+
+
+@app.route("/platform/project/<int:sub_id>/item/<int:item_id>/agreement.docx")
+@require_platform
+def platform_item_agreement_docx(sub_id, item_id):
+    """BA-side download of an item's AI-drafted agreement as a Word .docx."""
+    user = current_platform_user()
+    sub  = Submission.query.get_or_404(sub_id)
+    if sub.platform_id != user.platform_id:
+        abort(403)
+    item = ClearanceItem.query.get_or_404(item_id)
+    if item.submission_id != sub.id:
+        abort(403)
+    draft_text = item.ai_draft or f"[AI draft pending for {item.item_label}]"
+    doc_bytes  = build_docx(_DocxProxy(title=item.item_label, content=draft_text))
+    safe = re.sub(r"[^A-Za-z0-9]+", "-", item.item_label).strip("-").lower() or "agreement"
+    return send_file(
+        io.BytesIO(doc_bytes),
+        as_attachment=True,
+        download_name=f"{safe}-draft.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
 

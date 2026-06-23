@@ -31,6 +31,22 @@
     </div>
   </div>
 
+  {% if view != 'delegate' %}
+  <!-- Sub-tab bar -->
+  <ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+      <a class="nav-link active" href="{{ url_for('track', token=access_token) }}">
+        <i class="bi bi-list-check me-1"></i>Workspace
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('track_agreements', token=access_token) }}">
+        <i class="bi bi-file-earmark-text me-1"></i>Agreements
+      </a>
+    </li>
+  </ul>
+  {% endif %}
+
   <!-- Clearance Guidelines (published by the platform BA) — surfaced first so submitters read them before starting -->
   {% if project_guidelines %}
   <div class="card border-0 shadow mb-4" style="border-left:5px solid {{ sub.platform.primary_color }} !important;">
