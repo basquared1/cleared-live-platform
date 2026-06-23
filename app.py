@@ -3981,13 +3981,20 @@ def docusign_connect():
     PDF automatically. Configure a Connect listener in DocuSign Admin pointing
     here; for a signed payload set DOCUSIGN_CONNECT_HMAC_KEY to your Connect key."""
     raw = request.get_data()
-    key = os.getenv("DOCUSIGN_CONNECT_HMAC_KEY")
+    key = (os.getenv("DOCUSIGN_CONNECT_HMAC_KEY") or "").strip()
     if key:
         import hmac, hashlib, base64 as _b64
-        sig = request.headers.get("X-DocuSign-Signature-1", "")
         expected = _b64.b64encode(
-            hmac.new(key.encode(), raw, hashlib.sha256).digest()).decode()
-        if not hmac.compare_digest(sig, expected):
+            hmac.new(key.encode("utf-8"), raw, hashlib.sha256).digest()).decode()
+        # DocuSign sends one signature header per account Connect key
+        # (X-DocuSign-Signature-1, -2, ...). Accept if ANY of them matches, so a
+        # second/rotated key doesn't lock us out.
+        provided = [v for h, v in request.headers.items()
+                    if h.lower().startswith("x-docusign-signature-")]
+        if not any(hmac.compare_digest(p.strip(), expected) for p in provided):
+            app.logger.warning(
+                "DocuSign Connect HMAC mismatch — provided=%r expected=%r body_len=%d",
+                provided, expected, len(raw))
             abort(403)
     env_id, status = _parse_connect_payload(request)
     if not env_id:
