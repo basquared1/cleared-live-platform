@@ -977,34 +977,85 @@
         </button>
         {% endif %}
 
-        <!-- Log response (revealed once outreach is sent) -->
-        {% if not g.get('rh_response') %}
-        <div id="pub-awaiting-{{ loop.index }}" class="mt-2 p-2 rounded {% if not g.get('outreach_sent_at') %}d-none{% endif %}" style="background:#fff3cd;border:1px solid #ffc107;">
-          <div class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Awaiting response — log when received:</div>
-          <form method="POST" action="{{ url_for('track_pub_groups_response', token=access_token) }}" class="row g-2">
-            <input type="hidden" name="publisher" value="{{ pub_name }}">
-            <div class="col-auto">
-              <select name="rh_response" class="form-select form-select-sm">
-                <option value="">Response…</option>
-                <option value="accepted">Accepted</option>
-                <option value="counter">Counter</option>
-                <option value="declined">Declined</option>
-              </select>
+        <!-- AI negotiation console (back-and-forth with the publisher) -->
+        {% if g.get('outreach_sent_at') %}
+        {% set rec = g.get('ai_recommendation') or {} %}
+        {% set agreed = g.get('neg_state') == 'agreed' or g.get('status') == 'cleared' %}
+        <div class="mt-3 rounded overflow-hidden" style="border:1px solid #0d3b6e;">
+          <div class="px-3 py-2 d-flex justify-content-between align-items-center" style="background:#0d3b6e;">
+            <span class="small fw-semibold text-white"><i class="bi bi-robot me-1"></i>AI Negotiation</span>
+            <span class="small text-white-50">
+              {% if agreed %}Terms agreed
+              {% elif g.get('neg_state') == 'needs_approval' %}Your approval needed
+              {% else %}Awaiting publisher reply{% endif %}
+            </span>
+          </div>
+          <div class="bg-white p-2">
+            {% if g.get('negotiation_log') %}
+            <div style="max-height:260px;overflow-y:auto;">
+              {% for e in g.get('negotiation_log', []) %}
+              <div class="mb-2 d-flex {% if e.role == 'outbound' %}justify-content-end{% elif e.role == 'system' %}justify-content-center{% endif %}">
+                <div class="p-2 rounded" style="max-width:88%;white-space:pre-wrap;font-size:.76rem;line-height:1.5;
+                     {% if e.role == 'outbound' %}background:#0d6efd;color:#fff;
+                     {% elif e.role == 'system' %}background:#e2e8f0;color:#334155;font-style:italic;
+                     {% else %}background:#f1f5f9;border:1px solid #e2e8f0;color:#1e293b;{% endif %}">
+                  <div class="fw-semibold mb-1" style="font-size:.66rem;opacity:.75;">{{ e.label or e.role }}</div>{{ e.body }}
+                </div>
+              </div>
+              {% endfor %}
             </div>
-            <div class="col-12 col-sm-6">
-              <input type="text" name="rh_response_notes" class="form-control form-control-sm" placeholder="Notes…">
+            {% endif %}
+
+            {% if agreed %}
+            <div class="alert alert-success py-2 px-3 small mb-0 mt-2">
+              <i class="bi bi-check-circle me-1"></i>Terms agreed for the blanket sync license covering all {{ g.get('songs',[])|length }} songs.
             </div>
-            <div class="col-auto">
-              <button type="submit" class="btn btn-sm btn-outline-secondary">Save</button>
+
+            {% elif g.get('neg_state') == 'needs_approval' and rec %}
+            {% set act = rec.get('recommended_action','send_reply') %}
+            <div class="mt-2 p-2 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;">
+              <div class="small mb-1">
+                <span class="badge bg-{{ {'accepted':'success','counter':'warning','declined':'danger','question':'info'}.get(rec.get('classification'),'secondary') }}">{{ (rec.get('classification') or 'unclear')|title }}</span>
+                <span class="badge bg-light text-dark border ms-1">Confidence: {{ rec.get('confidence','—')|title }}</span>
+              </div>
+              <div class="small text-muted mb-2">{{ rec.get('assessment','') }}</div>
+              <div class="small fw-semibold text-navy mb-2">
+                <i class="bi bi-lightning-charge-fill text-warning me-1"></i>
+                {% if act == 'finalize' %}Terms agreed — finalize this publisher
+                {% elif act == 'send_counter' %}Send a counter
+                {% elif act == 'answer_question' %}Answer their question
+                {% elif act == 'escalate_to_ba' %}Escalate to BA
+                {% else %}Send the drafted reply{% endif %}
+              </div>
+              <form method="POST" action="{{ url_for('track_pub_groups_approve_send', token=access_token) }}"
+                    onsubmit="var b=this.querySelector('button[type=submit]');b.disabled=true;b.innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>Working…';">
+                <input type="hidden" name="publisher" value="{{ pub_name }}">
+                {% if act != 'finalize' %}
+                <textarea name="draft_reply" class="form-control form-control-sm mb-2" rows="6" style="font-family:Georgia,serif;font-size:.78rem;">{{ rec.get('draft_reply','') }}</textarea>
+                {% endif %}
+                <button type="submit" class="btn btn-sm btn-primary fw-semibold">
+                  {% if act == 'finalize' %}<i class="bi bi-check2-circle me-1"></i>Approve — terms agreed
+                  {% else %}<i class="bi bi-send me-1"></i>Approve &amp; send{% endif %}
+                </button>
+              </form>
+              <form method="POST" action="{{ url_for('track_pub_groups_regenerate', token=access_token) }}" class="mt-2"
+                    onsubmit="var b=this.querySelector('button');b.disabled=true;b.innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>Regenerating…';">
+                <input type="hidden" name="publisher" value="{{ pub_name }}">
+                <input type="text" name="guidance" class="form-control form-control-sm mb-1" placeholder="Optional: tell the AI what to change…">
+                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Regenerate</button>
+              </form>
             </div>
-          </form>
-        </div>
-        {% elif g.get('rh_response') %}
-        <div class="mt-2 small">
-          <span class="badge bg-{{ 'success' if g.rh_response == 'accepted' else 'danger' if g.rh_response == 'declined' else 'warning' }}">
-            {{ g.rh_response|title }}
-          </span>
-          {% if g.get('rh_response_notes') %}<span class="text-muted ms-2">{{ g.rh_response_notes }}</span>{% endif %}
+
+            {% else %}
+            <form method="POST" action="{{ url_for('track_pub_groups_record_reply', token=access_token) }}" class="mt-2"
+                  onsubmit="var b=this.querySelector('button');b.disabled=true;b.innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>AI analyzing…';">
+              <input type="hidden" name="publisher" value="{{ pub_name }}">
+              <div class="small text-muted mb-1"><i class="bi bi-hourglass-split me-1"></i>Paste {{ pub_name }}'s reply — the AI will analyze it and draft your next move.</div>
+              <textarea name="reply_body" class="form-control form-control-sm mb-2" rows="3" placeholder="Paste the publisher's email reply here…" required></textarea>
+              <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-robot me-1"></i>Record reply &amp; run AI</button>
+            </form>
+            {% endif %}
+          </div>
         </div>
         {% endif %}
 
@@ -1616,12 +1667,8 @@ function sendPubOutreach(btn, idx, publisher, url) {
   .then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.error) { alert(data.error); btn.disabled = false; btn.innerHTML = orig; return; }
-    // Sent — reflect in place: hide Send, show Sent badge, reveal the log-response form.
-    btn.classList.add('d-none');
-    var sent = document.getElementById('pub-sent-' + idx);
-    if (sent) sent.classList.remove('d-none');
-    var awaiting = document.getElementById('pub-awaiting-' + idx);
-    if (awaiting) awaiting.classList.remove('d-none');
+    // Sent — reload so the server-rendered AI negotiation console appears.
+    window.location.reload();
   })
   .catch(function() { btn.disabled = false; btn.innerHTML = orig; });
 }

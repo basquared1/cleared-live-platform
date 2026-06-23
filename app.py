@@ -1195,7 +1195,8 @@ _MUSIC_SCOPE_ENDPOINTS = {
     "track_suggest_deal_terms",
     "track_pub_groups_generate", "track_pub_groups_contact", "track_pub_groups_suggest_contact",
     "track_pub_groups_outreach", "track_pub_groups_save_outreach", "track_pub_groups_send",
-    "track_pub_groups_response",
+    "track_pub_groups_response", "track_pub_groups_record_reply",
+    "track_pub_groups_regenerate", "track_pub_groups_approve_send",
     "track_item_start", "track_item_upload", "track_item_submit_review",
     "track_item_gen_draft", "track_item_save_outreach", "track_item_save_draft",
     "track_item_set_contact", "track_item_ai_suggest_contact", "track_item_ai_fill_vars",
@@ -2473,6 +2474,77 @@ def _format_group_offer(sub, group, primary):
     return lines, fee_instruction, mfn_instruction
 
 
+def _parse_neg_json(raw):
+    """Extract the negotiation recommendation JSON from a model response."""
+    import json as _json
+    try:
+        clean = raw.strip()
+        if clean.startswith("```"):
+            clean = clean.split("\n", 1)[1] if "\n" in clean else clean
+            clean = clean.rsplit("```", 1)[0]
+        start, end = clean.find("{"), clean.rfind("}")
+        if start != -1 and end != -1:
+            clean = clean[start:end + 1]
+        return _json.loads(clean)
+    except Exception:
+        return {
+            "classification": "unclear",
+            "assessment": "The AI response could not be parsed. Review the publisher's "
+                          "message and draft a reply manually, or regenerate.",
+            "recommended_action": "send_reply", "draft_reply": "",
+            "deal_term_changes": "none", "confidence": "low",
+            "rationale": "Automatic parsing failed.", "raw": raw[:1500],
+        }
+
+
+def _run_group_negotiation(sub, group, publisher):
+    """Analyze a publisher group's negotiation thread and draft the next move.
+    Mirror of _run_negotiation, but for one blanket-sync publisher group."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return None
+    positions = sub.platform.negotiation_positions if sub.platform else []
+    primary = (positions or [{}])[0] if isinstance(positions, list) else {}
+    offer_lines, _, _ = _format_group_offer(sub, group, primary)
+    songs = group.get("songs", [])
+    song_str = "\n".join(
+        f"  - \"{s.get('title','')}\" ({s.get('writer','')}, {s.get('split_pct','')}%)"
+        for s in songs
+    ) or "  (no songs)"
+    thread = group.get("negotiation_log") or []
+    thread_str = "\n\n".join(
+        f"[{e.get('label') or e.get('role','message')}]\n{e.get('body','')}" for e in thread
+    ) or "(no messages yet)"
+
+    user = (
+        f"BLANKET SYNC LICENSE NEGOTIATION — PUBLISHER: {publisher} ({group.get('pro','')})\n"
+        f"PUBLISHER CONTACT: {group.get('contact_name') or '[unknown]'} "
+        f"<{group.get('contact_email') or 'no email'}>\n\n"
+        f"PROJECT:\n{_sub_context(sub)}\n\n"
+        f"THIS PUBLISHER'S SONGS IN THE PROJECT ({len(songs)}), covered by ONE blanket license:\n{song_str}\n\n"
+        f"DEAL TERMS WE ARE OFFERING:\n{offer_lines}\n\n"
+        f"PLATFORM NEGOTIATION POSITIONS (primary first, then fallbacks):\n"
+        f"{_fmt_negotiation_positions(positions)}\n"
+        + _guideline_block(sub) + "\n"
+        f"NEGOTIATION THREAD SO FAR (oldest first):\n{thread_str}\n\n"
+        "Analyze the publisher's most recent message and decide the next move for this blanket sync license. "
+        "Return a JSON object with EXACTLY these fields:\n"
+        '{\n'
+        '  "classification": "accepted" | "counter" | "question" | "declined" | "unclear",\n'
+        '  "assessment": "2-3 sentences: where the negotiation stands and what they want",\n'
+        '  "recommended_action": "finalize" | "send_counter" | "answer_question" | "send_reply" | "escalate_to_ba",\n'
+        '  "draft_reply": "the full email body to send next — no subject line, no placeholder brackets, real names. If escalating, a brief holding note.",\n'
+        '  "deal_term_changes": "plain text describing any terms conceded or proposed this round, or \\"none\\"",\n'
+        '  "confidence": "high" | "medium" | "low",\n'
+        '  "rationale": "1-2 sentences on why this is the right move, referencing the platform positions"\n'
+        '}\n'
+        "Use recommended_action=finalize ONLY when the publisher has agreed the material terms (fee + scope) "
+        "for the blanket license. Use escalate_to_ba when they demand something outside the platform positions "
+        "or a clear deal-breaker."
+    )
+    raw = call_claude(_NEGOTIATION_SYSTEM, user, max_tokens=1500)
+    return _parse_neg_json(raw) if raw else None
+
+
 @app.route("/track/<token>/pub-groups/outreach", methods=["POST"])
 def track_pub_groups_outreach(token):
     from flask import jsonify
@@ -2577,9 +2649,14 @@ def track_pub_groups_send(token):
             "subject": f"Sync License Request — {sub.artist_name or sub.title} ({len(g.get('songs',[]))} songs) — {sub.platform.name if sub.platform else ''}",
             "text": g["ai_outreach"],
         })
-        from datetime import datetime as _dt
-        groups[publisher]["outreach_sent_at"] = _dt.utcnow().isoformat()
-        groups[publisher]["status"] = "under_review"
+        groups[publisher]["outreach_sent_at"] = datetime.utcnow().isoformat()
+        groups[publisher]["status"] = "in_progress"
+        # Seed the negotiation thread so the back-and-forth console opens.
+        groups[publisher].setdefault("negotiation_log", []).append({
+            "role": "outbound", "label": "Sync request sent",
+            "body": g["ai_outreach"], "ts": datetime.utcnow().isoformat(),
+        })
+        groups[publisher]["neg_state"] = "awaiting_reply"
         sub.publisher_clearances_save(groups)
         db.session.commit()
         return jsonify({"ok": True})
@@ -2623,6 +2700,136 @@ def track_pub_groups_response(token):
     if resp == "accepted":
         _maybe_advance_publishing_item(sub)
     db.session.commit()
+    return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+
+
+# ── Publisher-group AI negotiation (back-and-forth, mirrors the per-item loop) ──
+@app.route("/track/<token>/pub-groups/record-reply", methods=["POST"])
+def track_pub_groups_record_reply(token):
+    """Submitter pastes the publisher's reply; AI analyzes it and drafts the next move."""
+    sub = _sub(token)
+    publisher = request.form.get("publisher", "").strip()
+    groups = sub.publisher_clearances
+    if publisher not in groups:
+        return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+    reply = request.form.get("reply_body", "").strip()
+    if not reply:
+        flash("Paste the publisher's reply before recording it.", "warning")
+        return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+    g = groups[publisher]
+    g.setdefault("negotiation_log", []).append({
+        "role": "inbound", "label": f"{publisher} reply",
+        "body": reply, "ts": datetime.utcnow().isoformat(),
+    })
+    g["neg_state"] = "analyzing"
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    # Run synchronously — consistent with how this section's outreach is drafted.
+    rec = None
+    try:
+        rec = _run_group_negotiation(sub, g, publisher)
+    except Exception as e:
+        app.logger.error(f"GROUP NEG ERROR — {type(e).__name__}: {e}")
+    if rec:
+        g["ai_recommendation"] = rec
+        g["neg_state"] = "needs_approval"
+        flash("Reply recorded — the AI drafted the next move below.", "info")
+    else:
+        g["neg_state"] = "awaiting_reply"
+        flash("Reply recorded, but the AI couldn't draft a response. Try Regenerate.", "warning")
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+
+
+@app.route("/track/<token>/pub-groups/regenerate", methods=["POST"])
+def track_pub_groups_regenerate(token):
+    """Re-run the group negotiation AI, optionally with submitter guidance."""
+    sub = _sub(token)
+    publisher = request.form.get("publisher", "").strip()
+    groups = sub.publisher_clearances
+    if publisher not in groups:
+        return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+    g = groups[publisher]
+    guidance = request.form.get("guidance", "").strip()
+    if guidance:
+        g.setdefault("negotiation_log", []).append({
+            "role": "system", "label": "Submitter guidance to AI",
+            "body": guidance, "ts": datetime.utcnow().isoformat(),
+        })
+    g["neg_state"] = "analyzing"
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    rec = None
+    try:
+        rec = _run_group_negotiation(sub, g, publisher)
+    except Exception as e:
+        app.logger.error(f"GROUP NEG REGEN ERROR — {type(e).__name__}: {e}")
+    g["ai_recommendation"] = rec or None
+    g["neg_state"] = "needs_approval" if rec else "awaiting_reply"
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+
+
+@app.route("/track/<token>/pub-groups/approve-send", methods=["POST"])
+def track_pub_groups_approve_send(token):
+    """Submitter approves the AI's drafted move. Either finalize (terms agreed) or
+    send the reply to the publisher and loop for the next round."""
+    sub = _sub(token)
+    publisher = request.form.get("publisher", "").strip()
+    groups = sub.publisher_clearances
+    if publisher not in groups:
+        return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+    g = groups[publisher]
+    rec = g.get("ai_recommendation") or {}
+    body = request.form.get("draft_reply", "").strip() or rec.get("draft_reply", "")
+    action = rec.get("recommended_action", "send_reply")
+
+    # --- Terms agreed → clear the group (Phase 3 will draft the blanket license here) ---
+    if action == "finalize":
+        g.setdefault("negotiation_log", []).append({
+            "role": "system", "label": "Terms agreed",
+            "body": body or "Material terms agreed for the blanket sync license.",
+            "ts": datetime.utcnow().isoformat(),
+        })
+        g["neg_state"] = "agreed"
+        g["status"] = "cleared"
+        g["ai_recommendation"] = None
+        sub.publisher_clearances_save(groups)
+        _maybe_advance_publishing_item(sub)
+        db.session.commit()
+        flash(f"{publisher}: terms agreed and recorded.", "success")
+        return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
+
+    # --- Otherwise send the drafted reply and wait for the next round ---
+    sent = False
+    resend_key = os.getenv("RESEND_API_KEY")
+    if resend_key and g.get("contact_email") and body:
+        try:
+            import resend as _resend
+            _resend.api_key = resend_key
+            _resend.Emails.send({
+                "from": f"{sub.submitter_name or sub.submitter_company or 'Clearance Team'} <clear@cleared.live>",
+                "to": [g["contact_email"]],
+                "subject": f"Re: Sync License — {sub.title} ({publisher})",
+                "text": body,
+            })
+            sent = True
+        except Exception as e:
+            app.logger.error(f"GROUP NEG SEND ERROR — {type(e).__name__}: {e}")
+    g.setdefault("negotiation_log", []).append({
+        "role": "outbound",
+        "label": "Reply sent to publisher" if sent else "Reply (Resend unavailable — copy & send manually)",
+        "body": body, "ts": datetime.utcnow().isoformat(),
+    })
+    g["neg_state"] = "awaiting_reply"
+    g["ai_recommendation"] = None
+    sub.publisher_clearances_save(groups)
+    db.session.commit()
+    flash("Sent — record the publisher's next reply when it arrives." if sent
+          else "Drafted, but Resend isn't configured — copy the reply and send it manually.",
+          "success" if sent else "warning")
     return _submitter_redirect(token, "#pub-clearance-section", music_only=True)
 
 
