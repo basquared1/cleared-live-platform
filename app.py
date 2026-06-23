@@ -2426,11 +2426,63 @@ def track_pub_groups_suggest_contact(token):
     return jsonify(data)
 
 
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _total_compositions(sub):
+    """Number of distinct compositions in the project (for per-song math)."""
+    try:
+        return len(sub.songs or [])
+    except Exception:
+        return 0
+
+
+def _group_share(group):
+    """A publisher's aggregate catalog share in 'song-equivalents' — the sum of its
+    songs' split %. Controlling 50% of 25 songs = 12.5 song-shares. This is the unit
+    a blanket fee is pro-rated against, so co-publishers of the same song don't each
+    get billed the full per-song rate."""
+    total = 0.0
+    for s in group.get("songs", []):
+        sp = _num(s.get("split_pct"))
+        if sp is not None:
+            total += sp / 100.0
+    return round(total, 4)
+
+
+def _per_song_rate(terms, total_comps):
+    """Canonical per-song (per-composition) rate from a deal-terms dict. A per-song
+    fee_type means the fee already IS the rate; a flat fee is treated as an all-in
+    publishing total and converted to a per-song rate by the number of compositions."""
+    fee = _num((terms or {}).get("fee"))
+    if fee is None:
+        return None
+    ft = ((terms or {}).get("fee_type") or "").lower()
+    if "item" in ft or "song" in ft:
+        return fee
+    return (fee / total_comps) if total_comps else fee
+
+
+def _group_offer_fee(sub, group):
+    """(blanket_fee, per_song_rate, share) for a publisher group. The blanket fee for
+    THAT publisher = per-song rate × the share of the catalog it controls — so a
+    2-song publisher and a 25-song publisher get proportionate offers, not the same."""
+    terms = group.get("deal_terms") or sub.deal_terms or {}
+    rate = _per_song_rate(terms, _total_compositions(sub))
+    share = _group_share(group)
+    if rate is None or share <= 0:
+        return None, rate, share
+    return round(rate * share), rate, share
+
+
 def _format_group_offer(sub, group, primary):
     """Return (offer_lines, fee_instruction, mfn_instruction) describing the
-    submitter's proposed sync terms for a publisher group. Sourced from the
-    group's own deal terms, then the submission-level bulk deal terms, then the
-    platform's default position — so the outreach states a real money offer."""
+    submitter's proposed sync terms for a publisher group. The fee is a per-song
+    rate pro-rated to THIS publisher's catalog share (not the whole-project figure)."""
     dt = (group.get("deal_terms") or sub.deal_terms or {})
 
     def _v(key, default):
@@ -2440,28 +2492,25 @@ def _format_group_offer(sub, group, primary):
     territory = _v("territory", primary.get("territory", "Worldwide"))
     term      = _v("term", primary.get("term", "Perpetuity"))
     uses      = dt.get("media_rights") or primary.get("uses", ["Streaming"])
-    fee       = dt.get("fee")
     fee_type  = (dt.get("fee_type") or "").strip()
     mfn       = bool(dt.get("mfn"))
     notes     = (dt.get("notes") or "").strip()
 
-    if str(fee) in ("0", "0.0") or fee_type.lower() == "gratis":
+    group_fee, rate, share = _group_offer_fee(sub, group)
+    n_songs = len(group.get("songs", []))
+    if str(dt.get("fee")) in ("0", "0.0") or fee_type.lower() == "gratis":
         fee_line = "Gratis — no license fee (promotional / festival use)"
         fee_instruction = "State clearly that the sender is requesting a gratis (no-fee) license."
-    elif fee not in (None, ""):
-        try:
-            fee_disp = f"${int(float(fee)):,}"
-        except (TypeError, ValueError):
-            fee_disp = f"${fee}"
-        per = ("per song" if ("item" in fee_type.lower() or "song" in fee_type.lower())
-               else "flat, covering all songs in one blanket license")
-        fee_line = f"{fee_disp} {per}"
-        fee_instruction = ("State the proposed license fee explicitly as the sender's opening "
-                           "offer — include the actual number, do not omit it.")
+    elif group_fee is not None and rate is not None:
+        fee_line = (f"${group_fee:,} for this publisher's catalog — a blanket fee covering its "
+                    f"{n_songs} song(s) on this project, priced at ${rate:,.0f} per composition "
+                    f"(pro-rated to this publisher's {share:g} song-share)")
+        fee_instruction = ("State the proposed blanket license fee for THIS publisher explicitly as the "
+                           f"opening offer — ${group_fee:,} total for its songs. Do NOT quote the whole-"
+                           "project figure; this offer covers this publisher's catalog only.")
     else:
-        fee_line = "open — invite the publisher to quote their standard sync rate for these songs"
-        fee_instruction = ("No fee was set; ask the publisher to quote their sync license rate "
-                           "for these songs.")
+        fee_line = "open — invite the publisher to quote their standard per-song sync rate"
+        fee_instruction = ("No fee set; ask the publisher to quote their per-song sync rate for these songs.")
 
     mfn_line = ("Yes — most favored nations requested across all publishers (and masters) "
                 "being cleared for this project") if mfn else "Not requested"
@@ -2480,13 +2529,6 @@ def _format_group_offer(sub, group, primary):
     return lines, fee_instruction, mfn_instruction
 
 
-def _num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
-
-
 def _mfn_ledger(sub):
     """Advisory Most-Favored-Nations view across the project's music deals
     (publisher groups + master recording license). Flag + suggest only — never
@@ -2494,20 +2536,27 @@ def _mfn_ledger(sub):
     positions = sub.platform.negotiation_positions if sub.platform else []
     primary = (positions or [{}])[0] if isinstance(positions, list) else {}
     deals = []
+    total_comps = _total_compositions(sub)
     for name, g in (sub.publisher_clearances or {}).items():
         dt = (g.get("deal_terms") or sub.deal_terms or {})
-        n = max(1, len(g.get("songs", [])))
-        fee = _agreed_fee(_group_deal_points(sub, g))
-        if fee is None:
-            fee = _num(dt.get("fee"))
-        ft = (dt.get("fee_type") or "").lower()
-        per_song = fee if ("item" in ft or "song" in ft) else (fee / n if fee is not None else None)
+        share = _group_share(g)
+        # MFN compares the PER-SONG rate. An agreed amount is this publisher's blanket
+        # (its catalog share), so the per-song rate = agreed / share; otherwise derive
+        # the rate from the deal terms. Same rate across groups → no false "level up".
+        agreed = _agreed_fee(_group_deal_points(sub, g))
+        if agreed is not None and share > 0:
+            per_song = agreed / share
+            fee = agreed
+        else:
+            per_song = _per_song_rate(dt, total_comps)
+            fee = (round(per_song * share) if (per_song is not None and share > 0)
+                   else _num(dt.get("fee")))
         deals.append({
             "label": name, "kind": "publishing", "mfn": bool(dt.get("mfn")),
             "fee": fee, "per_song": per_song, "fee_type": dt.get("fee_type"),
             "territory": dt.get("territory") or primary.get("territory"),
             "term": dt.get("term") or primary.get("term"),
-            "status": g.get("status"), "songs": n,
+            "status": g.get("status"), "songs": len(g.get("songs", [])),
         })
     for it in sub.clearance_items:
         if is_music_item(it.item_key) and "master" in (it.item_key or ""):
@@ -2589,7 +2638,13 @@ def _seed_deal_points(deal_type, terms=None):
     terms = terms or {}
     labels = _DEAL_POINT_SETS.get(deal_type, _DEAL_POINT_SETS["generic"])
     fee, ft = terms.get("fee"), (terms.get("fee_type") or "").strip()
-    fee_str = (f"${fee} {ft}".strip() if fee not in (None, "") else "")
+    if fee in (None, ""):
+        fee_str = ""
+    else:
+        try:
+            fee_str = f"${int(float(fee)):,} {ft}".strip()
+        except (TypeError, ValueError):
+            fee_str = f"${fee} {ft}".strip()
     our_for = {
         "License Fee": fee_str, "Fee": fee_str,
         "Territory": terms.get("territory") or "",
@@ -2607,9 +2662,15 @@ def _item_deal_points(item):
 
 
 def _group_deal_points(sub, group):
-    """Deal points for a publisher group, lazily seeded from its/the bulk deal terms."""
-    return (group.get("deal_points")
-            or _seed_deal_points("publishing", group.get("deal_terms") or sub.deal_terms or {}))
+    """Deal points for a publisher group. When seeding, the 'our' License Fee is this
+    publisher's blanket (per-song rate × its catalog share), not the whole-project figure."""
+    if group.get("deal_points"):
+        return group["deal_points"]
+    base = dict(group.get("deal_terms") or sub.deal_terms or {})
+    gf, rate, share = _group_offer_fee(sub, group)
+    if gf is not None:
+        base["fee"], base["fee_type"] = gf, "Flat Fee"  # blanket amount for this publisher
+    return _seed_deal_points("publishing", base)
 
 
 def _agreed_points_block(points):
