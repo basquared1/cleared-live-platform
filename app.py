@@ -1152,7 +1152,7 @@ def request_invite(platform_slug):
         _resend.api_key = resend_key
         try:
             _resend.Emails.send({
-                "from": "Cleared.live <clear@blisslegalstudio.com>",
+                "from": "Cleared.live <clear@cleared.live>",
                 "to": ba_to,
                 "subject": f"Invite request — {name or email} wants to submit to {platform.name}",
                 "html": (
@@ -3907,7 +3907,7 @@ def platform_send_invite():
         )
         try:
             _resend.Emails.send({
-                "from": "Cleared.live <clear@blisslegalstudio.com>",  # TODO: swap to clear@cleared.live once domain verified
+                "from": "Cleared.live <clear@cleared.live>",  # TODO: swap to clear@cleared.live once domain verified
                 "to": email,
                 "subject": f"You've been invited to submit a clearance request — {user.platform.name}",
                 "html": body,
@@ -5478,7 +5478,7 @@ def send_invite_cmd(platform_slug, email, name=None):
                 platform_name=p.name, platform_color=p.primary_color or "#0d3b6e",
                 name=name or None, project_hint=None, invite_url=invite_url)
         _resend.Emails.send({
-            "from": "Cleared.live <clear@blisslegalstudio.com>",
+            "from": "Cleared.live <clear@cleared.live>",
             "to": email,
             "subject": f"You've been invited to submit a clearance request — {p.name}",
             "html": body,
