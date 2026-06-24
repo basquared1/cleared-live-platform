@@ -29,7 +29,7 @@ def generate_password_hash(s):
 from models import (
     db, Platform, Submission, ClearanceItem, SubmissionDocument,
     WebhookDelivery, PlatformUser, AdminUser, ClearanceGuideline, Invite,
-    Template, DealTerm,
+    Template, DealTerm, FestivalArtist,
     CLEARANCE_TEMPLATES, PRICING_TIERS, PROJECT_TYPE_LABELS,
     TERRITORY_LABELS, INTENDED_USE_OPTIONS,
     MUSIC_ITEM_KEYS, is_music_item,
@@ -1467,6 +1467,190 @@ def track_music_delegate(token):
     return jsonify({"ok": True, "link": link, "sent": sent,
                     "contact_name": sub.music_contact_name,
                     "contact_email": sub.music_contact_email})
+
+
+# ---------------------------------------------------------------------------
+# Festival — multi-artist lineup routing
+# ---------------------------------------------------------------------------
+
+def _match_label_platform(label_name):
+    """Find a connected label Platform (label_waiver mode) whose name matches the
+    promoter-entered label text. Case-insensitive substring match, either direction."""
+    if not label_name:
+        return None
+    needle = label_name.strip().lower()
+    labels = Platform.query.filter_by(platform_mode="label_waiver", is_active=True).all()
+    for p in labels:
+        name = (p.name or "").lower()
+        logo = (p.logo_text or "").lower()
+        if needle in name or name in needle or (logo and (needle in logo or logo in needle)):
+            return p
+    return None
+
+
+def _spawn_artist_submission(festival, artist, platform):
+    """Create a per-artist clearance thread (child Submission) under the given platform.
+    Label platforms get the review/waiver package; everything else gets live_music."""
+    template_key = "live_music_label" if platform.platform_mode == "label_waiver" else "live_music"
+    child = Submission(
+        platform_id        = platform.id,
+        project_type       = "live_music",
+        title              = f"{festival.event_name or festival.title} — {artist.artist_name}",
+        artist_name        = artist.artist_name,
+        event_name         = festival.event_name or festival.title,
+        venue              = festival.venue,
+        event_date         = festival.event_date,
+        label              = artist.label_name,
+        territory          = festival.territory,
+        intended_use       = festival.intended_use,
+        submitter_name     = festival.submitter_name,
+        submitter_company  = festival.submitter_company,
+        submitter_email    = artist.contact_email or festival.submitter_email,
+        submitter_phone    = festival.submitter_phone,
+        pricing_tier       = festival.pricing_tier,
+        price_cents        = 0,
+        status             = "submitted",
+        ba_notes           = f"Festival lineup clearance — part of \"{festival.event_name or festival.title}\".",
+    )
+    db.session.add(child)
+    db.session.flush()
+    for item_def in CLEARANCE_TEMPLATES.get(template_key, CLEARANCE_TEMPLATES["live_music"]):
+        db.session.add(ClearanceItem(
+            submission_id=child.id, item_key=item_def["key"],
+            item_label=item_def["label"], priority=item_def["priority"], status="pending",
+        ))
+    return child
+
+
+@app.route("/track/<token>/festival")
+def track_festival(token):
+    """Festival lineup workspace — the promoter manages every artist and routes each
+    to the right label BA process (or direct / handoff)."""
+    sub = _sub(token)
+    artists = FestivalArtist.query.filter_by(submission_id=sub.id)\
+        .order_by(FestivalArtist.created_at).all()
+    # Surface the label-platform match for any not-yet-routed artist so the promoter
+    # sees where each artist will go before they route.
+    suggestions = {}
+    for a in artists:
+        if a.status == "pending" and a.is_signed:
+            m = _match_label_platform(a.label_name)
+            suggestions[a.id] = m
+    return render_template("track_festival.html", sub=sub, access_token=token,
+                           artists=artists, suggestions=suggestions)
+
+
+@app.route("/track/<token>/festival/artist/add", methods=["POST"])
+def festival_artist_add(token):
+    sub = _sub(token)
+    name = request.form.get("artist_name", "").strip()
+    if not name:
+        flash("Artist name is required.", "danger")
+        return redirect(url_for("track_festival", token=token))
+    db.session.add(FestivalArtist(
+        submission_id = sub.id,
+        artist_name   = name,
+        label_name    = request.form.get("label_name", "").strip() or None,
+        is_signed     = request.form.get("is_signed") == "1",
+        contact_name  = request.form.get("contact_name", "").strip() or None,
+        contact_email = request.form.get("contact_email", "").strip().lower() or None,
+        notes         = request.form.get("notes", "").strip() or None,
+    ))
+    db.session.commit()
+    flash(f"Added {name} to the lineup.", "success")
+    return redirect(url_for("track_festival", token=token))
+
+
+@app.route("/track/<token>/festival/artist/<int:artist_id>/delete", methods=["POST"])
+def festival_artist_delete(token, artist_id):
+    sub = _sub(token)
+    a = FestivalArtist.query.filter_by(id=artist_id, submission_id=sub.id).first_or_404()
+    db.session.delete(a)
+    db.session.commit()
+    flash("Artist removed from the lineup.", "success")
+    return redirect(url_for("track_festival", token=token))
+
+
+@app.route("/track/<token>/festival/artist/<int:artist_id>/route", methods=["POST"])
+def festival_artist_route(token, artist_id):
+    """Fan an artist out to a clearance thread:
+      mode=label  → route into the matched label's BA queue (child submission on that label)
+      mode=direct → spin up a direct clearance thread under the festival's own platform"""
+    sub = _sub(token)
+    a   = FestivalArtist.query.filter_by(id=artist_id, submission_id=sub.id).first_or_404()
+    if a.child_submission_id:
+        flash(f"{a.artist_name} is already routed.", "info")
+        return redirect(url_for("track_festival", token=token))
+
+    mode = request.form.get("mode", "direct")
+    if mode == "label":
+        label = _match_label_platform(a.label_name)
+        if not label:
+            flash(f"No connected label matches \"{a.label_name or '—'}\". "
+                  f"Route directly or hand off instead.", "warning")
+            return redirect(url_for("track_festival", token=token))
+        child = _spawn_artist_submission(sub, a, label)
+        a.routed_platform_id  = label.id
+        a.child_submission_id = child.id
+        a.status = "routed_label"
+        db.session.commit()
+        flash(f"{a.artist_name} routed into {label.name}'s clearance queue.", "success")
+    else:
+        child = _spawn_artist_submission(sub, a, sub.platform)
+        a.child_submission_id = child.id
+        a.status = "routed_direct"
+        db.session.commit()
+        flash(f"Direct clearance thread created for {a.artist_name}.", "success")
+    return redirect(url_for("track_festival", token=token))
+
+
+@app.route("/track/<token>/festival/artist/<int:artist_id>/handoff", methods=["POST"])
+def festival_artist_handoff(token, artist_id):
+    """Hand an artist's clearance to their management or label. Creates the thread (if not
+    already) and emails the contact a link to run it. Promoter stays able to watch progress."""
+    sub = _sub(token)
+    a   = FestivalArtist.query.filter_by(id=artist_id, submission_id=sub.id).first_or_404()
+    to_email = (request.form.get("handoff_email", "").strip().lower()
+                or a.contact_email or "")
+    if not to_email:
+        flash("Enter an email to hand off to.", "danger")
+        return redirect(url_for("track_festival", token=token))
+
+    # Ensure a clearance thread exists — handoff routes to the label if matched, else direct.
+    if not a.child_submission_id:
+        label = _match_label_platform(a.label_name) if a.is_signed else None
+        child = _spawn_artist_submission(sub, a, label or sub.platform)
+        a.child_submission_id = child.id
+        a.routed_platform_id  = label.id if label else None
+        db.session.flush()
+    child = Submission.query.get(a.child_submission_id)
+    a.status        = "handed_off"
+    a.handed_off_to = to_email
+    db.session.commit()
+
+    link = url_for("track", token=child.token, _external=True)
+    sent = False
+    if os.getenv("RESEND_API_KEY"):
+        try:
+            import resend as _resend
+            _resend.api_key = os.getenv("RESEND_API_KEY")
+            _resend.Emails.send({
+                "from": f"{sub.submitter_name or 'Cleared.live'} <clear@cleared.live>",
+                "to": to_email,
+                "subject": f"Clearance handoff — {a.artist_name} at {sub.event_name or sub.title}",
+                "text": (f"You've been asked to handle clearance for {a.artist_name} at "
+                         f"\"{sub.event_name or sub.title}\".\n\n"
+                         f"Open the clearance workspace here:\n{link}\n\n"
+                         f"This link lets you complete every clearance item for this artist."),
+            })
+            sent = True
+        except Exception:
+            sent = False
+    if sent:
+        flash(f"Clearance for {a.artist_name} handed off to {to_email}.", "success")
+    else:
+        flash(f"Handoff thread ready. Share this link with {to_email}: {link}", "info")
+    return redirect(url_for("track_festival", token=token))
 
 
 @app.route("/track/<token>/agreements")

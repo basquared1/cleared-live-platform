@@ -40,6 +40,14 @@
         <i class="bi bi-list-check me-1"></i>Workspace
       </a>
     </li>
+    {% if sub.project_type == 'festival' %}
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('track_festival', token=access_token) }}">
+        <i class="bi bi-people-fill me-1"></i>Lineup
+        {% if sub.festival_artists %}<span class="badge bg-navy ms-1">{{ sub.festival_artists|length }}</span>{% endif %}
+      </a>
+    </li>
+    {% endif %}
     <li class="nav-item">
       <a class="nav-link" href="{{ url_for('track_agreements', token=access_token) }}">
         <i class="bi bi-file-earmark-text me-1"></i>Agreements

@@ -16,6 +16,7 @@ def _gen_api_key():
 
 PROJECT_TYPE_LABELS = {
     "live_music":  "Live Music / Concert",
+    "festival":    "Festival / Multi-Artist Event",
     "documentary": "Documentary / Film",
     "unscripted":  "Unscripted / Reality TV",
     "podcast":     "Podcast / Audio",
@@ -38,6 +39,14 @@ CLEARANCE_TEMPLATES = {
         {"key": "venue_license",      "label": "Venue Filming License",            "priority": 5},
         {"key": "crowd_release",      "label": "Crowd / Audience Release",         "priority": 6},
         {"key": "eo_documentation",   "label": "E&O Insurance Documentation",      "priority": 7},
+    ],
+    # Festival = event-level clearances only. Per-artist music/master/label clearance
+    # fans out to each artist's own thread via the festival artist roster.
+    "festival": [
+        {"key": "promoter_consent",  "label": "Promoter Filming Rights Consent", "priority": 1},
+        {"key": "venue_license",     "label": "Venue Filming License",           "priority": 2},
+        {"key": "crowd_release",     "label": "Crowd / Audience Release",        "priority": 3},
+        {"key": "eo_documentation",  "label": "E&O Insurance Documentation",     "priority": 4},
     ],
     "documentary": [
         {"key": "sync_license",        "label": "Music Sync License(s)",           "priority": 1},
@@ -823,3 +832,51 @@ class ClearanceGuideline(db.Model):
     updated_at   = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("platform_id", "project_type", name="uq_guideline_platform_type"),)
+
+
+class FestivalArtist(db.Model):
+    """One artist on a festival lineup. A festival is a parent Submission (project_type
+    'festival') submitted by a promoter; each artist fans out to its own clearance thread —
+    routed into the artist's label BA queue (a child Submission on that label Platform) if
+    the artist is signed, or handled directly / handed off to management if not."""
+    __tablename__ = "festival_artists"
+    id            = db.Column(db.Integer, primary_key=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey("submissions.id"), nullable=False)  # parent festival
+    artist_name   = db.Column(db.String(200), nullable=False)
+    label_name    = db.Column(db.String(200))           # free text from the promoter
+    is_signed     = db.Column(db.Boolean, default=True)  # signed to a label vs independent
+    contact_name  = db.Column(db.String(200))           # artist mgmt / label contact
+    contact_email = db.Column(db.String(200))
+    notes         = db.Column(db.Text)
+
+    # Routing result
+    routed_platform_id  = db.Column(db.Integer, db.ForeignKey("platforms.id"))   # label BA, if routed there
+    child_submission_id = db.Column(db.Integer, db.ForeignKey("submissions.id")) # the artist's clearance thread
+    status        = db.Column(db.String(30), default="pending")
+    # pending | routed_label | routed_direct | handed_off | cleared
+    handed_off_to = db.Column(db.String(200))           # email the clearance was handed off to
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+
+    festival        = db.relationship("Submission", foreign_keys=[submission_id], backref="festival_artists")
+    routed_platform = db.relationship("Platform", foreign_keys=[routed_platform_id])
+    child_submission= db.relationship("Submission", foreign_keys=[child_submission_id])
+
+    @property
+    def status_label(self):
+        return {
+            "pending":       "Not routed",
+            "routed_label":  "In label BA queue",
+            "routed_direct": "Direct clearance",
+            "handed_off":    "Handed off",
+            "cleared":       "Cleared",
+        }.get(self.status, self.status.replace("_", " ").title())
+
+    @property
+    def status_color(self):
+        return {
+            "pending":       "secondary",
+            "routed_label":  "info",
+            "routed_direct": "warning",
+            "handed_off":    "primary",
+            "cleared":       "success",
+        }.get(self.status, "secondary")

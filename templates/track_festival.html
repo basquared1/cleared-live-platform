@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Lineup — {{ sub.title }}{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4" style="max-width:1400px;">
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">Cleared<span class="text-warning">.</span>live</a>
+    <div class="ms-auto">
+      <span class="badge rounded-pill px-3 py-2" style="background:{{ sub.platform.primary_color }};color:#fff;">
+        {{ sub.platform.name }}
+      </span>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block container_class %}container-fluid px-4 py-4{% endblock %}
+{% block content %}
+
+  <!-- Header -->
+  <div class="mb-4">
+    <div class="small text-muted mb-1">Clearance Workspace</div>
+    <h2 class="fw-bold text-navy mb-1">{{ sub.title }}</h2>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <span class="badge bg-{{ sub.status_color }} px-3 py-2">{{ sub.status_label }}</span>
+      <span class="badge bg-light text-dark border">{{ sub.project_type_label }}</span>
+      {% if sub.event_date %}<span class="text-muted small">· {{ sub.event_date }}</span>{% endif %}
+      {% if sub.venue %}<span class="text-muted small">· {{ sub.venue }}</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- Sub-tab bar -->
+  <ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('track', token=access_token) }}">
+        <i class="bi bi-list-check me-1"></i>Event Clearances
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link active" href="{{ url_for('track_festival', token=access_token) }}">
+        <i class="bi bi-people-fill me-1"></i>Lineup
+        {% if artists %}<span class="badge bg-navy ms-1">{{ artists|length }}</span>{% endif %}
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('track_agreements', token=access_token) }}">
+        <i class="bi bi-file-earmark-text me-1"></i>Agreements
+      </a>
+    </li>
+  </ul>
+
+  <div class="alert alert-info border-0 mb-4 py-3 px-4 d-flex gap-3 align-items-start" style="border-left:4px solid #0d6efd !important;">
+    <i class="bi bi-people-fill fs-5 mt-1 flex-shrink-0"></i>
+    <div class="small">
+      <strong>Festival lineup.</strong> Add every artist on the bill. For each one, route the clearance
+      into their <strong>label's BA queue</strong> if they're signed, run it <strong>directly</strong> if
+      they're independent, or <strong>hand it off</strong> to their management or label. The event-level
+      clearances (promoter consent, venue, crowd, E&amp;O) live on the Event Clearances tab.
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Roster -->
+    <div class="col-12 col-lg-8">
+      {% if not artists %}
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-5 text-center text-muted">
+          <i class="bi bi-people fs-1 d-block mb-2 opacity-50"></i>
+          No artists yet. Add the first act using the form on the right.
+        </div>
+      </div>
+      {% else %}
+      <div class="vstack gap-3">
+        {% for a in artists %}
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <div class="fw-bold text-navy">{{ a.artist_name }}</div>
+                <div class="small text-muted">
+                  {% if a.is_signed %}
+                    <i class="bi bi-disc me-1"></i>{{ a.label_name or 'Label TBD' }}
+                  {% else %}
+                    <i class="bi bi-person me-1"></i>Independent / unsigned
+                  {% endif %}
+                  {% if a.contact_email %}· {{ a.contact_email }}{% endif %}
+                </div>
+              </div>
+              <span class="badge bg-{{ a.status_color }}">{{ a.status_label }}</span>
+            </div>
+
+            {% if a.child_submission %}
+            <!-- Routed: show where it went + progress + a link to the thread -->
+            <div class="mt-3 p-2 rounded d-flex align-items-center gap-2 flex-wrap" style="background:#f5f7fb;">
+              <i class="bi bi-arrow-return-right text-muted"></i>
+              <span class="small">
+                {% if a.routed_platform %}In <strong>{{ a.routed_platform.name }}</strong>'s BA queue{% else %}Direct clearance thread{% endif %}
+              </span>
+              <span class="small text-muted">· {{ a.child_submission.progress_pct }}% cleared</span>
+              {% if a.handed_off_to %}<span class="small text-muted">· handed to {{ a.handed_off_to }}</span>{% endif %}
+              <a class="btn btn-sm btn-outline-dark ms-auto" href="{{ url_for('track', token=a.child_submission.token) }}">
+                Open thread <i class="bi bi-box-arrow-up-right ms-1"></i>
+              </a>
+            </div>
+            <!-- Even after routing, handoff is still available -->
+            <form method="POST" action="{{ url_for('festival_artist_handoff', token=access_token, artist_id=a.id) }}"
+                  class="d-flex gap-2 mt-2">
+              <input type="email" name="handoff_email" class="form-control form-control-sm"
+                     placeholder="Hand off to mgmt / label email" value="{{ a.contact_email or '' }}">
+              <button class="btn btn-sm btn-outline-primary text-nowrap">Hand off</button>
+            </form>
+            {% else %}
+            <!-- Not routed yet: routing choices -->
+            <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
+              {% set match = suggestions.get(a.id) %}
+              {% if a.is_signed and match %}
+              <form method="POST" action="{{ url_for('festival_artist_route', token=access_token, artist_id=a.id) }}">
+                <input type="hidden" name="mode" value="label">
+                <button class="btn btn-sm btn-navy fw-semibold">
+                  <i class="bi bi-send me-1"></i>Route to {{ match.name }} BA
+                </button>
+              </form>
+              {% elif a.is_signed and a.label_name %}
+              <span class="badge bg-light text-dark border align-self-center">
+                <i class="bi bi-exclamation-triangle text-warning me-1"></i>{{ a.label_name }} not connected
+              </span>
+              {% endif %}
+              <form method="POST" action="{{ url_for('festival_artist_route', token=access_token, artist_id=a.id) }}">
+                <input type="hidden" name="mode" value="direct">
+                <button class="btn btn-sm btn-outline-dark">
+                  <i class="bi bi-pencil-square me-1"></i>Clear directly
+                </button>
+              </form>
+              <form method="POST" action="{{ url_for('festival_artist_handoff', token=access_token, artist_id=a.id) }}"
+                    class="d-flex gap-1">
+                <input type="email" name="handoff_email" class="form-control form-control-sm" style="max-width:200px;"
+                       placeholder="mgmt / label email" value="{{ a.contact_email or '' }}">
+                <button class="btn btn-sm btn-outline-primary text-nowrap">Hand off</button>
+              </form>
+            </div>
+            {% endif %}
+
+            <div class="text-end mt-2">
+              <form method="POST" action="{{ url_for('festival_artist_delete', token=access_token, artist_id=a.id) }}"
+                    onsubmit="return confirm('Remove {{ a.artist_name }} from the lineup?');" class="d-inline">
+                <button class="btn btn-link btn-sm text-danger p-0 text-decoration-none" style="font-size:.75rem;">Remove</button>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Add artist -->
+    <div class="col-12 col-lg-4">
+      <div class="card border-0 shadow-sm" style="position:sticky;top:1rem;">
+        <div class="card-body p-3">
+          <div class="fw-bold text-navy mb-3"><i class="bi bi-plus-circle me-1"></i>Add artist to lineup</div>
+          <form method="POST" action="{{ url_for('festival_artist_add', token=access_token) }}" class="vstack gap-2">
+            <input type="text" name="artist_name" class="form-control form-control-sm" placeholder="Artist name" required>
+            <input type="text" name="label_name" class="form-control form-control-sm" placeholder="Label (e.g. UMG, Sony, Warner)">
+            <div class="form-check small">
+              <input class="form-check-input" type="checkbox" name="is_signed" value="1" id="is_signed" checked>
+              <label class="form-check-label" for="is_signed">Signed to a label</label>
+            </div>
+            <input type="text" name="contact_name" class="form-control form-control-sm" placeholder="Mgmt / label contact (optional)">
+            <input type="email" name="contact_email" class="form-control form-control-sm" placeholder="Contact email (optional)">
+            <textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="Notes (optional)"></textarea>
+            <button class="btn btn-sm btn-navy fw-semibold"><i class="bi bi-plus-lg me-1"></i>Add artist</button>
+          </form>
+          <div class="small text-muted mt-3" style="font-size:.75rem;">
+            We auto-match the label to a connected BA queue. Unmatched labels and independent
+            artists route directly or hand off.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
