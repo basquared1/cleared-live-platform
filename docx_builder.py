@@ -215,6 +215,12 @@ def _add_footer(doc):
     fp.clear()
 
     fp.paragraph_format.tab_stops.add_tab_stop(Inches(6.5), WD_ALIGN_PARAGRAPH.RIGHT)
+    # Proprietary notice (left) — deters reuse of firm template language.
+    prop_run = fp.add_run("Proprietary — generated via Cleared.live. Not for redistribution.")
+    prop_run.font.name = "Times New Roman"
+    prop_run.font.size = Pt(7)
+    prop_run.font.color.rgb = GRAY
+    prop_run.italic = True
     fp.add_run("\t")
 
     fld_char1 = OxmlElement("w:fldChar")

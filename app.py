@@ -429,7 +429,7 @@ def _item_rights_holder(sub, item):
     return ""
 
 
-def _build_clearance_doc_user_prompt(sub, item):
+def _build_clearance_doc_user_prompt(sub, item, ai_only=False):
     is_label_waiver = (sub.platform.platform_mode == "label_waiver")
 
     if is_label_waiver:
@@ -480,7 +480,7 @@ def _build_clearance_doc_user_prompt(sub, item):
         + f"STANDARD PERIODS: use 5 business days for any notice or cure period, and {cue_days} days for "
           f"cue-sheet delivery, unless a deal term says otherwise.\n"
         + _guideline_block(sub)
-        + _template_block(item)
+        + ("" if ai_only else _template_block(item))
         + "\nUse the real values above wherever possible. Only bracket a value that is genuinely unknown — "
           "e.g. the rights holder's exact legal entity type/state, or the fee if not yet agreed. "
           "Draft the complete agreement now."
@@ -557,11 +557,12 @@ def _compute_publisher_groups(sub):
     return groups
 
 
-def generate_draft(sub, item):
-    """Generate full agreement text using the attorney system prompt."""
+def generate_draft(sub, item, ai_only=False):
+    """Generate full agreement text using the attorney system prompt.
+    ai_only=True drafts from scratch without the firm-approved template (secondary path)."""
     if not os.getenv("ANTHROPIC_API_KEY"):
         return None
-    user_prompt = _build_clearance_doc_user_prompt(sub, item)
+    user_prompt = _build_clearance_doc_user_prompt(sub, item, ai_only=ai_only)
     return call_claude_document(_CLP_SYSTEM_PROMPT, user_prompt)
 
 
@@ -1398,6 +1399,11 @@ def _render_track(token, view):
     # Split clearance items into the Music Clearance group and everything else.
     music_items   = [ci for ci in sub.clearance_items if is_music_item(ci.item_key)]
     general_items = [ci for ci in sub.clearance_items if not is_music_item(ci.item_key)]
+    # Which item types have a firm-approved template — drives templates-first drafting UI.
+    try:
+        template_keys = {t.doc_type for t in Template.query.filter_by(is_active=True).all()}
+    except Exception:
+        template_keys = set()
     return render_template("track.html", sub=sub,
                            access_token=token,
                            publishing_notes=_get_publishing_notes(sub),
@@ -1406,6 +1412,7 @@ def _render_track(token, view):
                            project_guidelines=project_guidelines,
                            music_items=music_items, general_items=general_items,
                            mfn_ledger=_mfn_ledger(sub),
+                           template_keys=template_keys,
                            view=view)
 
 
@@ -1731,9 +1738,10 @@ def track_item_gen_draft(token, item_id):
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
+    ai_only = bool(request.form.get("ai_only"))
     item.ai_draft = None
     db.session.commit()
-    draft = generate_draft(sub, item)
+    draft = generate_draft(sub, item, ai_only=ai_only)
     if draft:
         item.ai_draft = draft
         db.session.commit()

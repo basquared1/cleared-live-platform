@@ -116,25 +116,56 @@
             </form>
           </div>
 
-          <!-- AI Draft Agreement -->
+          <!-- Draft Agreement -->
           {% if not item.ai_draft %}
+          {% set has_template = item.item_key in (template_keys or []) %}
+          {% if has_template %}
+          <!-- Templates-first: firm-approved template is the primary path -->
+          <div class="mb-3 p-3 rounded" style="background:#eef4ff;border:1px solid #b9cdf0;">
+            <div class="d-flex align-items-center gap-3">
+              <i class="bi bi-file-earmark-check text-navy fs-5"></i>
+              <div class="flex-grow-1">
+                <div class="fw-semibold small text-navy">Firm-approved template available</div>
+                <div class="text-muted" style="font-size:.78rem;">Start from the attorney-drafted template — recommended. You only fill in the blanks.</div>
+              </div>
+              <form method="POST" action="{{ url_for('track_item_gen_draft', token=access_token, item_id=item.id) }}">
+                <button type="submit" class="btn btn-sm btn-navy fw-semibold">
+                  <i class="bi bi-file-earmark-check me-1"></i>Use Firm Template
+                </button>
+              </form>
+            </div>
+            <div class="text-end mt-2">
+              <form method="POST" action="{{ url_for('track_item_gen_draft', token=access_token, item_id=item.id) }}" class="d-inline">
+                <input type="hidden" name="ai_only" value="1">
+                <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" style="font-size:.75rem;">
+                  No template fits — draft with AI instead
+                </button>
+              </form>
+            </div>
+          </div>
+          {% else %}
           <div class="mb-3 p-3 rounded d-flex align-items-center gap-3" style="background:#fff8e1;border:1px solid #f5c842;">
             <i class="bi bi-hourglass-split text-warning fs-5"></i>
             <div class="flex-grow-1">
               <div class="fw-semibold small text-navy">Agreement draft not generated yet</div>
-              <div class="text-muted" style="font-size:.78rem;">AI will draft the agreement for this item. Click to generate now.</div>
+              <div class="text-muted" style="font-size:.78rem;">No firm template for this item type — AI will draft it. Click to generate now.</div>
             </div>
             <form method="POST" action="{{ url_for('track_item_gen_draft', token=access_token, item_id=item.id) }}">
+              <input type="hidden" name="ai_only" value="1">
               <button type="submit" class="btn btn-sm btn-warning fw-semibold text-dark">
-                <i class="bi bi-stars me-1"></i>Generate Draft
+                <i class="bi bi-stars me-1"></i>Draft with AI
               </button>
             </form>
           </div>
+          {% endif %}
           {% else %}
           <div class="mb-3" id="draft-section-{{ item.id }}">
             <div class="d-flex align-items-center gap-2 mb-2">
-              <i class="bi bi-stars text-warning"></i>
-              <span class="fw-semibold small text-navy">AI Draft Agreement</span>
+              <i class="bi bi-file-earmark-text text-navy"></i>
+              <span class="fw-semibold small text-navy">Agreement Draft</span>
+              <span class="badge bg-light text-muted border" style="font-size:.62rem;font-weight:500;">
+                <i class="bi bi-lock-fill me-1"></i>Proprietary — view only
+              </span>
               <button class="btn btn-link btn-sm p-0 text-decoration-none text-primary ms-auto"
                       type="button" onclick="toggleDraft({{ item.id }})">
                 <span id="draft-toggle-{{ item.id }}">Show <i class="bi bi-chevron-down"></i></span>
@@ -149,10 +180,12 @@
                 <div id="var-inputs-{{ item.id }}" class="row g-2"></div>
               </div>
 
-              <!-- Draft preview (read mode) -->
-              <div id="draft-preview-{{ item.id }}"
+              <!-- Draft preview (read-only, copy-protected) -->
+              <div id="draft-preview-{{ item.id }}" class="cl-protected"
+                   oncopy="return false" oncut="return false" oncontextmenu="return false" ondragstart="return false"
                    style="white-space:pre-wrap;font-family:Georgia,serif;font-size:.78rem;line-height:1.7;
-                          max-height:320px;overflow-y:auto;background:#f8f9ff;padding:1rem;border-radius:.5rem;border:1px solid #dde;">
+                          max-height:320px;overflow-y:auto;background:#f8f9ff;padding:1rem;border-radius:.5rem;border:1px solid #dde;
+                          user-select:none;-webkit-user-select:none;-moz-user-select:none;">
               </div>
 
               <!-- Edit mode (textarea) -->
@@ -164,22 +197,8 @@
               <!-- Raw source (hidden, used as base) -->
               <textarea id="draft-source-{{ item.id }}" class="d-none">{{ item.ai_draft }}</textarea>
 
-              <!-- Actions -->
+              <!-- Actions — copy-protected: blanks-only fill, execution-ready download + signing -->
               <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
-                <button type="button" class="btn btn-sm btn-outline-secondary"
-                        id="edit-btn-{{ item.id }}"
-                        onclick="enterEditMode({{ item.id }})">
-                  <i class="bi bi-pencil me-1"></i>Edit Full Draft
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary d-none"
-                        id="preview-btn-{{ item.id }}"
-                        onclick="exitEditMode({{ item.id }})">
-                  <i class="bi bi-eye me-1"></i>Preview
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-primary"
-                        onclick="downloadFilled({{ item.id }}, '{{ item.item_label | replace("'","") | replace("/","_") }}')">
-                  <i class="bi bi-download me-1"></i>Download (.txt)
-                </button>
                 <a class="btn btn-sm btn-outline-primary"
                    href="{{ url_for('track_item_agreement_docx', token=access_token, item_id=item.id) }}">
                   <i class="bi bi-file-earmark-word me-1"></i>Download (.docx)

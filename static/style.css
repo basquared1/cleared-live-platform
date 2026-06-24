@@ -51,6 +51,17 @@ body {
 .bg-navy   { background-color: var(--cl-navy) !important; }
 .btn-navy  { background-color: var(--cl-navy); border-color: var(--cl-navy); color: #fff; }
 .btn-navy:hover, .btn-navy:focus { background-color: #0a2e57; border-color: #0a2e57; color: #fff; }
+
+/* ── Copy-protected proprietary content (submitter view) ── */
+.cl-protected { position: relative; }
+.cl-protected::before {
+  content: "CLEARED.LIVE · PROPRIETARY · VIEW ONLY";
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(-24deg);
+  white-space: nowrap; pointer-events: none; z-index: 1;
+  font-size: 1rem; font-weight: 800; letter-spacing: .12em;
+  color: rgba(13, 59, 110, 0.07);
+}
 html, body { overflow-x: hidden; max-width: 100%; }
 
 /* ── Platform BA sidebar nav ───────────────────────── */
