@@ -5529,12 +5529,25 @@ def migrate_db_cmd():
         removed += 1
     db.session.commit()
     print(f"  platform_agreement cleanup: removed {removed}, preserved {skipped} (had docs/were completed)")
-    # Create new tables folded in from PLB (templates, deal_terms_board) — cross-DB safe.
+    # Create new tables (templates, deal_terms_board, festival_artists) — cross-DB safe.
     try:
         db.create_all()
-        print("  templates + deal_terms_board tables OK")
+        print("  templates + deal_terms_board + festival_artists tables OK")
     except Exception as exc:
         print(f"  create_all: {exc}")
+
+    # Enable the 'festival' project type on distributor platforms so promoters can pick
+    # it at intake (label_waiver platforms stay live-music-only). Idempotent.
+    fest_enabled = 0
+    for p in Platform.query.filter(Platform.platform_mode != "label_waiver").all():
+        types = p.accepted_types_list
+        if "festival" not in types:
+            idx = types.index("live_music") + 1 if "live_music" in types else len(types)
+            types.insert(idx, "festival")
+            p.accepted_types = ",".join(types)
+            fest_enabled += 1
+    db.session.commit()
+    print(f"  festival project type enabled on {fest_enabled} distributor platform(s)")
     n = seed_templates()
     print(f"  templates seeded/updated: {n}")
     print("Migration complete.")
