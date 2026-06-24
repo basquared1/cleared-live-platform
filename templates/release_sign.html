@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Sign Release — {{ sub.title }}{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4" style="max-width:1400px;">
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">Cleared<span class="text-warning">.</span>live</a>
+  </div>
+</nav>
+{% endblock %}
+{% block container_class %}container py-4{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-8">
+
+  <h4 class="fw-bold text-navy mb-1">General Release</h4>
+  <div class="text-muted mb-3">{{ sub.title }}{% if sub.submitter_company %} · {{ sub.submitter_company }}{% endif %}</div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-light border-0 py-2 fw-semibold small text-navy">Please review this release</div>
+    <div class="card-body p-3" style="max-height:340px;overflow:auto;">
+      <pre class="mb-0 small" style="white-space:pre-wrap;font-family:Georgia,serif;line-height:1.7;">{{ release_text }}</pre>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('release_do_sign', token=rr.token) }}" id="signForm">
+    <input type="hidden" name="signature_data" id="signature_data">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body p-4">
+        <div class="mb-3">
+          <label class="form-label fw-semibold small">Print your full name <span class="text-danger">*</span></label>
+          <input type="text" name="printed_name" class="form-control" required
+                 value="{{ rr.signer_name or '' }}" placeholder="As it should appear on the release">
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="agree" required>
+          <label class="form-check-label small" for="agree">
+            I have read and agree to this release, and my signature below is legally binding.
+          </label>
+        </div>
+        <label class="form-label fw-semibold small">Signature <span class="text-danger">*</span></label>
+        <div class="border rounded position-relative" style="background:#fff;">
+          <canvas id="pad" style="width:100%;height:200px;touch-action:none;display:block;"></canvas>
+        </div>
+        <div class="d-flex justify-content-between mt-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="clearBtn"><i class="bi bi-eraser me-1"></i>Clear</button>
+          <span class="text-muted small">Draw with mouse or finger</span>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary fw-semibold px-4" id="submitBtn" disabled>
+      <i class="bi bi-pen me-1"></i>Sign Release
+    </button>
+    <p class="text-muted small mt-3 mb-0">
+      No account needed. Your signature is recorded with a timestamp and shared only with the producer of this project.
+    </p>
+  </form>
+</div>
+</div>
+
+<script>
+(function(){
+  var canvas = document.getElementById('pad');
+  var ctx = canvas.getContext('2d');
+  var drawing = false, hasInk = false, last = null;
+  function resize(){
+    var ratio = window.devicePixelRatio || 1;
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * ratio; canvas.height = rect.height * ratio;
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#0d1b3e';
+  }
+  setTimeout(resize, 0);
+  function pos(e){ var rect = canvas.getBoundingClientRect(); var t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top }; }
+  function start(e){ drawing = true; last = pos(e); e.preventDefault(); }
+  function move(e){ if(!drawing) return; var p = pos(e);
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    last = p; hasInk = true; updateBtn(); e.preventDefault(); }
+  function end(){ drawing = false; }
+  canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start); canvas.addEventListener('touchmove', move);
+  window.addEventListener('touchend', end);
+  document.getElementById('clearBtn').addEventListener('click', function(){
+    ctx.clearRect(0,0,canvas.width,canvas.height); hasInk = false; updateBtn(); });
+  var agree = document.getElementById('agree');
+  agree.addEventListener('change', updateBtn);
+  function updateBtn(){ document.getElementById('submitBtn').disabled = !(hasInk && agree.checked); }
+  document.getElementById('signForm').addEventListener('submit', function(e){
+    if(!hasInk){ e.preventDefault(); return; }
+    document.getElementById('signature_data').value = canvas.toDataURL('image/png');
+  });
+})();
+</script>
+{% endblock %}

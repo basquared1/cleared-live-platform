@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Release Signed{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4" style="max-width:1400px;">
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">Cleared<span class="text-warning">.</span>live</a>
+  </div>
+</nav>
+{% endblock %}
+{% block container_class %}container py-5{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-6 text-center">
+  <i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>
+  <h4 class="fw-bold text-navy mt-3 mb-2">Release signed</h4>
+  <p class="text-muted">
+    Thank you, {{ rr.signer_name }}. Your general release for
+    <strong>{{ sub.title }}</strong> has been recorded
+    {% if rr.signed_at %}on {{ rr.signed_at.strftime('%B %-d, %Y') }}{% endif %}
+    and sent to the producer. You can close this window.
+  </p>
+</div>
+</div>
+{% endblock %}

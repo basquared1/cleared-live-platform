@@ -880,3 +880,113 @@ class FestivalArtist(db.Model):
             "handed_off":    "primary",
             "cleared":       "success",
         }.get(self.status, "secondary")
+
+
+# Project types that get the Cast & Crew tab (talent/crew releases apply).
+PRODUCTION_PROJECT_TYPES = {"documentary", "feature_film", "tv_series", "unscripted", "branded"}
+
+# Cast & Crew roles, grouped for display order.
+CREW_ROLES = [
+    ("talent",             "Talent / Cast"),
+    ("director",           "Director"),
+    ("cinematographer",    "Cinematographer / DP"),
+    ("writer",             "Writer"),
+    ("producer",           "Producer"),
+    ("executive_producer", "Executive Producer"),
+    ("crew",               "Crew"),
+    ("company",            "Company / Vendor"),
+    ("other",              "Other"),
+]
+CREW_ROLE_LABELS = dict(CREW_ROLES)
+
+
+class ProjectContact(db.Model):
+    """A person or company involved in a production. The submitter's contact registry —
+    the source of signers for releases. Tax IDs are NOT stored here; they're collected
+    only at signing, on the release document itself."""
+    __tablename__ = "project_contacts"
+    id            = db.Column(db.Integer, primary_key=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey("submissions.id"), nullable=False)
+    kind          = db.Column(db.String(20), default="person")   # person | company
+    name          = db.Column(db.String(200), nullable=False)
+    company       = db.Column(db.String(200))                    # affiliation for a person
+    role          = db.Column(db.String(40), default="talent")
+    email         = db.Column(db.String(200))
+    phone         = db.Column(db.String(50))
+    website       = db.Column(db.String(300))
+    credit_requirements = db.Column(db.Text)                     # how they must be credited
+    notes         = db.Column(db.Text)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+
+    submission = db.relationship("Submission", backref="contacts")
+    releases   = db.relationship("ReleaseRequest", backref="contact", lazy=True,
+                                 cascade="all, delete-orphan")
+
+    @property
+    def role_label(self):
+        return CREW_ROLE_LABELS.get(self.role, (self.role or "").replace("_", " ").title())
+
+    @property
+    def latest_release(self):
+        rs = sorted(self.releases, key=lambda r: r.created_at or datetime.min)
+        return rs[-1] if rs else None
+
+
+class ReleaseRequest(db.Model):
+    """A general release sent to one individual for signature, with a public signing link,
+    an event log, and an automated follow-up cadence (day 3 / 6 / 9, then flag)."""
+    __tablename__ = "release_requests"
+    id            = db.Column(db.Integer, primary_key=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey("submissions.id"), nullable=False)
+    contact_id    = db.Column(db.Integer, db.ForeignKey("project_contacts.id"))
+    token         = db.Column(db.String(60), unique=True, nullable=False, default=_gen_token)
+    release_type  = db.Column(db.String(50), default="general_release")
+    signer_name   = db.Column(db.String(200))
+    signer_email  = db.Column(db.String(200))
+    status        = db.Column(db.String(20), default="created")
+    # created | sent | viewed | signed | declined
+    docusign_envelope_id = db.Column(db.String(100))
+
+    sent_at         = db.Column(db.DateTime)
+    viewed_at       = db.Column(db.DateTime)
+    signed_at       = db.Column(db.DateTime)
+    reminders_sent  = db.Column(db.Integer, default=0)
+    last_reminder_at= db.Column(db.DateTime)
+    log_json        = db.Column(db.Text)
+    created_at      = db.Column(db.DateTime, default=datetime.utcnow)
+
+    submission = db.relationship("Submission", backref="release_requests")
+
+    @property
+    def log(self):
+        import json
+        try:
+            return json.loads(self.log_json or "[]")
+        except Exception:
+            return []
+
+    def log_add(self, event, detail=""):
+        import json
+        entries = self.log
+        entries.append({"ts": datetime.utcnow().isoformat(), "event": event, "detail": detail})
+        self.log_json = json.dumps(entries)
+
+    @property
+    def status_label(self):
+        return {
+            "created":  "Not sent",
+            "sent":     "Sent — awaiting signature",
+            "viewed":   "Opened",
+            "signed":   "Signed",
+            "declined": "Declined",
+        }.get(self.status, self.status.title())
+
+    @property
+    def status_color(self):
+        return {
+            "created":  "secondary",
+            "sent":     "warning",
+            "viewed":   "info",
+            "signed":   "success",
+            "declined": "danger",
+        }.get(self.status, "secondary")

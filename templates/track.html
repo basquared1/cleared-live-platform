@@ -48,6 +48,14 @@
       </a>
     </li>
     {% endif %}
+    {% if sub.project_type in ['documentary','feature_film','tv_series','unscripted','branded'] %}
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('track_people', token=access_token) }}">
+        <i class="bi bi-person-vcard me-1"></i>Cast &amp; Crew
+        {% if sub.contacts %}<span class="badge bg-navy ms-1">{{ sub.contacts|length }}</span>{% endif %}
+      </a>
+    </li>
+    {% endif %}
     <li class="nav-item">
       <a class="nav-link" href="{{ url_for('track_agreements', token=access_token) }}">
         <i class="bi bi-file-earmark-text me-1"></i>Agreements

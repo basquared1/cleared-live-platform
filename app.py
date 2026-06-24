@@ -29,10 +29,11 @@ def generate_password_hash(s):
 from models import (
     db, Platform, Submission, ClearanceItem, SubmissionDocument,
     WebhookDelivery, PlatformUser, AdminUser, ClearanceGuideline, Invite,
-    Template, DealTerm, FestivalArtist,
+    Template, DealTerm, FestivalArtist, ProjectContact, ReleaseRequest,
     CLEARANCE_TEMPLATES, PRICING_TIERS, PROJECT_TYPE_LABELS,
     TERRITORY_LABELS, INTENDED_USE_OPTIONS,
     MUSIC_ITEM_KEYS, is_music_item,
+    PRODUCTION_PROJECT_TYPES, CREW_ROLES, CREW_ROLE_LABELS,
 )
 
 load_dotenv()
@@ -1467,6 +1468,232 @@ def track_music_delegate(token):
     return jsonify({"ok": True, "link": link, "sent": sent,
                     "contact_name": sub.music_contact_name,
                     "contact_email": sub.music_contact_email})
+
+
+# ---------------------------------------------------------------------------
+# Cast & Crew registry + general-release signing
+# ---------------------------------------------------------------------------
+
+def _general_release_text(sub, rr):
+    """Standard general appearance/materials release, filled with project + signer data.
+    Tax ID is intentionally NOT requested here — it is collected only if/when the signer
+    is paid, on the W-9 at that time, never stored by the platform."""
+    signer = rr.signer_name or "[SIGNER NAME]"
+    producer = sub.submitter_company or sub.submitter_name or "[PRODUCER]"
+    project = sub.title or "[PROJECT]"
+    platform = sub.platform.name if sub.platform else "the distributing platform"
+    return (
+        f"GENERAL RELEASE\n\n"
+        f"Project: {project}\n"
+        f"Producer: {producer}\n\n"
+        f"For good and valuable consideration, receipt of which is acknowledged, I, {signer}, "
+        f"grant to {producer} (\"Producer\") and its successors, licensees, and assigns "
+        f"(including {platform} as distributor) the irrevocable right to record, use, and "
+        f"distribute my name, likeness, voice, appearance, and any materials I provide in "
+        f"connection with the project identified above, in all media now known or later "
+        f"devised, throughout the universe, in perpetuity.\n\n"
+        f"I acknowledge that I have no right of approval, no claim to compensation beyond any "
+        f"separately agreed fee, and no claim arising out of any use of the materials. I "
+        f"represent that I am free to grant these rights and that doing so does not violate any "
+        f"agreement or third-party right.\n\n"
+        f"This release is governed by the laws of the State of New York.\n\n"
+        f"Signer: {signer}\n"
+        f"Email: {rr.signer_email or '[EMAIL]'}\n"
+    )
+
+
+def _send_release_email(sub, rr, reminder=False):
+    """Email the signer their release link. Returns True if actually sent."""
+    if not (os.getenv("RESEND_API_KEY") and rr.signer_email):
+        return False
+    link = url_for("release_sign", token=rr.token, _external=True)
+    producer = sub.submitter_company or sub.submitter_name or "the producer"
+    subject = (f"Reminder: please sign your release — {sub.title}" if reminder
+               else f"Please sign your release — {sub.title}")
+    try:
+        import resend as _resend
+        _resend.api_key = os.getenv("RESEND_API_KEY")
+        _resend.Emails.send({
+            "from": f"{sub.submitter_name or 'Cleared.live'} <clear@cleared.live>",
+            "to": rr.signer_email,
+            "subject": subject,
+            "text": (f"{'This is a reminder that ' if reminder else ''}"
+                     f"{producer} has asked you to sign a release for \"{sub.title}\".\n\n"
+                     f"Review and sign here:\n{link}\n\n"
+                     f"It takes about a minute — no account needed."),
+        })
+        return True
+    except Exception:
+        return False
+
+
+def _production_sub_or_404(token):
+    sub = _sub(token)
+    if sub.project_type not in PRODUCTION_PROJECT_TYPES:
+        abort(404)
+    return sub
+
+
+@app.route("/track/<token>/people")
+def track_people(token):
+    """Cast & Crew tab — the project's people/company registry (production types only)."""
+    sub = _production_sub_or_404(token)
+    contacts = ProjectContact.query.filter_by(submission_id=sub.id)\
+        .order_by(ProjectContact.created_at).all()
+    # Group by role in CREW_ROLES order.
+    grouped = []
+    for key, label in CREW_ROLES:
+        members = [c for c in contacts if c.role == key]
+        if members:
+            grouped.append((label, members))
+    return render_template("track_people.html", sub=sub, access_token=token,
+                           contacts=contacts, grouped=grouped, crew_roles=CREW_ROLES)
+
+
+@app.route("/track/<token>/people/add", methods=["POST"])
+def people_add(token):
+    sub = _production_sub_or_404(token)
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Name is required.", "danger")
+        return redirect(url_for("track_people", token=token))
+    db.session.add(ProjectContact(
+        submission_id = sub.id,
+        kind          = request.form.get("kind", "person"),
+        name          = name,
+        company       = request.form.get("company", "").strip() or None,
+        role          = request.form.get("role", "talent"),
+        email         = request.form.get("email", "").strip().lower() or None,
+        phone         = request.form.get("phone", "").strip() or None,
+        website       = request.form.get("website", "").strip() or None,
+        credit_requirements = request.form.get("credit_requirements", "").strip() or None,
+        notes         = request.form.get("notes", "").strip() or None,
+    ))
+    db.session.commit()
+    flash(f"Added {name}.", "success")
+    return redirect(url_for("track_people", token=token))
+
+
+@app.route("/track/<token>/people/<int:contact_id>/update", methods=["POST"])
+def people_update(token, contact_id):
+    sub = _production_sub_or_404(token)
+    c = ProjectContact.query.filter_by(id=contact_id, submission_id=sub.id).first_or_404()
+    c.name    = request.form.get("name", c.name).strip() or c.name
+    c.company = request.form.get("company", "").strip() or None
+    c.role    = request.form.get("role", c.role)
+    c.email   = request.form.get("email", "").strip().lower() or None
+    c.phone   = request.form.get("phone", "").strip() or None
+    c.website = request.form.get("website", "").strip() or None
+    c.credit_requirements = request.form.get("credit_requirements", "").strip() or None
+    c.notes   = request.form.get("notes", "").strip() or None
+    db.session.commit()
+    flash(f"Updated {c.name}.", "success")
+    return redirect(url_for("track_people", token=token))
+
+
+@app.route("/track/<token>/people/<int:contact_id>/delete", methods=["POST"])
+def people_delete(token, contact_id):
+    sub = _production_sub_or_404(token)
+    c = ProjectContact.query.filter_by(id=contact_id, submission_id=sub.id).first_or_404()
+    db.session.delete(c)
+    db.session.commit()
+    flash("Contact removed.", "success")
+    return redirect(url_for("track_people", token=token))
+
+
+@app.route("/track/<token>/people/<int:contact_id>/send-release", methods=["POST"])
+def people_send_release(token, contact_id):
+    """Create (or reuse) a release request for this person and deliver the signing link —
+    copy link always returned; emailed too when an address is present."""
+    sub = _production_sub_or_404(token)
+    c = ProjectContact.query.filter_by(id=contact_id, submission_id=sub.id).first_or_404()
+    rr = ReleaseRequest.query.filter_by(contact_id=c.id)\
+        .filter(ReleaseRequest.status != "signed").first()
+    if not rr:
+        rr = ReleaseRequest(submission_id=sub.id, contact_id=c.id,
+                            signer_name=c.name, signer_email=c.email)
+        db.session.add(rr)
+        db.session.flush()
+    rr.signer_name  = c.name
+    rr.signer_email = c.email
+    sent = _send_release_email(sub, rr)
+    rr.status   = "sent"
+    rr.sent_at  = rr.sent_at or datetime.utcnow()
+    rr.log_add("sent", f"Emailed to {c.email}" if sent else "Link generated (copy/paste)")
+    db.session.commit()
+    link = url_for("release_sign", token=rr.token, _external=True)
+    if sent:
+        flash(f"Release sent to {c.email}. Shareable link: {link}", "success")
+    else:
+        flash(f"Release link ready — copy and send it to {c.name}: {link}", "info")
+    return redirect(url_for("track_people", token=token))
+
+
+@app.route("/track/<token>/release/<int:release_id>/remind", methods=["POST"])
+def release_remind(token, release_id):
+    sub = _production_sub_or_404(token)
+    rr = ReleaseRequest.query.filter_by(id=release_id, submission_id=sub.id).first_or_404()
+    if rr.status == "signed":
+        flash("Already signed.", "info")
+        return redirect(url_for("track_people", token=token))
+    sent = _send_release_email(sub, rr, reminder=True)
+    rr.reminders_sent   = (rr.reminders_sent or 0) + 1
+    rr.last_reminder_at = datetime.utcnow()
+    rr.log_add("reminder", f"Manual reminder to {rr.signer_email}" if sent else "Manual reminder (no email configured)")
+    db.session.commit()
+    flash(f"Reminder sent to {rr.signer_email or rr.signer_name}." if sent
+          else "Logged a reminder (email not configured).", "success")
+    return redirect(url_for("track_people", token=token))
+
+
+# ── Public general-release signing (no auth — token-scoped) ────────────────
+@app.route("/release/<token>")
+def release_sign(token):
+    rr = ReleaseRequest.query.filter_by(token=token).first_or_404()
+    sub = rr.submission
+    if rr.status not in ("signed", "declined"):
+        if not rr.viewed_at:
+            rr.viewed_at = datetime.utcnow()
+            rr.log_add("viewed", "Signer opened the release")
+            if rr.status == "sent":
+                rr.status = "viewed"
+            db.session.commit()
+    return render_template("release_sign.html", rr=rr, sub=sub,
+                           release_text=_general_release_text(sub, rr))
+
+
+@app.route("/release/<token>/sign", methods=["POST"])
+def release_do_sign(token):
+    rr = ReleaseRequest.query.filter_by(token=token).first_or_404()
+    sub = rr.submission
+    if rr.status == "signed":
+        return render_template("release_signed.html", rr=rr, sub=sub)
+    printed = request.form.get("printed_name", "").strip()
+    sig     = request.form.get("signature_data", "")
+    if not printed or not sig.startswith("data:image"):
+        flash("Please print your name and draw your signature.", "warning")
+        return redirect(url_for("release_sign", token=token))
+    try:
+        png = base64.b64decode(sig.split(",", 1)[1])
+    except Exception:
+        flash("Signature could not be read. Please try again.", "danger")
+        return redirect(url_for("release_sign", token=token))
+    rr.signer_name = printed or rr.signer_name
+    db.session.add(SubmissionDocument(
+        submission_id = sub.id,
+        title         = f"Signed General Release — {rr.signer_name}",
+        doc_type      = "signed_release",
+        filename      = "release_signature.png",
+        file_data     = png,
+        mimetype      = "image/png",
+        notes         = _general_release_text(sub, rr) + f"\n\nSigned by {printed} at {datetime.utcnow().isoformat()} UTC",
+        uploaded_by   = printed,
+    ))
+    rr.status    = "signed"
+    rr.signed_at = datetime.utcnow()
+    rr.log_add("signed", f"Signed by {printed}")
+    db.session.commit()
+    return render_template("release_signed.html", rr=rr, sub=sub)
 
 
 # ---------------------------------------------------------------------------
@@ -5260,6 +5487,34 @@ def send_invite_cmd(platform_slug, email, name=None):
     else:
         print("RESEND_API_KEY not set — no email sent.")
     print(f"Invite link: {invite_url}")
+
+
+@app.cli.command("release-reminders")
+def release_reminders_cmd():
+    """Send automated follow-ups for unsigned releases (day 3 / 6 / 9, then stop).
+    Run daily via Render Cron: flask release-reminders"""
+    now = datetime.utcnow()
+    due = ReleaseRequest.query.filter(
+        ReleaseRequest.status.in_(["sent", "viewed"]),
+        ReleaseRequest.reminders_sent < 3,
+    ).all()
+    sent_n = flagged_n = 0
+    for rr in due:
+        anchor = rr.last_reminder_at or rr.sent_at or rr.created_at
+        if not anchor or (now - anchor).days < 3:
+            continue
+        sub = rr.submission
+        ok = _send_release_email(sub, rr, reminder=True)
+        rr.reminders_sent   = (rr.reminders_sent or 0) + 1
+        rr.last_reminder_at = now
+        rr.log_add("reminder", f"Auto reminder #{rr.reminders_sent} "
+                               f"({'sent' if ok else 'no email configured'})")
+        if rr.reminders_sent >= 3:
+            rr.log_add("reminders_exhausted", "3 reminders sent — needs manual follow-up")
+            flagged_n += 1
+        sent_n += 1
+    db.session.commit()
+    print(f"Release reminders: {sent_n} sent, {flagged_n} flagged for manual follow-up")
 
 
 @app.cli.command("create-ba-user")
