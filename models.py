@@ -289,6 +289,10 @@ class Submission(db.Model):
     music_contact_name  = db.Column(db.String(200))
     music_contact_email = db.Column(db.String(200))
 
+    # Producer's custom general-release template (overrides the default). Supports
+    # {signer} {producer} {project} {platform} {state} placeholders.
+    release_template    = db.Column(db.Text)
+
     created_at          = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at          = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     cleared_at          = db.Column(db.DateTime)

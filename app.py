@@ -1474,32 +1474,87 @@ def track_music_delegate(token):
 # Cast & Crew registry + general-release signing
 # ---------------------------------------------------------------------------
 
-def _general_release_text(sub, rr):
-    """Standard general appearance/materials release, filled with project + signer data.
-    Tax ID is intentionally NOT requested here — it is collected only if/when the signer
-    is paid, on the W-9 at that time, never stored by the platform."""
-    signer = rr.signer_name or "[SIGNER NAME]"
-    producer = sub.submitter_company or sub.submitter_name or "[PRODUCER]"
-    project = sub.title or "[PROJECT]"
-    platform = sub.platform.name if sub.platform else "the distributing platform"
+def _default_release_template():
+    """Default general appearance/materials release, with {placeholders}. A producer can
+    override this per project. Tax ID is intentionally NOT requested — it's collected only
+    if/when the signer is paid, on the W-9 at that time, never stored by the platform."""
     return (
-        f"GENERAL RELEASE\n\n"
-        f"Project: {project}\n"
-        f"Producer: {producer}\n\n"
-        f"For good and valuable consideration, receipt of which is acknowledged, I, {signer}, "
-        f"grant to {producer} (\"Producer\") and its successors, licensees, and assigns "
-        f"(including {platform} as distributor) the irrevocable right to record, use, and "
-        f"distribute my name, likeness, voice, appearance, and any materials I provide in "
-        f"connection with the project identified above, in all media now known or later "
-        f"devised, throughout the universe, in perpetuity.\n\n"
-        f"I acknowledge that I have no right of approval, no claim to compensation beyond any "
-        f"separately agreed fee, and no claim arising out of any use of the materials. I "
-        f"represent that I am free to grant these rights and that doing so does not violate any "
-        f"agreement or third-party right.\n\n"
-        f"This release is governed by the laws of the State of New York.\n\n"
-        f"Signer: {signer}\n"
-        f"Email: {rr.signer_email or '[EMAIL]'}\n"
+        "GENERAL RELEASE\n\n"
+        "Project: {project}\n"
+        "Producer: {producer}\n\n"
+        "For good and valuable consideration, receipt of which is acknowledged, I, {signer}, "
+        "grant to {producer} (\"Producer\") and its successors, licensees, and assigns "
+        "(including {platform} as distributor) the irrevocable right to record, use, and "
+        "distribute my name, likeness, voice, appearance, and any materials I provide in "
+        "connection with the project identified above, in all media now known or later "
+        "devised, throughout the universe, in perpetuity.\n\n"
+        "I acknowledge that I have no right of approval, no claim to compensation beyond any "
+        "separately agreed fee, and no claim arising out of any use of the materials. I "
+        "represent that I am free to grant these rights and that doing so does not violate any "
+        "agreement or third-party right.\n\n"
+        "This release is governed by the laws of the State of {state}."
     )
+
+
+def _general_release_text(sub, rr):
+    """Render the release for signing — the producer's custom template if set, else the
+    default — substituting project/signer placeholders. Governing law defaults to California."""
+    tmpl   = sub.release_template or _default_release_template()
+    signer = rr.signer_name or "[SIGNER NAME]"
+    fields = {
+        "{signer}":   signer,
+        "{producer}": sub.submitter_company or sub.submitter_name or "[PRODUCER]",
+        "{project}":  sub.title or "[PROJECT]",
+        "{platform}": sub.platform.name if sub.platform else "the distributing platform",
+        "{state}":    "California",
+    }
+    body = tmpl
+    for k, v in fields.items():
+        body = body.replace(k, v)
+    return body.rstrip() + f"\n\nSigner: {signer}\nEmail: {rr.signer_email or '[EMAIL]'}\n"
+
+
+def _build_release_pdf(release_text, signer, signed_at_str, signature_png):
+    """Render the signed general release (text + signature image + execution line) to a PDF."""
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.units import inch
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter, topMargin=inch, bottomMargin=inch,
+                            leftMargin=inch, rightMargin=inch, title="Signed General Release")
+    styles = getSampleStyleSheet()
+    body  = ParagraphStyle("body",  parent=styles["Normal"], fontName="Times-Roman", fontSize=11, leading=16)
+    title = ParagraphStyle("title", parent=styles["Title"],  fontName="Times-Bold",  fontSize=15, spaceAfter=12)
+
+    def esc(s):
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    story = []
+    for ln in release_text.split("\n"):
+        if not ln.strip():
+            story.append(Spacer(1, 8))
+        elif ln.strip() == "GENERAL RELEASE":
+            story.append(Paragraph("GENERAL RELEASE", title))
+        else:
+            story.append(Paragraph(esc(ln), body))
+    story.append(Spacer(1, 28))
+    story.append(Paragraph("Signature:", body))
+    try:
+        img = Image(io.BytesIO(signature_png))
+        maxw = 2.4 * inch
+        if img.imageWidth > maxw:
+            img.drawHeight = img.imageHeight * (maxw / img.imageWidth)
+            img.drawWidth  = maxw
+        img.hAlign = "LEFT"
+        story.append(img)
+    except Exception:
+        story.append(Paragraph("[signature on file]", body))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(f"Signed by {esc(signer)}", body))
+    story.append(Paragraph(f"Date: {esc(signed_at_str)} UTC", body))
+    doc.build(story)
+    return buf.getvalue()
 
 
 def _send_release_email(sub, rr, reminder=False):
@@ -1547,7 +1602,20 @@ def track_people(token):
         if members:
             grouped.append((label, members))
     return render_template("track_people.html", sub=sub, access_token=token,
-                           contacts=contacts, grouped=grouped, crew_roles=CREW_ROLES)
+                           contacts=contacts, grouped=grouped, crew_roles=CREW_ROLES,
+                           release_template_current=sub.release_template or "",
+                           release_template_default=_default_release_template())
+
+
+@app.route("/track/<token>/people/release-template", methods=["POST"])
+def people_release_template(token):
+    """Producer saves (or resets) their own general-release template for this project."""
+    sub = _production_sub_or_404(token)
+    text = request.form.get("release_template", "").strip()
+    sub.release_template = text or None     # empty resets to the default
+    db.session.commit()
+    flash("Release template saved." if text else "Reverted to the default release.", "success")
+    return redirect(url_for("track_people", token=token))
 
 
 @app.route("/track/<token>/people/add", methods=["POST"])
@@ -1679,18 +1747,28 @@ def release_do_sign(token):
         flash("Signature could not be read. Please try again.", "danger")
         return redirect(url_for("release_sign", token=token))
     rr.signer_name = printed or rr.signer_name
+    now = datetime.utcnow()
+    release_text = _general_release_text(sub, rr)
+    signed_str   = now.strftime("%B %-d, %Y %H:%M")
+    safe_name    = "".join(ch for ch in (printed or "release") if ch.isalnum() or ch in " -_").strip().replace(" ", "_")
+    try:
+        pdf_bytes = _build_release_pdf(release_text, printed, signed_str, png)
+        file_data, mimetype, filename = pdf_bytes, "application/pdf", f"Signed_Release_{safe_name}.pdf"
+    except Exception as e:
+        app.logger.error(f"Release PDF build failed, storing signature image: {e}")
+        file_data, mimetype, filename = png, "image/png", f"Signed_Release_{safe_name}.png"
     db.session.add(SubmissionDocument(
         submission_id = sub.id,
         title         = f"Signed General Release — {rr.signer_name}",
         doc_type      = "signed_release",
-        filename      = "release_signature.png",
-        file_data     = png,
-        mimetype      = "image/png",
-        notes         = _general_release_text(sub, rr) + f"\n\nSigned by {printed} at {datetime.utcnow().isoformat()} UTC",
+        filename      = filename,
+        file_data     = file_data,
+        mimetype      = mimetype,
+        notes         = release_text + f"\n\nSigned by {printed} at {now.isoformat()} UTC",
         uploaded_by   = printed,
     ))
     rr.status    = "signed"
-    rr.signed_at = datetime.utcnow()
+    rr.signed_at = now
     rr.log_add("signed", f"Signed by {printed}")
     db.session.commit()
     return render_template("release_signed.html", rr=rr, sub=sub)
@@ -1878,6 +1956,20 @@ def festival_artist_handoff(token, artist_id):
     else:
         flash(f"Handoff thread ready. Share this link with {to_email}: {link}", "info")
     return redirect(url_for("track_festival", token=token))
+
+
+SIGNED_DOC_TYPES = ("signed_release", "executed", "onsite_signature", "signed_document")
+
+
+@app.route("/track/<token>/signed")
+def track_signed(token):
+    """Signed Documents tab — every executed/signed artifact, clickable to open."""
+    sub  = _sub(token)
+    docs = SubmissionDocument.query.filter(
+        SubmissionDocument.submission_id == sub.id,
+        SubmissionDocument.doc_type.in_(SIGNED_DOC_TYPES),
+    ).order_by(SubmissionDocument.created_at.desc()).all()
+    return render_template("track_signed.html", sub=sub, access_token=token, docs=docs)
 
 
 @app.route("/track/<token>/agreements")
@@ -5684,6 +5776,16 @@ def migrate_db_cmd():
         except Exception as exc:
             conn.rollback()
             print(f"  submissions.songs_json: {exc}")
+        # Add release_template to submissions (custom general-release text)
+        try:
+            conn.execute(sa_text(
+                "ALTER TABLE submissions ADD COLUMN IF NOT EXISTS release_template TEXT"
+            ))
+            conn.commit()
+            print("  submissions.release_template OK")
+        except Exception as exc:
+            conn.rollback()
+            print(f"  submissions.release_template: {exc}")
         # Add deal_terms_json to submissions
         try:
             conn.execute(sa_text(

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Signed Documents — {{ sub.title }}{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid px-4" style="max-width:1400px;">
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">Cleared<span class="text-warning">.</span>live</a>
+    <div class="ms-auto">
+      <span class="badge rounded-pill px-3 py-2" style="background:{{ sub.platform.primary_color }};color:#fff;">
+        {{ sub.platform.name }}
+      </span>
+    </div>
+  </div>
+</nav>
+{% endblock %}
+{% block container_class %}container-fluid px-4 py-4{% endblock %}
+{% block content %}
+
+  <div class="mb-4">
+    <div class="small text-muted mb-1">Clearance Workspace</div>
+    <h2 class="fw-bold text-navy mb-1">{{ sub.title }}</h2>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <span class="badge bg-{{ sub.status_color }} px-3 py-2">{{ sub.status_label }}</span>
+      <span class="badge bg-light text-dark border">{{ sub.project_type_label }}</span>
+    </div>
+  </div>
+
+  <ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('track', token=access_token) }}">
+        <i class="bi bi-list-check me-1"></i>Workspace
+      </a>
+    </li>
+    {% if sub.project_type in ['documentary','feature_film','tv_series','unscripted','branded'] %}
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('track_people', token=access_token) }}">
+        <i class="bi bi-person-vcard me-1"></i>Cast &amp; Crew
+      </a>
+    </li>
+    {% endif %}
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('track_agreements', token=access_token) }}">
+        <i class="bi bi-file-earmark-text me-1"></i>Agreements
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link active" href="{{ url_for('track_signed', token=access_token) }}">
+        <i class="bi bi-file-earmark-check me-1"></i>Signed Documents
+        {% if docs %}<span class="badge bg-navy ms-1">{{ docs|length }}</span>{% endif %}
+      </a>
+    </li>
+  </ul>
+
+  <div class="alert alert-success border-0 mb-4 py-3 px-4 d-flex gap-3 align-items-start" style="border-left:4px solid #198754 !important;">
+    <i class="bi bi-file-earmark-check fs-5 mt-1 flex-shrink-0"></i>
+    <div class="small">
+      <strong>Signed Documents.</strong> Every executed release and signed agreement for this project,
+      saved as a PDF. Click any document to open it.
+    </div>
+  </div>
+
+  {% set type_label = {'signed_release':'General Release','executed':'Executed Agreement','onsite_signature':'On-Site Signature','signed_document':'Signed Agreement'} %}
+  {% if not docs %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-5 text-center text-muted">
+      <i class="bi bi-file-earmark-check fs-1 d-block mb-2 opacity-50"></i>
+      No signed documents yet. Signed releases and executed agreements will appear here automatically.
+    </div>
+  </div>
+  {% else %}
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">Document</th>
+            <th>Type</th>
+            <th>Signed by</th>
+            <th>Date</th>
+            <th class="text-end pe-4">Open</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in docs %}
+          <tr>
+            <td class="ps-4">
+              <i class="bi {{ 'bi-filetype-pdf text-danger' if d.mimetype == 'application/pdf' else 'bi-file-earmark-image text-secondary' }} me-2"></i>
+              <span class="fw-semibold small">{{ d.title }}</span>
+            </td>
+            <td><span class="badge bg-light text-dark border">{{ type_label.get(d.doc_type, d.doc_type) }}</span></td>
+            <td class="small">{{ d.uploaded_by or '—' }}</td>
+            <td class="small text-muted">{{ d.created_at.strftime('%b %-d, %Y') if d.created_at else '—' }}</td>
+            <td class="text-end pe-4">
+              <a class="btn btn-sm btn-outline-dark" target="_blank"
+                 href="{{ url_for('track_download_doc', token=access_token, doc_id=d.id) }}?inline=1">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Open
+              </a>
+              <a class="btn btn-sm btn-link text-decoration-none"
+                 href="{{ url_for('track_download_doc', token=access_token, doc_id=d.id) }}">Download</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+{% endblock %}

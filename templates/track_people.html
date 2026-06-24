@@ -43,15 +43,48 @@
         <i class="bi bi-file-earmark-text me-1"></i>Agreements
       </a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link" href="{{ url_for('track_signed', token=access_token) }}">
+        <i class="bi bi-file-earmark-check me-1"></i>Signed Documents
+      </a>
+    </li>
   </ul>
 
-  <div class="alert alert-info border-0 mb-4 py-3 px-4 d-flex gap-3 align-items-start" style="border-left:4px solid #0d6efd !important;">
+  <div class="alert alert-info border-0 mb-3 py-3 px-4 d-flex gap-3 align-items-start" style="border-left:4px solid #0d6efd !important;">
     <i class="bi bi-person-vcard fs-5 mt-1 flex-shrink-0"></i>
     <div class="small">
       <strong>Cast &amp; Crew.</strong> Add everyone involved — talent, crew, director, DP, writers,
-      producers, EPs — with their contact info and credit requirements. Send anyone a
+      producers, EPs — with their contact info. Send anyone a
       <strong>general release</strong> to sign with one click; we log every send and follow up
       automatically. <span class="text-muted">Tax IDs are only collected on the signed release, never stored here.</span>
+    </div>
+  </div>
+
+  <!-- Custom release template -->
+  <div class="mb-4">
+    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#release-tmpl">
+      <i class="bi bi-pencil-square me-1"></i>{{ 'Edit your release template' if release_template_current else 'Use your own release template' }}
+      {% if release_template_current %}<span class="badge bg-success ms-1">Custom</span>{% endif %}
+    </button>
+    <div class="collapse mt-2" id="release-tmpl">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-3">
+          <div class="small text-muted mb-2">
+            This text is what every signer sees. Placeholders fill automatically:
+            <code>{signer}</code> <code>{producer}</code> <code>{project}</code> <code>{platform}</code> <code>{state}</code>.
+            Leave blank and save to revert to the default. Governing law defaults to California.
+          </div>
+          <form method="POST" action="{{ url_for('people_release_template', token=access_token) }}">
+            <textarea name="release_template" class="form-control form-control-sm" rows="12"
+                      style="font-family:Georgia,serif;font-size:.8rem;line-height:1.6;"
+                      placeholder="{{ release_template_default }}">{{ release_template_current }}</textarea>
+            <div class="d-flex gap-2 mt-2">
+              <button class="btn btn-sm btn-navy fw-semibold">Save template</button>
+              <span class="text-muted small align-self-center">Applies to releases sent after saving.</span>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -86,9 +119,6 @@
                     {% if c.phone %}· <i class="bi bi-telephone me-1"></i>{{ c.phone }}{% endif %}
                     {% if c.website %}· <a href="{{ c.website }}" target="_blank" rel="noopener">site</a>{% endif %}
                   </div>
-                  {% if c.credit_requirements %}
-                  <div class="small mt-1"><span class="text-muted">Credit:</span> {{ c.credit_requirements }}</div>
-                  {% endif %}
                 </div>
                 <div class="text-end">
                   {% if rr %}<span class="badge bg-{{ rr.status_color }}">Release: {{ rr.status_label }}</span>{% endif %}
@@ -130,7 +160,6 @@
                   <div class="col-md-6"><input name="email" class="form-control form-control-sm" value="{{ c.email or '' }}" placeholder="Email"></div>
                   <div class="col-md-6"><input name="phone" class="form-control form-control-sm" value="{{ c.phone or '' }}" placeholder="Phone"></div>
                   <div class="col-md-6"><input name="website" class="form-control form-control-sm" value="{{ c.website or '' }}" placeholder="Website"></div>
-                  <div class="col-12"><input name="credit_requirements" class="form-control form-control-sm" value="{{ c.credit_requirements or '' }}" placeholder="Credit requirements (e.g. 'Directed by …')"></div>
                   <div class="col-12"><textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="Notes">{{ c.notes or '' }}</textarea></div>
                   <div class="col-12 d-flex gap-2">
                     <button class="btn btn-sm btn-primary">Save</button>
@@ -178,7 +207,6 @@
             <input type="email" name="email"   class="form-control form-control-sm" placeholder="Email">
             <input type="text"  name="phone"   class="form-control form-control-sm" placeholder="Phone">
             <input type="text"  name="website" class="form-control form-control-sm" placeholder="Website">
-            <input type="text"  name="credit_requirements" class="form-control form-control-sm" placeholder="Credit requirements">
             <textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="Notes (optional)"></textarea>
             <button class="btn btn-sm btn-navy fw-semibold"><i class="bi bi-plus-lg me-1"></i>Add</button>
           </form>

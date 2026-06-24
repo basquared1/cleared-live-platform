@@ -22,7 +22,7 @@
     <h2 class="fw-bold text-navy mb-2">Submission received.</h2>
     <p class="text-muted mb-0">
       Your project has been submitted to <strong>{{ sub.platform.name }}</strong>.<br>
-      AI is preparing your clearance agreements now — your workspace will be ready shortly.
+      We're preparing your clearance agreements from firm-approved templates — your workspace will be ready shortly.
     </p>
   </div>
 
@@ -30,11 +30,11 @@
   <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid {{ sub.platform.primary_color }} !important;">
     <div class="card-body p-4">
       <div class="fw-bold text-navy mb-1">
-        <i class="bi bi-stars me-2 text-warning"></i>Your clearance workspace is ready
+        <i class="bi bi-file-earmark-check me-2 text-navy"></i>Your clearance workspace is ready
       </div>
       <p class="small text-muted mb-3">
-        Open your workspace to review AI-drafted agreements for each rights holder,
-        start outreach, and upload signed documents. The {{ sub.platform.name }} BA team
+        Open your workspace to review agreements drafted from firm-approved templates for each
+        rights holder, start outreach, and upload signed documents. The {{ sub.platform.name }} BA team
         reviews and approves each item as you complete it.
       </p>
       <a href="{{ url_for('track', token=sub.token) }}" class="btn btn-warning fw-bold px-4">
@@ -53,10 +53,10 @@
           <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle bg-warning text-dark fw-bold"
                style="width:28px;height:28px;font-size:.8rem;min-width:28px;">1</div>
           <div class="small">
-            <div class="fw-semibold">AI drafts your agreements</div>
+            <div class="fw-semibold">Your agreements are drafted for you</div>
             <div class="opacity-75 mt-1">
-              We've already started building clearance agreements for each of your
-              {{ sub.clearance_items|length }} rights holders —
+              We've already started building clearance agreements from firm-approved templates
+              for each of your {{ sub.clearance_items|length }} rights holders —
               {% if sub.project_type == 'live_music' %}
                 record label, music publisher, venue, and performers.
               {% elif sub.project_type == 'documentary' %}
@@ -70,7 +70,7 @@
               {% else %}
                 each rights holder identified in your submission.
               {% endif %}
-              You'll find drafts waiting in your workspace.
+              where no firm template fits, AI fills the gap. You'll find drafts waiting in your workspace.
             </div>
           </div>
         </div>
@@ -170,11 +170,11 @@
       <div class="d-flex align-items-center gap-3 px-4 py-3 border-bottom">
         <span class="badge bg-light text-dark border" style="min-width:26px; font-size:.72rem;">{{ loop.index }}</span>
         <span class="small">{{ item.item_label }}</span>
-        <span class="badge bg-warning text-dark ms-auto small">AI drafting…</span>
+        <span class="badge bg-light text-dark border ms-auto small">Preparing…</span>
       </div>
       {% endfor %}
       <div class="px-4 py-3 small text-muted">
-        <i class="bi bi-stars me-1 text-warning"></i>AI-drafted agreements and outreach emails are being generated for each item.
+        <i class="bi bi-file-earmark-check me-1 text-navy"></i>Agreements and outreach emails are being prepared from firm-approved templates for each item.
         Open your workspace to review and start outreach.
       </div>
     </div>
