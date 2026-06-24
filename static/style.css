@@ -49,6 +49,8 @@ body {
 /* ── Utilities ─────────────────────────────────────── */
 .text-navy { color: var(--cl-navy) !important; }
 .bg-navy   { background-color: var(--cl-navy) !important; }
+.btn-navy  { background-color: var(--cl-navy); border-color: var(--cl-navy); color: #fff; }
+.btn-navy:hover, .btn-navy:focus { background-color: #0a2e57; border-color: #0a2e57; color: #fff; }
 html, body { overflow-x: hidden; max-width: 100%; }
 
 /* ── Platform BA sidebar nav ───────────────────────── */

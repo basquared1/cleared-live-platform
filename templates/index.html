@@ -16,16 +16,20 @@
         Your team never touches a spreadsheet.
       </p>
       <div class="d-flex flex-wrap gap-3">
-        <a href="mailto:clear@cleared.live" class="btn btn-warning fw-semibold px-4">
-          Talk to Us <i class="bi bi-arrow-right ms-1"></i>
+        <a href="{{ url_for('start') }}" class="btn btn-warning fw-semibold px-4">
+          Submit a Project <i class="bi bi-arrow-right ms-1"></i>
         </a>
-        <button onclick="document.getElementById('clear-yourself').scrollIntoView({behavior:'smooth'})" class="btn btn-outline-light px-4">
-          Clear a Project Yourself <i class="bi bi-arrow-down ms-1"></i>
-        </button>
         <a href="{{ url_for('platform_login') }}" class="btn btn-outline-light px-4">
           Platform Login <i class="bi bi-box-arrow-in-right ms-1"></i>
         </a>
+        <a href="mailto:clear@cleared.live" class="btn btn-outline-light px-4">
+          Talk to Us <i class="bi bi-arrow-right ms-1"></i>
+        </a>
       </div>
+      <p class="small opacity-75 mt-3 mb-0">
+        <strong>Submitting a project?</strong> Start here — pick the platform you're clearing for and
+        request an invite, or clear independently.
+      </p>
     </div>
   </div>
 </div>
@@ -105,7 +109,7 @@
           </p>
         </div>
         <div class="col-12 col-lg-4 text-lg-end">
-          <button onclick="document.getElementById('platforms').scrollIntoView({behavior:'smooth'})" class="btn btn-outline-dark">Find Your Platform <i class="bi bi-arrow-down ms-1"></i></button>
+          <a href="{{ url_for('start') }}" class="btn btn-outline-dark">Find Your Platform <i class="bi bi-arrow-right ms-1"></i></a>
         </div>
       </div>
     </div>
@@ -114,7 +118,10 @@
   <!-- Track 2: Independent clearance -->
   <div class="card border-0 shadow-sm mb-3" id="clear-yourself">
     <div class="card-body p-4">
-      <div class="small fw-semibold text-navy opacity-75 mb-2" style="letter-spacing:.08em;">CLEARING INDEPENDENTLY — NO PLATFORM REQUIRED</div>
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+        <div class="small fw-semibold text-navy opacity-75" style="letter-spacing:.08em;">CLEARING INDEPENDENTLY — NO PLATFORM REQUIRED</div>
+        <a href="{{ url_for('start') }}" class="btn btn-sm btn-outline-dark">Get Started <i class="bi bi-arrow-right ms-1"></i></a>
+      </div>
       <p class="text-muted small mb-4">
         Not submitting through a platform? Use Cleared.live on your own. Submit your project,
         run the full clearance workflow with AI-assisted drafting, and manage every rights holder
@@ -155,25 +162,5 @@
     </div>
   </div>
 </div>
-
-<!-- Connected Platforms -->
-{% if platforms %}
-<div class="mb-5" id="platforms">
-  <h2 class="fw-bold text-navy mb-1">Connected platforms</h2>
-  <p class="text-muted mb-4">Submit your project to any platform below.</p>
-  <div class="row g-3">
-    {% for p in platforms %}
-    <div class="col-12 col-sm-6 col-lg-3">
-      <div class="card border-0 shadow-sm text-center p-4 h-100">
-        <div class="fs-4 fw-bold mb-2" style="color:{{ p.primary_color }};">{{ p.logo_text or p.name }}</div>
-        <div class="text-muted small mb-3">{{ p.name }}</div>
-        <a href="{{ url_for('submit', platform_slug=p.slug) }}"
-           class="btn btn-sm btn-outline-dark mt-auto">Submit Project</a>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
 
 {% endblock %}

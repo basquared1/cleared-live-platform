@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Submit a Project — Cleared.live{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div class="mb-4">
+  <a href="{{ url_for('index') }}" class="small text-muted text-decoration-none"><i class="bi bi-arrow-left me-1"></i>Back</a>
+  <h1 class="fw-bold text-navy mt-2 mb-1">Submit a project</h1>
+  <p class="text-muted mb-0">
+    Two ways to clear. Submit through a connected platform — pick who you're clearing for and
+    request an invite from their clearance team — or clear independently on your own.
+  </p>
+</div>
+
+<!-- Track 1: Through a connected platform -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body p-4">
+    <div class="small fw-semibold text-navy opacity-75 mb-1" style="letter-spacing:.08em;">SUBMIT THROUGH A CONNECTED PLATFORM</div>
+    <p class="text-muted small mb-4">
+      Request an invite from the platform's BA team. They'll email you a personal link to begin —
+      your agreements get drafted for you and you track every clearance item in real time.
+    </p>
+
+    {% macro platform_grid(items) %}
+    <div class="row g-3">
+      {% for p in items %}
+      <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card border h-100">
+          <div class="card-body p-3 d-flex flex-column">
+            <div class="fs-5 fw-bold mb-1" style="color:{{ p.primary_color }};">{{ p.logo_text or p.name }}</div>
+            <div class="text-muted small mb-3">{{ p.name }}</div>
+            <button class="btn btn-sm btn-outline-dark mt-auto" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#req-{{ p.slug }}">
+              Request Invite <i class="bi bi-envelope ms-1"></i>
+            </button>
+            <div class="collapse mt-3" id="req-{{ p.slug }}">
+              <form method="POST" action="{{ url_for('request_invite', platform_slug=p.slug) }}" class="vstack gap-2">
+                <input type="text"  name="name"         class="form-control form-control-sm" placeholder="Your name">
+                <input type="email" name="email"        class="form-control form-control-sm" placeholder="Your email" required>
+                <input type="text"  name="project_hint" class="form-control form-control-sm" placeholder="Project (optional)">
+                <button type="submit" class="btn btn-sm btn-navy">Send request to {{ p.name }}</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endmacro %}
+
+    {% if distributors %}
+    <div class="small fw-semibold text-uppercase text-muted mb-2" style="letter-spacing:.06em;">
+      <i class="bi bi-tv me-1"></i>Distributors &amp; Streamers
+    </div>
+    {{ platform_grid(distributors) }}
+    {% endif %}
+
+    {% if labels %}
+    <div class="small fw-semibold text-uppercase text-muted mb-2 mt-4" style="letter-spacing:.06em;">
+      <i class="bi bi-music-note-beamed me-1"></i>Record Labels
+    </div>
+    {{ platform_grid(labels) }}
+    {% endif %}
+
+    {% if not distributors and not labels %}
+    <p class="text-muted small mb-0">No connected platforms yet. Clear independently below, or
+      <a href="mailto:clear@cleared.live">talk to us</a>.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Track 2: Independent -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-4">
+    <div class="small fw-semibold text-navy opacity-75 mb-1" style="letter-spacing:.08em;">CLEAR INDEPENDENTLY — NO PLATFORM REQUIRED</div>
+    <p class="text-muted small mb-4">
+      Not submitting through a platform? Run the full clearance workflow on your own — AI-assisted
+      drafting, rights-holder outreach, and a complete document trail in one place.
+    </p>
+    <div class="row g-3 mb-4">
+      {% for key, tier in pricing_tiers.items() %}
+      <div class="col-12 col-md-4">
+        <div class="card border h-100 {% if key == 'standard' %}border-2 border-warning{% endif %}">
+          {% if key == 'standard' %}
+          <div class="card-header bg-warning text-dark text-center py-1 small fw-semibold">Most Common</div>
+          {% endif %}
+          <div class="card-body p-3">
+            <div class="fw-bold text-navy mb-1">{{ tier.label }}</div>
+            <div class="fs-3 fw-bold text-navy mb-1">${{ "{:,}".format(tier.price) }}</div>
+            <div class="text-muted small mb-0">{{ tier.desc }}</div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <a href="mailto:clear@cleared.live?subject=Clear%20a%20project%20independently" class="btn btn-navy">
+      Get Started <i class="bi bi-arrow-right ms-1"></i>
+    </a>
+  </div>
+</div>
+
+{% endblock %}

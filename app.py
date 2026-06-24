@@ -1101,8 +1101,77 @@ def _negotiation_agent(item_id):
 
 @app.route("/")
 def index():
-    platforms = Platform.query.filter_by(is_active=True).all()
-    return render_template("index.html", platforms=platforms, pricing_tiers=PRICING_TIERS)
+    return render_template("index.html", pricing_tiers=PRICING_TIERS)
+
+
+@app.route("/start")
+def start():
+    """Submitter entry point — choose a platform to request an invite from, or clear independently."""
+    platforms   = Platform.query.filter_by(is_active=True).order_by(Platform.name).all()
+    distributors = [p for p in platforms if p.platform_mode != "label_waiver"]
+    labels       = [p for p in platforms if p.platform_mode == "label_waiver"]
+    return render_template(
+        "start.html",
+        distributors=distributors,
+        labels=labels,
+        pricing_tiers=PRICING_TIERS,
+    )
+
+
+@app.route("/start/request/<platform_slug>", methods=["POST"])
+def request_invite(platform_slug):
+    """A submitter asks a connected platform's BA team for an invite to submit a project.
+    Creates a tracked invite and notifies the platform BA (falls back to Cleared.live ops)."""
+    platform = Platform.query.filter_by(slug=platform_slug, is_active=True).first_or_404()
+
+    email        = request.form.get("email", "").strip().lower()
+    name         = request.form.get("name", "").strip()
+    project_hint = request.form.get("project_hint", "").strip()
+
+    if not email:
+        flash("Please enter your email so the platform can send your invite.", "danger")
+        return redirect(url_for("start"))
+
+    invite = Invite(
+        platform_id  = platform.id,
+        email        = email,
+        name         = name or None,
+        project_hint = project_hint or None,
+    )
+    db.session.add(invite)
+    db.session.commit()
+
+    invite_url = url_for("submit", platform_slug=platform.slug, invite=invite.token, _external=True)
+    ba_to      = platform.ba_contact_email or "clear@cleared.live"
+
+    resend_key = os.getenv("RESEND_API_KEY")
+    if resend_key:
+        import resend as _resend
+        _resend.api_key = resend_key
+        try:
+            _resend.Emails.send({
+                "from": "Cleared.live <clear@blisslegalstudio.com>",
+                "to": ba_to,
+                "subject": f"Invite request — {name or email} wants to submit to {platform.name}",
+                "html": (
+                    f"<p><strong>{name or email}</strong> has requested an invite to submit a "
+                    f"clearance project to <strong>{platform.name}</strong>.</p>"
+                    f"<p><strong>Name:</strong> {name or '—'}<br>"
+                    f"<strong>Email:</strong> {email}<br>"
+                    f"<strong>Project:</strong> {project_hint or '—'}</p>"
+                    f"<p>An invite has been created in your dashboard. To grant access, "
+                    f"forward this personal link to the submitter:</p>"
+                    f"<p><a href=\"{invite_url}\">{invite_url}</a></p>"
+                ),
+            })
+        except Exception as e:
+            app.logger.error(f"Invite-request email failed: {e}")
+
+    flash(
+        f"Request sent to {platform.name}. Their clearance team will email your invite to {email}.",
+        "success",
+    )
+    return redirect(url_for("start"))
 
 
 # ---------------------------------------------------------------------------
@@ -4961,6 +5030,44 @@ def add_platform_cmd():
         print(f"  {name} ({mode}) created — submit URL: /submit/{slug}")
         print(f"  Create BA login: flask create-ba-user {slug} {ba_user} {ba_pass}")
 
+
+
+@app.cli.command("send-invite")
+@click.argument("platform_slug")
+@click.argument("email")
+@click.argument("name", required=False)
+def send_invite_cmd(platform_slug, email, name=None):
+    """Send a submitter invite as a platform's BA. Usage: flask send-invite <slug> <email> [name]"""
+    p = Platform.query.filter_by(slug=platform_slug).first()
+    if not p:
+        print(f"Platform '{platform_slug}' not found.")
+        return
+    invite = Invite(platform_id=p.id, email=email.strip().lower(), name=name or None)
+    db.session.add(invite)
+    db.session.commit()
+
+    base       = (os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+    invite_url = f"{base}/submit/{p.slug}?invite={invite.token}" if base \
+                 else f"/submit/{p.slug}?invite={invite.token}"
+
+    resend_key = os.getenv("RESEND_API_KEY")
+    if resend_key:
+        import resend as _resend
+        _resend.api_key = resend_key
+        with app.test_request_context():
+            body = render_template("email/invite.html",
+                platform_name=p.name, platform_color=p.primary_color or "#0d3b6e",
+                name=name or None, project_hint=None, invite_url=invite_url)
+        _resend.Emails.send({
+            "from": "Cleared.live <clear@blisslegalstudio.com>",
+            "to": email,
+            "subject": f"You've been invited to submit a clearance request — {p.name}",
+            "html": body,
+        })
+        print(f"Invite emailed to {email} from {p.name}.")
+    else:
+        print("RESEND_API_KEY not set — no email sent.")
+    print(f"Invite link: {invite_url}")
 
 
 @app.cli.command("create-ba-user")
