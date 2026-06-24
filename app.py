@@ -5489,10 +5489,10 @@ def send_invite_cmd(platform_slug, email, name=None):
     print(f"Invite link: {invite_url}")
 
 
-@app.cli.command("release-reminders")
-def release_reminders_cmd():
+def _run_release_reminders():
     """Send automated follow-ups for unsigned releases (day 3 / 6 / 9, then stop).
-    Run daily via Render Cron: flask release-reminders"""
+    Idempotent: the 3-day gap guard means running it more than once a day sends nothing
+    extra, so it's safe to drive from either the CLI or the in-app scheduler."""
     now = datetime.utcnow()
     due = ReleaseRequest.query.filter(
         ReleaseRequest.status.in_(["sent", "viewed"]),
@@ -5514,6 +5514,31 @@ def release_reminders_cmd():
             flagged_n += 1
         sent_n += 1
     db.session.commit()
+    return sent_n, flagged_n
+
+
+def _release_reminder_scheduler():
+    """Background daemon: sweep for due release reminders a few times a day.
+    No external cron needed — runs inside the web process. The reminder sweep's own
+    day-gap guard makes repeated runs safe."""
+    import time
+    # Small startup delay so the first sweep doesn't race app boot / migrations.
+    time.sleep(60)
+    while True:
+        try:
+            with app.app_context():
+                sent_n, flagged_n = _run_release_reminders()
+                if sent_n:
+                    app.logger.info(f"Release reminders: {sent_n} sent, {flagged_n} flagged")
+        except Exception as e:
+            app.logger.error(f"Release reminder sweep failed: {type(e).__name__}: {e}")
+        time.sleep(6 * 60 * 60)   # every 6 hours
+
+
+@app.cli.command("release-reminders")
+def release_reminders_cmd():
+    """Send automated follow-ups for unsigned releases (day 3 / 6 / 9, then stop)."""
+    sent_n, flagged_n = _run_release_reminders()
     print(f"Release reminders: {sent_n} sent, {flagged_n} flagged for manual follow-up")
 
 
@@ -5903,6 +5928,21 @@ def _ensure_foldin_schema():
 
 
 _ensure_foldin_schema()
+
+
+# Start the in-process release-reminder scheduler (replaces the external Render cron).
+# Daemon thread; the 60s startup delay means short-lived CLI commands exit before the
+# first sweep, so this never races migrations. Disable with ENABLE_REMINDER_SCHEDULER=0.
+_reminder_thread_started = False
+
+def _start_reminder_scheduler():
+    global _reminder_thread_started
+    if _reminder_thread_started or os.getenv("ENABLE_REMINDER_SCHEDULER", "1") != "1":
+        return
+    _reminder_thread_started = True
+    threading.Thread(target=_release_reminder_scheduler, daemon=True).start()
+
+_start_reminder_scheduler()
 
 
 if __name__ == "__main__":
