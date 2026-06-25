@@ -62,6 +62,22 @@
   .dots i{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.3); transition:.3s; }
   .dots i.on{ background:var(--gold); width:22px; border-radius:5px; }
   .caption{ text-align:center; color:#9bbbe0; font-size:.85rem; margin:6px auto 30px; }
+/* ===== mobile responsive (added) ===== */
+@media (max-width:640px){
+  .stage{ aspect-ratio:auto; height:100vh; height:100dvh; min-height:480px; margin:0; border-radius:0; box-shadow:none; }
+  .scene{ padding:64px 22px 92px; }
+  .scene h1{ font-size:1.5rem; }
+  .scene p{ font-size:1rem; }
+  .kicker{ margin-bottom:10px; }
+  .chips{ gap:7px; } .chip{ padding:6px 12px; font-size:.82rem; }
+  .flow{ gap:7px; } .node{ min-width:0; padding:9px 12px; } .node .t{ font-size:.78rem; }
+  .arrow{ font-size:1rem; }
+  .aud{ gap:7px; } .aud span{ font-size:.8rem; padding:6px 11px; }
+  .cta a{ padding:12px 22px; font-size:1rem; }
+  .caption{ display:none; }
+  .ctl{ bottom:calc(10px + env(safe-area-inset-bottom)); right:12px; }
+  .dots{ bottom:calc(15px + env(safe-area-inset-bottom)); }
+}
 </style>
 </head>
 <body>

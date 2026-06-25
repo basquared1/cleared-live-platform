@@ -59,6 +59,23 @@
   .vo{ background:#f8fafc; border-left:3px solid var(--gold); padding:8px 11px; border-radius:6px; font-size:.8rem; color:#475569; font-style:italic; margin-bottom:13px; }
   .slate{ position:absolute; inset:0; z-index:1100; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; background:linear-gradient(135deg,#0d3b6e,#0a2a4f); color:#fff; padding:40px; }
   .slate h1{ font-weight:800; font-size:2.3rem; } .slate .dot{ color:var(--gold); }
+/* ===== mobile responsive (added) ===== */
+@media (max-width:640px){
+  body{ background:#0a2a4f; }
+  .browser{ margin:0; border-radius:0; box-shadow:none; max-width:100%; }
+  .chrome-bar{ padding:7px 10px; gap:6px; }
+  .urlbar{ font-size:.68rem; padding:4px 9px; }
+  .viewport{ height:calc(100vh - 36px); height:calc(100dvh - 36px); }
+  .appnav{ padding:10px 14px; }
+  .wrap{ padding:14px 14px 200px; }
+  #coach{ left:8px !important; right:8px; top:auto !important;
+          bottom:calc(10px + env(safe-area-inset-bottom)) !important;
+          max-width:none !important; width:auto; padding:14px 16px; }
+  #coach h5{ font-size:1rem; margin:.3rem 0 .4rem; }
+  #coach p{ font-size:.85rem; margin-bottom:.7rem; }
+  .vo{ font-size:.76rem; margin-bottom:.6rem; }
+  .slate{ padding:30px 22px; } .slate h1{ font-size:1.55rem; }
+}
 </style>
 </head>
 <body>
