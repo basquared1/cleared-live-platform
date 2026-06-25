@@ -53,7 +53,7 @@
   /* veil is intentionally transparent: the .spot box-shadow does the dimming,
      so a full-screen tint here would also dim the spotlighted element. */
   #veil{ position:fixed; inset:0; background:transparent; z-index:1200; pointer-events:none; }
-  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.58);
+  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.42);
          z-index:1210; transition:all .45s cubic-bezier(.4,0,.2,1); pointer-events:none;
          outline:3px solid var(--gold); }
   #coach{ position:fixed; z-index:1230; max-width:380px; background:#fff; border-radius:14px;
@@ -399,6 +399,7 @@ function position(sel){
   setTimeout(()=>{
     const r = el.getBoundingClientRect();
     const pad=8;
+    if(r.width===0 && r.height===0) return;  // target hidden — keep prior spot, don't collapse the cutout
     spot.style.top=(r.top-pad)+'px'; spot.style.left=(r.left-pad)+'px';
     spot.style.width=(r.width+pad*2)+'px'; spot.style.height=(r.height+pad*2)+'px';
     // place coach: prefer right, else below, else left

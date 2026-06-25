@@ -58,7 +58,7 @@
   .signcard{ border:2px solid var(--gold); border-radius:12px; background:#fff; padding:18px; }
 
   #veil{ position:fixed; inset:0; background:transparent; z-index:1200; pointer-events:none; }
-  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.58);
+  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.42);
          z-index:1210; transition:all .45s cubic-bezier(.4,0,.2,1); pointer-events:none; outline:3px solid var(--gold); }
   #coach{ position:fixed; z-index:1230; max-width:390px; background:#fff; border-radius:14px;
           box-shadow:0 20px 50px rgba(8,20,40,.4); padding:20px 22px; transition:all .45s cubic-bezier(.4,0,.2,1); }
@@ -393,7 +393,7 @@ function position(sel){
   const el=document.querySelector(sel); if(!el) return;
   el.scrollIntoView({block:'center',behavior:'smooth'});
   setTimeout(()=>{
-    const r=el.getBoundingClientRect(), pad=8;
+    const r=el.getBoundingClientRect(), pad=8; if(r.width===0 && r.height===0) return;
     spot.style.top=(r.top-pad)+'px'; spot.style.left=(r.left-pad)+'px';
     spot.style.width=(r.width+pad*2)+'px'; spot.style.height=(r.height+pad*2)+'px';
     const cw=390, ch=coach.offsetHeight||230, gap=18;

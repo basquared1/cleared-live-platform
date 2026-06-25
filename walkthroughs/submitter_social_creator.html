@@ -30,7 +30,7 @@
   .tab-btn{ border:none; background:none; padding:10px 4px; margin-right:22px; font-weight:600; color:#64748b; border-bottom:3px solid transparent; }
   .tab-btn.active{ color:var(--navy); border-bottom-color:var(--gold); }
   #veil{ position:fixed; inset:0; background:transparent; z-index:1200; pointer-events:none; }
-  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.58); z-index:1210; transition:all .45s cubic-bezier(.4,0,.2,1); pointer-events:none; outline:3px solid var(--gold); }
+  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.42); z-index:1210; transition:all .45s cubic-bezier(.4,0,.2,1); pointer-events:none; outline:3px solid var(--gold); }
   #coach{ position:fixed; z-index:1230; max-width:390px; background:#fff; border-radius:14px; box-shadow:0 20px 50px rgba(8,20,40,.4); padding:20px 22px; transition:all .45s cubic-bezier(.4,0,.2,1); }
   #coach .step-n{ font-size:.72rem; font-weight:700; letter-spacing:.06em; color:var(--gold); text-transform:uppercase; }
   #coach h5{ color:var(--navy); font-weight:700; margin:.35rem 0 .5rem; font-size:1.08rem; }
@@ -215,7 +215,7 @@ function render(){ const s=STEPS[cur]; if(s.tab) showTab(s.tab); if(s.act) s.act
   document.getElementById('nextBtn').innerHTML=(cur===STEPS.length-1)?'Finish <i class="bi bi-check"></i>':'Next <i class="bi bi-arrow-right"></i>';
   setTimeout(()=>position(s.sel),120); }
 function position(sel){ const el=document.querySelector(sel); if(!el) return; el.scrollIntoView({block:'center',behavior:'smooth'});
-  setTimeout(()=>{ const r=el.getBoundingClientRect(), pad=8;
+  setTimeout(()=>{ const r=el.getBoundingClientRect(), pad=8; if(r.width===0 && r.height===0) return;
     spot.style.top=(r.top-pad)+'px'; spot.style.left=(r.left-pad)+'px'; spot.style.width=(r.width+pad*2)+'px'; spot.style.height=(r.height+pad*2)+'px';
     const cw=390, ch=coach.offsetHeight||230, gap=18; let top=r.top, left=r.right+gap;
     if(left+cw>window.innerWidth-12) left=r.left-cw-gap;
