@@ -89,8 +89,7 @@ CLEARANCE_TEMPLATES = {
         {"key": "performer_releases_review", "label": "Performer Releases — Verify & Review",         "priority": 4},
         {"key": "venue_license_review",      "label": "Venue Filming License — Verify & Review",      "priority": 5},
         {"key": "crowd_release_review",      "label": "Crowd / Audience Release — Verify & Review",   "priority": 6},
-        {"key": "eo_documentation_review",   "label": "E&O Insurance — Verify & Review",              "priority": 7},
-        {"key": "conditional_label_waiver",  "label": "Conditional Label Waiver — Issue",             "priority": 8},
+        {"key": "conditional_label_waiver",  "label": "Conditional Label Waiver — Issue",             "priority": 7},
     ],
     "ugc": [
         {"key": "content_license",    "label": "Content License",           "priority": 1},

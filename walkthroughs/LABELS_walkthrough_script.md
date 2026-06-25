@@ -1,7 +1,7 @@
 # Cleared.live — Walkthrough Script: **Labels** (UMG-style)
 
 **Audience:** Label Business Affairs / clearance teams operating in *waiver mode* (`platform_mode = "label_waiver"`).
-**What it teaches:** How a label receives a live-music filming submission, verifies the seven underlying clearances item-by-item, issues a conditional label waiver, and — critically — how every sign-off auto-generates an on-the-record reservation-of-rights / continuing-indemnity notice.
+**What it teaches:** How a label receives a live-music filming submission, verifies the six underlying clearances item-by-item, issues a conditional label waiver, and — critically — how every sign-off auto-generates an on-the-record reservation-of-rights / continuing-indemnity notice.
 **Runtime target:** 5:30–6:30 (long-form credibility piece for BA decision-makers).
 **Production method:** Narrated screen recording of the live app (capture at 1920×1080, 16:9).
 **Voice direction:** Calm, senior, peer-to-peer. You are talking to an attorney/BA, not a consumer. No hype. Confidence and precision. Let pauses breathe — this audience trusts measured delivery.
@@ -11,7 +11,7 @@
 ## Pre-flight (do this before recording)
 
 - Log in as a label BA on a `label_waiver` platform (UMG / Sony / Warner seed accounts).
-- Stage **one submission with all seven items uploaded** and sitting at *under_review* — your hero project for the verify/approve scenes.
+- Stage **one submission with all six items uploaded** and sitting at *under_review* — your hero project for the verify/approve scenes.
 - Stage a **second, partially-worked submission** with one item that's *missing/incomplete* — for the Reject + draft tools scene.
 - Stage a **third submission already cleared** — so the dashboard "Cleared" stat isn't zero.
 - Have the BA's own inbox open in a second tab/window (or a mail client) **logged into the cc address**, so you can cut to the *actual sent* reservation-of-rights email in Scene 5. Pre-send one approval before recording so a real notice is already sitting in the inbox to show.
@@ -29,7 +29,7 @@
 **[SHOT]** Hold on the label's `/platform/dashboard`, fully loaded, no cursor movement. Let it sit for a beat.
 **(CAPTION)** *Cleared.live — for Label Business Affairs*
 **VO:**
-> "When one of your artists' live performances gets filmed for streaming, the label usually isn't the one clearing every right. The promoter is. The publishers, the venue, the performers, the crowd, the insurance — that's their burden to carry. Your team's job is narrower, and sharper: confirm it was actually done, and done correctly — then issue the label's waiver. The risk isn't doing the work. The risk is signing off on work you can't see. Cleared.live fixes exactly that."
+> "When one of your artists' live performances gets filmed for streaming, the label usually isn't the one clearing every right. The promoter is. The publishers, the venue, the performers, the crowd — that's their burden to carry. Your team's job is narrower, and sharper: confirm it was actually done, and done correctly — then issue the label's waiver. The risk isn't doing the work. The risk is signing off on work you can't see. Cleared.live fixes exactly that."
 
 ---
 
@@ -52,18 +52,18 @@
 
 ---
 
-### Scene 4 — The project: seven verifications + one waiver (1:30–2:15)
-**[SHOT]** `/platform/project/<id>` — project header (title, artist, event date, status badge). Scroll slowly through the eight clearance items.
-**(CAPTION)** *Seven things to verify. One waiver to issue.*
+### Scene 4 — The project: six verifications + one waiver (1:30–2:15)
+**[SHOT]** `/platform/project/<id>` — project header (title, artist, event date, status badge). Scroll slowly through the seven clearance items.
+**(CAPTION)** *Six things to verify. One waiver to issue.*
 **VO:**
-> "Every live-music submission arrives as the same structured file — never an ad-hoc email with attachments you have to reconstruct. Seven items the promoter was required to clear, each one its own line:"
+> "Every live-music submission arrives as the same structured file — never an ad-hoc email with attachments you have to reconstruct. Six items the promoter was required to clear, each one its own line:"
 
 **[ACTION]** Hover each item name as you read it (these are the real labels in the app):
-> "Promoter Consent. Publishing Clearance. Master Recording License. Performer Releases. Venue Filming License. Crowd and Audience Release. And E&O Insurance."
+> "Promoter Consent. Publishing Clearance. Master Recording License. Performer Releases. Venue Filming License. And Crowd and Audience Release."
 
-**[SHOT]** Land on item #8, visually distinct from the seven.
+**[SHOT]** Land on item #7, visually distinct from the six.
 **VO:**
-> "Then the eighth item — the one that's yours, and only yours: the Conditional Label Waiver. It stays locked behind the work. You issue it once the rest holds up."
+> "Then the seventh item — the one that's yours, and only yours: the Conditional Label Waiver. It stays locked behind the work. You issue it once the rest holds up."
 
 ---
 
@@ -99,10 +99,10 @@
 > *(Shows the checklist handles genuinely different rights, not one repeated motion.)*
 **[SHOT]** Quickly verify two more items of different character:
 - **Performer Releases — Verify & Review:** show multiple releases / signers.
-- **E&O Insurance — Verify & Review:** show the policy/certificate.
+- **Venue Filming License — Verify & Review:** show the venue permission.
 **(CAPTION)** *Different rights, same disciplined review.*
 **VO:**
-> "The discipline is identical across very different rights. Performer releases — confirm the signers and the scope. E&O insurance — confirm the policy is in force and covers the use. Publishing, venue, crowd — same pattern. Each one approved on its own evidence, each one generating its own protected record. The promoter assembled the package; you're validating it, piece by piece, on the merits."
+> "The discipline is identical across very different rights. Performer releases — confirm the signers and the scope. Venue filming license — confirm the permission covers the shoot. Publishing, master, crowd — same pattern. Each one approved on its own evidence, each one generating its own protected record. The promoter assembled the package; you're validating it, piece by piece, on the merits."
 
 ---
 
@@ -115,10 +115,10 @@
 ---
 
 ### Scene 8 — Issue the waiver (4:55–5:35)
-**[SHOT]** Back on the hero project, all seven items now cleared (green). Open item #8, **Conditional Label Waiver — Issue.** Show the drafted waiver text, issue it, then download the **.docx**. Show the project status flip to **cleared**.
-**(CAPTION)** *All seven verified → issue the Conditional Label Waiver*
+**[SHOT]** Back on the hero project, all six items now cleared (green). Open item #7, **Conditional Label Waiver — Issue.** Show the drafted waiver text, issue it, then download the **.docx**. Show the project status flip to **cleared**.
+**(CAPTION)** *All six verified → issue the Conditional Label Waiver*
 **VO:**
-> "With all seven confirmed, the eighth item unlocks. You issue the conditional waiver — drafted for you, conditioned on exactly what was cleared, and exported as a finished Word document you can drop straight into your files or send on. The project closes as cleared, and behind it sits a complete, time-stamped record of every item, every approval, and every notice that went out. If anyone ever asks how this performance was cleared, the answer is one screen."
+> "With all six confirmed, the seventh item unlocks. You issue the conditional waiver — drafted for you, conditioned on exactly what was cleared, and exported as a finished Word document you can drop straight into your files or send on. The project closes as cleared, and behind it sits a complete, time-stamped record of every item, every approval, and every notice that went out. If anyone ever asks how this performance was cleared, the answer is one screen."
 
 ---
 
@@ -189,23 +189,22 @@ via Cleared.live
 
 ## Exact on-screen reference (for accuracy while recording)
 
-**The eight items, in order (real labels):**
+**The seven items, in order (real labels):**
 1. Promoter Consent — Verify & Review
 2. Publishing Clearance — Verify & Review
 3. Master Recording License — Verify & Review
 4. Performer Releases — Verify & Review
 5. Venue Filming License — Verify & Review
 6. Crowd / Audience Release — Verify & Review
-7. E&O Insurance — Verify & Review
-8. Conditional Label Waiver — **Issue**
+7. Conditional Label Waiver — **Issue**
 
 **Per-item actions:** Approve · Reject (with reason) · Log Response · Outreach · Draft · Download agreement (.docx)
 
 **Routes touched (for whoever drives the capture):**
-- `/platform/dashboard` → (Invite Submitter modal) → `/platform/project/<id>` → item **Verify & Review** → **Approve** → cut to inbox for the sent notice → verify two more items → switch project for **Reject** / draft tools → back to hero → item #8 **Issue** → download **.docx** → status flips to **cleared** → **Agreements** tab → back to dashboard.
+- `/platform/dashboard` → (Invite Submitter modal) → `/platform/project/<id>` → item **Verify & Review** → **Approve** → cut to inbox for the sent notice → verify two more items → switch project for **Reject** / draft tools → back to hero → item #7 **Issue** → download **.docx** → status flips to **cleared** → **Agreements** tab → back to dashboard.
 
 ---
 
 ## Notes for scaling to other audiences
 - This script is the **trust/credibility template** (enterprise tone, "defensible record" theme). Distributors reuse Scenes 2, 4–7, 9 with negotiation-positions added.
-- Submitter videos invert the POV (you are the promoter *doing* the seven items) and are better as interactive HTML — see the submitter set.
+- Submitter videos invert the POV (you are the promoter *doing* the six items) and are better as interactive HTML — see the submitter set.
