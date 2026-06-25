@@ -117,7 +117,7 @@
 
       <div id="banner" class="alert d-flex align-items-start gap-2" style="background:#fffbea;border:1px solid #f5c842;color:#664d03;">
         <i class="bi bi-stars fs-5 text-warning"></i>
-        <div><strong>Two kinds of work, one workspace.</strong> Your <em>licenses</em> — music, footage, photos, locations, brands — live on the Workspace tab, each with an AI-drafted agreement. Your <em>people</em> — interview subjects, cast, crew — live on the Cast &amp; Crew tab, where you send releases to sign. The Skylark+ BA team reviews each item as you submit it.</div>
+        <div><strong>Two kinds of work, one workspace.</strong> Your <em>licenses</em> — music, footage, photos, locations, brands — live on the Workspace tab, each with a drafted agreement from Cleared.live. Your <em>people</em> — interview subjects, cast, crew — live on the Cast &amp; Crew tab, where you send releases to sign. The Skylark+ BA team reviews each item as you submit it.</div>
       </div>
 
       <div class="row g-3">
@@ -257,7 +257,7 @@ function renderItems(){
         <span class="pill p-pending" id="st-${i}">Pending</span>
       </div>
       <div class="ic-body" id="body-${i}">
-        <div class="mb-2 small fw-semibold text-navy"><i class="bi bi-stars text-warning me-1"></i>AI-drafted agreement</div>
+        <div class="mb-2 small fw-semibold text-navy"><i class="bi bi-stars text-warning me-1"></i>Draft provided by Cleared.live</div>
         <div class="draftbox mb-3">${it[2]}</div>
         <div class="d-flex flex-wrap gap-2">
           <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Edit draft</button>
@@ -333,7 +333,7 @@ const STEPS = [
   { sel:'#sideProgress', h:'Track the licenses', vo:'"Eight license items to a cleared film."',
     p:'The Workspace tab holds your eight license items. This bar fills as each is submitted and approved. Releases are tracked separately on Cast & Crew.' },
 
-  { sel:'#item-2', h:'Open a license item', vo:'"AI already drafted it."',
+  { sel:'#item-2', h:'Open a license item', vo:'"Cleared.live already drafted it."',
     p:'Open Archival Footage Rights. Like every license item, Cleared.live has already drafted the agreement for this film — title, territory, and use filled in.',
     act:()=>{ toggleItem(2); setStatus(2,'p-progress','In Progress'); } },
 

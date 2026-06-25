@@ -12,7 +12,7 @@
 
 - Log in as a label BA on a `label_waiver` platform (UMG / Sony / Warner seed accounts).
 - Stage **one submission with all seven items uploaded** and sitting at *under_review* — your hero project for the verify/approve scenes.
-- Stage a **second, partially-worked submission** with one item that's *missing/incomplete* — for the Reject + AI tools scene.
+- Stage a **second, partially-worked submission** with one item that's *missing/incomplete* — for the Reject + draft tools scene.
 - Stage a **third submission already cleared** — so the dashboard "Cleared" stat isn't zero.
 - Have the BA's own inbox open in a second tab/window (or a mail client) **logged into the cc address**, so you can cut to the *actual sent* reservation-of-rights email in Scene 5. Pre-send one approval before recording so a real notice is already sitting in the inbox to show.
 - Zoom browser to ~110%. Hide real PII; use a demo artist/event.
@@ -107,7 +107,7 @@
 ---
 
 ### Scene 7 — When something's missing (4:15–4:55)
-**[SHOT]** Switch to the partially-worked submission. On the incomplete item, show **Reject** (with a reason), then the **AI Outreach** and **AI Draft** buttons.
+**[SHOT]** Switch to the partially-worked submission. On the incomplete item, show **Reject** (with a reason), then the **Outreach** and **Draft** buttons.
 **(CAPTION)** *Short something? Send it back — or draft it in one click.*
 **VO:**
 > "Not everything arrives clean. When an item falls short, reject it with a reason and it goes straight back to the promoter to cure — no email required, the request is already routed. And where the label itself needs to produce language — outreach to a rights holder, or the waiver text — it's drafted for you, in your register, ready to edit. This is drafting assistance, not autopilot. The judgment stays with your team; the typing doesn't."
@@ -199,10 +199,10 @@ via Cleared.live
 7. E&O Insurance — Verify & Review
 8. Conditional Label Waiver — **Issue**
 
-**Per-item actions:** Approve · Reject (with reason) · Log Response · AI Outreach · AI Draft · Download agreement (.docx)
+**Per-item actions:** Approve · Reject (with reason) · Log Response · Outreach · Draft · Download agreement (.docx)
 
 **Routes touched (for whoever drives the capture):**
-- `/platform/dashboard` → (Invite Submitter modal) → `/platform/project/<id>` → item **Verify & Review** → **Approve** → cut to inbox for the sent notice → verify two more items → switch project for **Reject** / AI tools → back to hero → item #8 **Issue** → download **.docx** → status flips to **cleared** → **Agreements** tab → back to dashboard.
+- `/platform/dashboard` → (Invite Submitter modal) → `/platform/project/<id>` → item **Verify & Review** → **Approve** → cut to inbox for the sent notice → verify two more items → switch project for **Reject** / draft tools → back to hero → item #8 **Issue** → download **.docx** → status flips to **cleared** → **Agreements** tab → back to dashboard.
 
 ---
 

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cleared.live — Walkthrough: Distributor Business Affairs</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<style>
+  :root{ --navy:#0d3b6e; --gold:#f2a900; --blue:#0d6efd; }
+  body{ background:#eef1f5; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0; }
+  .text-navy{ color:var(--navy)!important; } .bg-navy{ background:var(--navy)!important; } .text-gold{ color:var(--gold)!important; }
+  .browser{ max-width:1280px; margin:18px auto; border-radius:12px; overflow:hidden; box-shadow:0 18px 50px rgba(13,59,110,.25); background:#fff; }
+  .chrome-bar{ background:#dfe4ea; padding:9px 14px; display:flex; align-items:center; gap:8px; }
+  .dot{ width:12px; height:12px; border-radius:50%; }
+  .urlbar{ flex:1; background:#fff; border-radius:7px; padding:5px 12px; font-size:.82rem; color:#475569; display:flex; align-items:center; gap:7px; }
+  .viewport{ height:760px; overflow-y:auto; position:relative; background:#fff; scroll-behavior:smooth; }
+  .appnav{ display:flex; align-items:center; padding:12px 22px; border-bottom:1px solid #e2e8f0; gap:10px; }
+  .brand{ font-weight:700; color:#111; font-size:1.15rem; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:20px 22px 60px; }
+  .stat{ border:1px solid #e2e8f0; border-radius:11px; padding:12px 15px; text-align:center; background:#fff; }
+  .stat .n{ font-size:1.5rem; font-weight:800; color:var(--navy); } .stat .l{ font-size:.72rem; color:#64748b; text-transform:uppercase; letter-spacing:.04em; }
+  .side-card{ border:1px solid #e2e8f0; border-radius:12px; background:#fff; margin-bottom:14px; }
+  .item-card{ border:1px solid #e2e8f0; border-radius:12px; margin-bottom:12px; background:#fff; }
+  .ic-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; cursor:pointer; }
+  .ic-num{ width:28px; height:28px; border-radius:50%; background:#f1f5f9; color:var(--navy); font-weight:700; display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-size:.82rem; }
+  .ic-body{ padding:0 16px 16px 56px; display:none; } .item-card.open .ic-body{ display:block; }
+  .evid{ background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; font-size:.82rem; color:#334155; }
+  .pill{ font-size:.7rem; font-weight:600; padding:.28em .6em; border-radius:50rem; white-space:nowrap; }
+  .p-flag{ background:#fff3cd; color:#664d03; } .p-approved{ background:#d1e7dd; color:#0f5132; } .p-neg{ background:#cff4fc; color:#055160; }
+  .pos{ border:1px solid #e2e8f0; border-radius:9px; padding:9px 12px; margin-bottom:7px; display:flex; align-items:center; gap:10px; }
+  .pos .tag{ font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:.2em .55em; border-radius:5px; flex:0 0 auto; }
+  .t-primary{ background:#d1e7dd; color:#0f5132; } .t-fb{ background:#fff3cd; color:#664d03; } .t-offer{ background:#e2e3e5; color:#41464b; }
+  .webhook{ border:2px solid #0f5132; border-radius:12px; background:#f0fff4; padding:14px 16px; font-family:ui-monospace,Menlo,monospace; font-size:.78rem; color:#14532d; }
+  #veil{ position:fixed; inset:0; background:transparent; z-index:1200; pointer-events:none; }
+  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.58); z-index:1210; transition:all .45s cubic-bezier(.4,0,.2,1); pointer-events:none; outline:3px solid var(--gold); }
+  #coach{ position:fixed; z-index:1230; max-width:390px; background:#fff; border-radius:14px; box-shadow:0 20px 50px rgba(8,20,40,.4); padding:20px 22px; transition:all .45s cubic-bezier(.4,0,.2,1); }
+  #coach .step-n{ font-size:.72rem; font-weight:700; letter-spacing:.06em; color:var(--gold); text-transform:uppercase; }
+  #coach h5{ color:var(--navy); font-weight:700; margin:.35rem 0 .5rem; font-size:1.08rem; }
+  #coach p{ font-size:.9rem; color:#334155; margin-bottom:1rem; line-height:1.5; }
+  #coach .ctrls{ display:flex; align-items:center; gap:8px; }
+  .vo{ background:#f8fafc; border-left:3px solid var(--gold); padding:8px 11px; border-radius:6px; font-size:.8rem; color:#475569; font-style:italic; margin-bottom:13px; }
+  .slate{ position:absolute; inset:0; z-index:1100; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; background:linear-gradient(135deg,#0d3b6e,#0a2a4f); color:#fff; padding:40px; }
+  .slate h1{ font-weight:800; font-size:2.3rem; } .slate .dot{ color:var(--gold); }
+</style>
+</head>
+<body>
+<div class="browser">
+  <div class="chrome-bar">
+    <span class="dot" style="background:#ff5f57;"></span><span class="dot" style="background:#febc2e;"></span><span class="dot" style="background:#28c840;"></span>
+    <div class="urlbar"><i class="bi bi-lock-fill text-success" style="font-size:.7rem;"></i> cleared.live/platform/dashboard</div>
+  </div>
+  <div class="viewport" id="vp">
+
+    <div class="slate" id="introSlate">
+      <div style="font-size:.8rem;letter-spacing:.18em;text-transform:uppercase;color:#9bbbe0;margin-bottom:10px;">Cleared<span class="dot">.</span>live · Walkthrough</div>
+      <h1>Your Terms. Your Queue. Your Green-Light.</h1>
+      <p style="max-width:560px;color:#cfdcee;font-size:1.05rem;margin-top:12px;">For distributor Business Affairs — set your deal once, review every clearance, negotiate the music, and deliver cleared titles straight to your rights system.</p>
+      <button class="btn btn-warning btn-lg mt-4 px-4 fw-semibold" onclick="startTour()"><i class="bi bi-play-fill me-1"></i> Start walkthrough</button>
+      <div class="mt-3" style="font-size:.78rem;color:#7fa0c8;">~6 min · self-running · press → to advance</div>
+    </div>
+
+    <div class="appnav">
+      <span class="brand">Cleared<span class="text-gold">.</span>live</span>
+      <span class="badge bg-light text-dark border ms-1" style="font-size:.7rem;">Clearance Portal</span>
+      <span class="ms-auto badge rounded-pill px-3 py-2" style="background:#1d4ed8;color:#fff;">Skylark+ · Business Affairs</span>
+    </div>
+
+    <div class="wrap">
+      <!-- DASHBOARD -->
+      <div id="paneDash">
+        <h4 class="text-navy fw-bold mb-1">Clearance Portal</h4>
+        <div class="text-muted small mb-3">Full-service intake · documentaries, series, unscripted, live</div>
+        <div class="row g-2 mb-3">
+          <div class="col"><div class="stat"><div class="n">126</div><div class="l">Submissions</div></div></div>
+          <div class="col"><div class="stat"><div class="n" style="color:#084298;">11</div><div class="l">Under Review</div></div></div>
+          <div class="col"><div class="stat"><div class="n" style="color:#d97706;">19</div><div class="l">In Clearance</div></div></div>
+          <div class="col"><div class="stat"><div class="n" style="color:#0f5132;">93</div><div class="l">Cleared</div></div></div>
+          <div class="col"><div class="stat"><div class="n" style="color:#b91c1c;">3</div><div class="l">Rejected</div></div></div>
+        </div>
+        <div class="side-card p-3" id="queue">
+          <div class="d-flex align-items-center mb-2"><span class="fw-semibold text-navy"><i class="bi bi-check2-square me-1 text-warning"></i>Sign-off queue</span>
+            <span class="ms-auto badge bg-navy"><i class="bi bi-person-plus me-1"></i>Invite Submitter</span></div>
+          <div class="d-flex align-items-center gap-2 py-2 border-bottom" style="font-size:.85rem;"><i class="bi bi-folder2-open text-navy"></i><div class="flex-grow-1"><strong>The Long Static</strong> <span class="text-muted">· Foxglove Films · documentary</span></div><span class="pill p-flag">Ready for review</span></div>
+          <div class="d-flex align-items-center gap-2 py-2" style="font-size:.85rem;"><i class="bi bi-folder2-open text-navy"></i><div class="flex-grow-1"><strong>Tidewater — S1</strong> <span class="text-muted">· Anchor Media · series</span></div><span class="pill p-neg">In negotiation</span></div>
+        </div>
+        <div class="side-card p-3" id="settingsLink">
+          <div class="d-flex align-items-center"><div><span class="fw-semibold text-navy"><i class="bi bi-sliders me-1"></i>Clearance Requirements</span><div class="small text-muted">Form config + your negotiation positions — set once, applied to every title.</div></div>
+            <span class="ms-auto badge bg-light text-dark border">Open settings ▸</span></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="paneSettings" class="d-none">
+        <a class="small text-muted text-decoration-none" href="#" onclick="return false;"><i class="bi bi-arrow-left me-1"></i>Back to portal</a>
+        <h4 class="text-navy fw-bold mt-2 mb-1">Clearance Requirements</h4>
+        <div class="text-muted small mb-3">Control what submitters see, and set your team's negotiation positions for every project.</div>
+        <div class="side-card p-3 mb-3">
+          <div class="fw-semibold text-navy mb-1">Start from a preset</div>
+          <div class="d-flex gap-2 flex-wrap"><span class="badge bg-navy">Streaming Standard</span><span class="badge bg-light text-dark border">SVOD</span><span class="badge bg-light text-dark border">Social</span><span class="badge bg-light text-dark border">Custom</span></div>
+          <div class="small text-muted mt-2">A preset auto-fills the intake form and the positions below. Lock any field so submitters can't change it.</div>
+        </div>
+        <div class="side-card p-3" id="positions">
+          <div class="fw-semibold text-navy mb-2">Section 2 · Negotiation Positions</div>
+          <div class="pos"><span class="tag t-primary">Primary</span><div class="flex-grow-1 small">Worldwide · All media · <strong>Perpetuity</strong></div></div>
+          <div class="pos"><span class="tag t-fb">Fallback 1</span><div class="flex-grow-1 small">Worldwide · Streaming · 7-year term</div></div>
+          <div class="pos"><span class="tag t-fb">Fallback 2</span><div class="flex-grow-1 small">North America · Streaming · 5-year term</div></div>
+          <div class="small text-muted mt-1">Every rights-holder negotiation on every title is measured against this ladder — automatically.</div>
+        </div>
+      </div>
+
+      <!-- PROJECT -->
+      <div id="paneProject" class="d-none">
+        <a class="small text-muted text-decoration-none" href="#" onclick="return false;"><i class="bi bi-arrow-left me-1"></i>Back to portal</a>
+        <div id="projHeader" class="d-flex flex-wrap align-items-center gap-2 mt-2 mb-1">
+          <h4 class="text-navy fw-bold mb-0 me-2">The Long Static — A Documentary</h4>
+          <span class="pill p-flag" id="projStatus">In Clearance</span>
+          <span class="badge bg-light text-dark border">Documentary</span>
+        </div>
+        <div class="text-muted small mb-3">Foxglove Films · for delivery to Skylark+ · Worldwide · Streaming</div>
+
+        <div class="row g-3">
+          <div class="col-12 col-xl-8">
+            <div id="itemList"></div>
+            <!-- publishing / deal board -->
+            <div class="side-card p-3 mt-2" id="pubBoard">
+              <div class="d-flex align-items-center mb-2"><span class="fw-semibold text-navy">Publishing — sync negotiation</span><span class="badge bg-light text-dark border ms-2">9 songs · 3 publisher groups</span></div>
+              <div class="small text-muted mb-2">Songs auto-partitioned by publisher — negotiate a few blanket deals, not dozens of one-offs.</div>
+              <div class="border rounded p-2" id="group1">
+                <div class="d-flex align-items-center mb-2"><strong class="small">Pulse Songs (BMI)</strong><span class="badge bg-light text-dark border ms-2 small">5 songs</span><span class="pill p-neg ms-auto" id="g1status">In negotiation</span></div>
+                <div class="d-none" id="board1">
+                  <div class="small fw-semibold text-navy mb-1">Deal board</div>
+                  <div class="pos"><span class="tag t-primary">Your Primary</span><div class="flex-grow-1 small">WW · All media · Perpetuity</div></div>
+                  <div class="pos"><span class="tag t-offer">Their offer</span><div class="flex-grow-1 small">WW · Streaming · 3-year</div></div>
+                  <div class="pos" style="border-color:#cfe2ff;background:#f0f4ff;"><span class="tag" style="background:#cfe2ff;color:#084298;">Counter</span><div class="flex-grow-1 small"><i class="bi bi-stars text-warning me-1"></i><strong>Cleared.live draft:</strong> WW · Streaming · Fallback 1 (7-year)</div></div>
+                  <div class="small text-muted mt-1"><i class="bi bi-shield-check me-1"></i>MFN ledger keeps all 5 songs on the best rate granted in this group.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-xl-4">
+            <div class="side-card p-3" id="sideBA">
+              <div class="fw-semibold text-navy mb-2">Clearance summary</div>
+              <div class="small text-muted mb-1"><span id="appN">0</span> of 4 items approved</div>
+              <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-success" id="appBar" style="width:0%"></div></div>
+              <div class="small text-muted">Green-light delivers the cleared title to your rights system.</div>
+            </div>
+            <div id="hookSlot" class="d-none">
+              <div class="webhook">
+                <div class="mb-1"><i class="bi bi-broadcast me-1"></i>POST → your CMS / rights system</div>
+                { "event": "title.cleared",<br>&nbsp;&nbsp;"title": "The Long Static",<br>&nbsp;&nbsp;"status": "cleared",<br>&nbsp;&nbsp;"agreements": 8 }
+                <div class="mt-1" style="color:#166534;"><i class="bi bi-check-circle-fill me-1"></i>Delivered with the full record.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slate" id="outroSlate" style="display:none;">
+      <i class="bi bi-broadcast-pin" style="font-size:3rem;color:var(--gold);"></i>
+      <h1 class="mt-3">Green-lit &amp; delivered.</h1>
+      <p style="max-width:540px;color:#cfdcee;font-size:1.05rem;">Your standards at the door, your deal terms on every negotiation, your green-light wired straight to your pipeline — at the volume you actually take in.</p>
+      <div class="mt-2" style="font-size:1.4rem;font-weight:700;">Cleared<span class="dot">.</span>live</div>
+      <button class="btn btn-outline-light mt-4" onclick="restart()"><i class="bi bi-arrow-counterclockwise me-1"></i>Replay</button>
+    </div>
+  </div>
+</div>
+
+<div id="veil"></div>
+<div class="spot" id="spot" style="display:none;"></div>
+<div id="coach" style="display:none;">
+  <div class="step-n"><span id="cn">1</span> / <span id="ct">13</span></div>
+  <h5 id="ch"></h5><div class="vo" id="cvo"></div><p id="cp"></p>
+  <div class="ctrls">
+    <button class="btn btn-sm btn-outline-secondary" onclick="prev()"><i class="bi bi-arrow-left"></i></button>
+    <button class="btn btn-sm btn-warning fw-semibold flex-grow-1" onclick="next()" id="nextBtn">Next <i class="bi bi-arrow-right"></i></button>
+    <button class="btn btn-sm btn-outline-secondary" id="playBtn" onclick="togglePlay()"><i class="bi bi-play-fill"></i></button>
+  </div>
+</div>
+
+<script>
+const ITEMS = [
+  ["Archival Footage Rights",     "Third-party archival clips in the film.",      "Executed footage license — Riverside Archive"],
+  ["Interview Subject Releases",  "On-camera interviewees.",                      "4 signed appearance releases"],
+  ["Location Releases",           "Filming locations.",                           "2 signed location releases"],
+  ["E&O Insurance Documentation", "Errors & omissions certificate.",              "E&O certificate of insurance"],
+];
+function renderItems(){
+  document.getElementById('itemList').innerHTML = ITEMS.map((it,i)=>`
+    <div class="item-card" id="item-${i}">
+      <div class="ic-head" onclick="toggleItem(${i})">
+        <span class="ic-num">${i+1}</span>
+        <div class="flex-grow-1"><div class="fw-semibold text-navy">${it[0]}</div><div class="small text-muted">${it[1]}</div></div>
+        <span class="pill p-flag" id="st-${i}">To review</span>
+      </div>
+      <div class="ic-body" id="body-${i}">
+        <div class="evid mb-2"><i class="bi bi-file-earmark-check text-success me-1"></i>${it[2]} <span class="text-muted">· uploaded · paper trail attached</span></div>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-sm btn-success"><i class="bi bi-check2-circle me-1"></i>Approve</button>
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Reject</button>
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-envelope me-1"></i>Outreach</button>
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-text me-1"></i>Draft</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+renderItems();
+function toggleItem(i){ const c=document.getElementById('item-'+i); document.querySelectorAll('.item-card.open').forEach(e=>{ if(e!==c) e.classList.remove('open'); }); c.classList.toggle('open'); }
+function setStatus(i,cls,label){ const el=document.getElementById('st-'+i); el.className='pill '+cls; el.textContent=label; }
+function setApp(n){ document.getElementById('appN').textContent=n; document.getElementById('appBar').style.width=Math.round(n/4*100)+'%'; }
+function showPane(p){ ['Dash','Settings','Project'].forEach(x=>document.getElementById('pane'+x).classList.toggle('d-none', x.toLowerCase()!==p)); }
+
+const STEPS = [
+  { sel:'.row.g-2', h:'Your Clearance Portal', vo:'"The whole pipeline, one screen."',
+    p:'Every title you take in lands here. Under review, in clearance, cleared, rejected — your entire intake at a glance, filterable by status or type.', pane:'dash' },
+  { sel:'#queue', h:'Invite-only intake', vo:'"Nothing reaches you uninvited."',
+    p:'Submitters come in through a link your team issues, so every title in the queue is one you chose to accept. The sign-off queue surfaces the ones waiting on you.', pane:'dash' },
+  { sel:'#settingsLink', h:'Set the rules once', vo:'"Your standards, at the door."',
+    p:'Before any submitter starts, you set the requirements once — in Clearance Requirements. Let\'s open it.',
+    act:()=>{ showPane('settings'); } },
+  { sel:'#positions', h:'Your deal, set once', vo:'"Primary, then the fallbacks you\'ll accept."',
+    p:'This is what makes Cleared.live a distributor tool, not just a checklist. Define your deal once — worldwide in perpetuity at the top, narrower terms below. From here, every negotiation on every title is measured against this ladder, automatically.', pane:'settings' },
+  { sel:'#projHeader', h:'Open a title', vo:'"Structured for what it is."',
+    p:'Open The Long Static. The clearance items are already tailored to the project type — a documentary brings footage, interviews, locations, E&O. You\'re never staring at a generic form.',
+    act:()=>{ showPane('project'); } },
+  { sel:'#item-0', h:'Review the evidence', vo:'"What the submitter actually obtained."',
+    p:'Open any item and you see the executed agreement, the contact, and the full paper trail — attached to the decision. Approve it and it\'s locked; reject with a reason and it routes straight back.',
+    act:()=>{ toggleItem(0); } },
+  { sel:'#body-0 .d-flex', h:'Approve', vo:'"Lock it, move on."',
+    p:'Footage, interviews, locations, E&O — each approved on its own evidence. Where your team needs language, Cleared.live provides the outreach or the draft, ready to edit.',
+    act:()=>{ setStatus(0,'p-approved','Approved'); setStatus(1,'p-approved','Approved'); setStatus(2,'p-approved','Approved'); setApp(3); } },
+  { sel:'#pubBoard', h:'Where distributors drown: music', vo:'"Many songs → a few deals."',
+    p:'Every song is its own publisher, its own rate. Cleared.live partitions the songs by publisher so you negotiate a handful of blanket deals instead of dozens of one-offs.',
+    act:()=>{ toggleItem(0); document.querySelectorAll('.item-card.open').forEach(e=>e.classList.remove('open')); }, pane:'project' },
+  { sel:'#group1', h:'The deal board', vo:'"Their offer, against your ladder."',
+    p:'Open a group and the publisher\'s offer lands right next to your primary and your fallbacks. Cleared.live drafts your counter against the positions you set — and an MFN ledger keeps every song in the group on the best rate.',
+    act:()=>{ document.getElementById('board1').classList.remove('d-none'); document.getElementById('group1').scrollIntoView({block:'center'}); } },
+  { sel:'#board1 .pos:last-child', h:'Your terms, enforced', vo:'"The counter writes itself — to your standard."',
+    p:'The drafted counter maps to Fallback 1 — exactly the term you pre-approved in settings. Your acquisitions standard, applied song by song, without your team holding it all in their head.',
+    act:()=>{ document.getElementById('g1status').className='pill p-approved'; document.getElementById('g1status').textContent='Agreed'; setApp(4); } },
+  { sel:'#hookSlot', h:'Green-light → delivery', vo:'"Cleared isn\'t the end — it\'s a trigger."',
+    p:'When the last item clears, the title green-lights. For enterprise platforms, Cleared.live fires the cleared title straight into your CMS or rights system by webhook — with the full record behind it.',
+    act:()=>{ document.getElementById('hookSlot').classList.remove('d-none'); const s=document.getElementById('projStatus'); s.className='pill p-approved'; s.textContent='Cleared'; setTimeout(()=>document.getElementById('hookSlot').scrollIntoView({block:'center'}),200); } },
+  { sel:'#hookSlot .webhook', h:'Acquisition to availability', vo:'"In one rail."',
+    p:'The clearance you used to chase by hand now lands in your pipeline as structured, delivered data — title, status, and every agreement behind it.' },
+  { sel:'#projHeader', h:'Your terms. Your queue. Your green-light.', vo:'"At the volume you actually run."',
+    p:'Standards at the door, deal terms on every negotiation, delivery wired to your pipeline. The clearance operation you already run — now on one rail. That\'s Cleared.live for distributors.' },
+];
+
+let cur=0, playing=false, timer=null;
+const spot=document.getElementById('spot'), coach=document.getElementById('coach');
+function startTour(){ document.getElementById('introSlate').style.display='none'; cur=0; spot.style.display='block'; coach.style.display='block'; render(); }
+function render(){ const s=STEPS[cur]; if(s.pane) showPane(s.pane); if(s.act) s.act();
+  document.getElementById('cn').textContent=cur+1; document.getElementById('ct').textContent=STEPS.length;
+  document.getElementById('ch').innerHTML=s.h; document.getElementById('cvo').textContent=s.vo; document.getElementById('cp').textContent=s.p;
+  document.getElementById('nextBtn').innerHTML=(cur===STEPS.length-1)?'Finish <i class="bi bi-check"></i>':'Next <i class="bi bi-arrow-right"></i>';
+  setTimeout(()=>position(s.sel),130); }
+function position(sel){ const el=document.querySelector(sel); if(!el) return; el.scrollIntoView({block:'center',behavior:'smooth'});
+  setTimeout(()=>{ const r=el.getBoundingClientRect(), pad=8;
+    spot.style.top=(r.top-pad)+'px'; spot.style.left=(r.left-pad)+'px'; spot.style.width=(r.width+pad*2)+'px'; spot.style.height=(r.height+pad*2)+'px';
+    const cw=390, ch=coach.offsetHeight||230, gap=18; let top=r.top, left=r.right+gap;
+    if(left+cw>window.innerWidth-12) left=r.left-cw-gap;
+    if(left<12){ left=Math.min(Math.max(12,r.left),window.innerWidth-cw-12); top=r.bottom+gap; }
+    if(top+ch>window.innerHeight-12) top=window.innerHeight-ch-12; if(top<12) top=12;
+    coach.style.top=top+'px'; coach.style.left=left+'px'; },380); }
+function next(){ if(cur<STEPS.length-1){ cur++; render(); } else finish(); }
+function prev(){ if(cur>0){ cur--; render(); } }
+function finish(){ stopPlay(); spot.style.display='none'; coach.style.display='none'; document.getElementById('outroSlate').style.display='flex'; }
+function restart(){ location.reload(); }
+function togglePlay(){ playing?stopPlay():startPlay(); }
+function startPlay(){ playing=true; document.getElementById('playBtn').innerHTML='<i class="bi bi-pause-fill"></i>'; tick(); }
+function stopPlay(){ playing=false; clearTimeout(timer); document.getElementById('playBtn').innerHTML='<i class="bi bi-play-fill"></i>'; }
+function tick(){ if(!playing) return; timer=setTimeout(()=>{ if(cur<STEPS.length-1){ next(); tick(); } else finish(); },6600); }
+document.addEventListener('keydown',e=>{ if(coach.style.display==='none') return; if(e.key==='ArrowRight') next(); if(e.key==='ArrowLeft') prev(); });
+window.addEventListener('resize',()=>{ if(coach.style.display!=='none') position(STEPS[cur].sel); });
+</script>
+</body>
+</html>

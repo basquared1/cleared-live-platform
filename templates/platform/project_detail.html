@@ -115,7 +115,7 @@
             <i class="bi bi-plus-circle me-1"></i>Add Item
           </button>
           <form method="POST" action="{{ url_for('platform_ai_draft_all', sub_id=sub.id) }}"
-                title="Regenerates all AI draft agreements for submitter reference — does not affect item status">
+                title="Regenerates all draft agreements for submitter reference — does not affect item status">
             <button type="submit" class="btn btn-sm btn-outline-secondary">
               <i class="bi bi-arrow-repeat me-1"></i>Regenerate Drafts
             </button>
@@ -149,7 +149,7 @@
             <div class="col-12 col-md-2">
               <div class="form-check mb-1">
                 <input class="form-check-input" type="checkbox" name="gen_ai" value="1" id="gen_ai_check" checked>
-                <label class="form-check-label small" for="gen_ai_check">Generate AI draft</label>
+                <label class="form-check-label small" for="gen_ai_check">Generate draft</label>
               </div>
               <button type="submit" class="btn btn-sm btn-primary w-100">Add</button>
             </div>
@@ -322,20 +322,20 @@
             </form>
           </div>
 
-          <!-- AI Draft (read-only for BA oversight, collapsed) -->
+          <!-- Draft (read-only for BA oversight, collapsed) -->
           <div class="ms-5 mt-3">
             {% if item.ai_draft %}
             <button class="btn btn-link btn-sm p-0 text-muted text-decoration-none"
                     type="button" data-bs-toggle="collapse" data-bs-target="#ba-draft-{{ item.id }}">
               <i class="bi bi-stars me-1 text-primary"></i>
-              <span style="font-size:.75rem;">AI Draft (read-only)</span>
+              <span style="font-size:.75rem;">Draft (read-only)</span>
               <i class="bi bi-chevron-down ms-1" style="font-size:.65rem;"></i>
             </button>
             <div class="collapse mt-2" id="ba-draft-{{ item.id }}">
               <div class="card border-0" style="background:#f0f4ff;">
                 <div class="card-body p-3">
                   <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="fw-semibold small" style="color:#1a3a5c;"><i class="bi bi-stars me-1 text-primary"></i>AI Draft — {{ item.item_label }}</span>
+                    <span class="fw-semibold small" style="color:#1a3a5c;"><i class="bi bi-stars me-1 text-primary"></i>Draft — {{ item.item_label }}</span>
                     <div class="d-flex gap-1 flex-wrap">
                       <form method="POST" action="{{ url_for('platform_docusign', sub_id=sub.id, item_id=item.id) }}" class="d-inline">
                         <button type="submit" class="btn btn-sm btn-dark fw-semibold">

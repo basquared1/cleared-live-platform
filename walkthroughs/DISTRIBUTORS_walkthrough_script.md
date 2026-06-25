@@ -74,7 +74,7 @@ Labels only **review and waive**. Distributors run the **whole** intake: they in
 ---
 
 ### Scene 6 — Review, approve, or send it back (3:00–3:45)
-**[SHOT]** Open one item (e.g. **Master Recording License**). Show the submitter's uploaded executed agreement, the rights-holder contact, and the negotiation/paper trail on the item. Then show the action row: **Approve · Reject · Log Response · AI Outreach · AI Draft**.
+**[SHOT]** Open one item (e.g. **Master Recording License**). Show the submitter's uploaded executed agreement, the rights-holder contact, and the negotiation/paper trail on the item. Then show the action row: **Approve · Reject · Log Response · Outreach · Draft**.
 **(CAPTION)** *The evidence is attached to the decision.*
 **VO:**
 > "Every item carries what the submitter actually obtained — the signed agreement, who they dealt with, the full back-and-forth that produced it. Approve it and it's locked. Reject it with a reason and it routes straight back for a fix. And where your team needs to generate language — outreach to a rights holder, or a draft agreement — it's written for you, in your voice, ready to edit. Drafting assistance, not autopilot."
@@ -86,7 +86,7 @@ Labels only **review and waive**. Distributors run the **whole** intake: they in
 **[SHOT]** Open a music title's publishing section. Show **publisher groups** (songs auto-partitioned by publisher), one group's **deal board** — your positions vs. the publisher's offer — and the **AI negotiation**: outreach sent, reply captured, counter-offer drafted, **MFN** tracked across the group.
 **(CAPTION)** *Many songs → a few negotiations → your terms, enforced.*
 **VO:**
-> "Music is where distributors drown — every song is its own publisher, its own rate. Cleared.live partitions the songs by publisher so you negotiate a handful of blanket deals instead of dozens of one-offs. Each one opens against the positions you set: the publisher's counter lands next to your primary and your fallbacks, the AI drafts your response, and a most-favored-nations ledger keeps every song in the group on the best rate you've granted. Your acquisitions terms, enforced song by song, without your team holding it all in their head."
+> "Music is where distributors drown — every song is its own publisher, its own rate. Cleared.live partitions the songs by publisher so you negotiate a handful of blanket deals instead of dozens of one-offs. Each one opens against the positions you set: the publisher's counter lands next to your primary and your fallbacks, Cleared.live drafts your response, and a most-favored-nations ledger keeps every song in the group on the best rate you've granted. Your acquisitions terms, enforced song by song, without your team holding it all in their head."
 
 ---
 
@@ -120,12 +120,12 @@ Labels only **review and waive**. Distributors run the **whole** intake: they in
 
 **Dashboard stats:** Submissions · Under Review · In Clearance · Cleared · Rejected (titled "Clearance Portal").
 **Settings:** labeled **Clearance Requirements** — Preset selector (auto-fills form config + negotiation positions), Default Territory (lockable per field), **Section 2: Negotiation Positions** (Primary + Fallback 1/2/3: territory, uses, term, notes).
-**Per-item actions:** Approve · Reject (with reason) · Log Response · AI Outreach · AI Draft · Download agreement (.docx).
+**Per-item actions:** Approve · Reject (with reason) · Log Response · Outreach · Draft · Download agreement (.docx).
 **Music/publishing:** publisher groups (auto-partition by publisher) · per-group deal board (your positions vs. their offer) · AI negotiation loop (outreach → reply capture → counter draft) · MFN ledger across the group.
 **Green-light:** flipping a title to **Cleared** fires `deliver_webhook` to the platform's configured `webhook_url` (enterprise: "Webhook delivery to your CMS or rights system" — dashboard.html).
 
 **Routes touched (for whoever drives the capture):**
-- `/platform/dashboard` → Invite Submitter → `/platform/settings` (presets + negotiation positions) → `/platform/project/<id>` → open item → **Approve** / Reject / AI Draft → music title publishing section (publisher groups → deal board → AI negotiation) → back to hero → flip to **Cleared** (webhook delivery) → **Agreements** tab → back to dashboard.
+- `/platform/dashboard` → Invite Submitter → `/platform/settings` (presets + negotiation positions) → `/platform/project/<id>` → open item → **Approve** / Reject / Draft → music title publishing section (publisher groups → deal board → AI negotiation) → back to hero → flip to **Cleared** (webhook delivery) → **Agreements** tab → back to dashboard.
 
 ---
 

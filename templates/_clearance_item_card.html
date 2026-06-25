@@ -138,7 +138,7 @@
               <form method="POST" action="{{ url_for('track_item_gen_draft', token=access_token, item_id=item.id) }}" class="d-inline">
                 <input type="hidden" name="ai_only" value="1">
                 <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" style="font-size:.75rem;">
-                  No template fits — draft with AI instead
+                  No template fits — Cleared.live drafts one instead
                 </button>
               </form>
             </div>
@@ -148,12 +148,12 @@
             <i class="bi bi-hourglass-split text-warning fs-5"></i>
             <div class="flex-grow-1">
               <div class="fw-semibold small text-navy">Agreement draft not generated yet</div>
-              <div class="text-muted" style="font-size:.78rem;">No firm template for this item type — AI will draft it. Click to generate now.</div>
+              <div class="text-muted" style="font-size:.78rem;">No firm template for this item type — Cleared.live drafts one. Click to generate now.</div>
             </div>
             <form method="POST" action="{{ url_for('track_item_gen_draft', token=access_token, item_id=item.id) }}">
               <input type="hidden" name="ai_only" value="1">
               <button type="submit" class="btn btn-sm btn-warning fw-semibold text-dark">
-                <i class="bi bi-stars me-1"></i>Draft with AI
+                <i class="bi bi-stars me-1"></i>Generate draft
               </button>
             </form>
           </div>

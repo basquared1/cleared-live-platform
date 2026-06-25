@@ -739,7 +739,7 @@ def send_to_docusign(sub, item):
     if not docusign_configured():
         return None, "DocuSign not configured — set DOCUSIGN_INTEGRATION_KEY, DOCUSIGN_USER_ID, DOCUSIGN_ACCOUNT_ID, DOCUSIGN_PRIVATE_KEY in Render environment."
 
-    draft_text = item.ai_draft or f"[AI draft pending for {item.item_label}]"
+    draft_text = item.ai_draft or f"[Draft pending for {item.item_label}]"
     doc_proxy = _DocxProxy(title=item.item_label, content=draft_text)
     try:
         doc_bytes = build_docx(doc_proxy)
@@ -2105,7 +2105,7 @@ def track_item_agreement_docx(token, item_id):
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
-    draft_text = item.ai_draft or f"[AI draft pending for {item.item_label}]"
+    draft_text = item.ai_draft or f"[Draft pending for {item.item_label}]"
     doc_bytes  = build_docx(_DocxProxy(title=item.item_label, content=draft_text))
     safe = re.sub(r"[^A-Za-z0-9]+", "-", item.item_label).strip("-").lower() or "agreement"
     return send_file(
@@ -2497,7 +2497,7 @@ def track_item_send_clearance(token, item_id):
     if item.submission_id != sub.id:
         abort(403)
     if not item.ai_draft:
-        flash("Generate the AI draft agreement first.", "danger")
+        flash("Generate the draft agreement first.", "danger")
         return _submitter_redirect(token, f"#item-card-{item_id}")
     if not item.party_email:
         flash("Add the rights holder email address first.", "danger")
@@ -3734,7 +3734,7 @@ def track_pub_groups_record_reply(token):
     if rec:
         g["ai_recommendation"] = rec
         g["neg_state"] = "needs_approval"
-        flash("Reply recorded — the AI drafted the next move below.", "info")
+        flash("Reply recorded — Cleared.live drafted the next move below.", "info")
     else:
         g["neg_state"] = "awaiting_reply"
         flash("Reply recorded, but the AI couldn't draft a response. Try Regenerate.", "warning")
@@ -4340,7 +4340,7 @@ def platform_item_agreement_docx(sub_id, item_id):
     item = ClearanceItem.query.get_or_404(item_id)
     if item.submission_id != sub.id:
         abort(403)
-    draft_text = item.ai_draft or f"[AI draft pending for {item.item_label}]"
+    draft_text = item.ai_draft or f"[Draft pending for {item.item_label}]"
     doc_bytes  = build_docx(_DocxProxy(title=item.item_label, content=draft_text))
     safe = re.sub(r"[^A-Za-z0-9]+", "-", item.item_label).strip("-").lower() or "agreement"
     return send_file(
@@ -4535,7 +4535,7 @@ def platform_add_item(sub_id):
                     app.logger.error(f"AI draft for custom item failed: {e}")
 
         threading.Thread(target=_draft, daemon=True).start()
-        flash(f"'{label}' added — AI draft generating in background (~30 sec).", "success")
+        flash(f"'{label}' added — draft generating in background (~30 sec).", "success")
     else:
         flash(f"'{label}' added to clearance checklist.", "success")
     return redirect(url_for("platform_project", sub_id=sub_id))
@@ -4870,7 +4870,7 @@ def platform_ai_draft_all(sub_id):
         item.ai_draft = None
     db.session.commit()
     threading.Thread(target=_auto_draft_agent, args=(sub.id,), daemon=True).start()
-    flash(f"Regenerating {len(sub.clearance_items)} AI drafts in background — refresh in ~60 seconds.", "info")
+    flash(f"Regenerating {len(sub.clearance_items)} drafts in background — refresh in ~60 seconds.", "info")
     return redirect(url_for("platform_project", sub_id=sub_id))
 
 
@@ -4888,7 +4888,7 @@ def platform_ai_draft(sub_id, item_id):
     if draft:
         item.ai_draft = draft
         db.session.commit()
-        flash(f"AI draft generated for {item.item_label}.", "success")
+        flash(f"Draft generated for {item.item_label}.", "success")
     else:
         flash("ANTHROPIC_API_KEY not configured in Render environment.", "danger")
     return redirect(url_for("platform_project", sub_id=sub_id))
@@ -5075,7 +5075,7 @@ def platform_guideline_detail(project_type):
                     continue_on_truncation=True,
                 )
             except Exception as e:
-                flash(f"AI draft failed: {e}", "danger")
+                flash(f"Draft generation failed: {e}", "danger")
                 return redirect(url_for("platform_guideline_detail", project_type=project_type))
             if not g:
                 g = ClearanceGuideline(platform_id=user.platform_id, project_type=project_type)
@@ -5083,7 +5083,7 @@ def platform_guideline_detail(project_type):
             g.content = content
             g.status = "draft"
             db.session.commit()
-            flash("AI draft generated. Review and approve when ready.", "success")
+            flash("Draft generated. Review and approve when ready.", "success")
 
         elif action == "ai_public_draft":
             # Draft a plain-English submitter-facing version from the internal guidelines.
@@ -5197,7 +5197,7 @@ def _scan_submitter_actions(sub):
             else:
                 actions.append({"item_id": it.id, "label": it.submitter_label, "item_key": it.item_key, "urgency": "high",
                                 "action": "Approve the AI's drafted reply",
-                                "detail": rec.get("assessment") or "AI has drafted your next move."})
+                                "detail": rec.get("assessment") or "Cleared.live drafted your next move."})
         elif it.neg_state == "awaiting_reply":
             last = _last_outbound_at(it)
             if last and (datetime.utcnow() - last) > timedelta(days=STALL_DAYS):

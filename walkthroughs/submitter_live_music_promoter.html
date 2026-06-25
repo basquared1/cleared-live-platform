@@ -120,7 +120,7 @@
       <!-- status banner -->
       <div id="banner" class="alert d-flex align-items-start gap-2" style="background:#fffbea;border:1px solid #f5c842;color:#664d03;">
         <i class="bi bi-stars fs-5 text-warning"></i>
-        <div><strong>Your workspace is ready — start below.</strong> AI has drafted agreements and outreach emails for each item. Click <em>Start Working</em> on any item to review the draft, contact the rights holder, and upload the signed agreement. The Skylark+ BA team reviews each item as you submit it.</div>
+        <div><strong>Your workspace is ready — start below.</strong> Cleared.live provides a drafted agreement and outreach email for each item. Click <em>Start Working</em> on any item to review the draft, contact the rights holder, and upload the signed agreement. The Skylark+ BA team reviews each item as you submit it.</div>
       </div>
 
       <div class="row g-3">
@@ -281,7 +281,7 @@ function renderItems(){
         <span class="pill p-pending" id="st-${i}">Pending</span>
       </div>
       <div class="ic-body" id="body-${i}">
-        <div class="mb-2 small fw-semibold text-navy"><i class="bi bi-stars text-warning me-1"></i>AI-drafted agreement</div>
+        <div class="mb-2 small fw-semibold text-navy"><i class="bi bi-stars text-warning me-1"></i>Draft provided by Cleared.live</div>
         <div class="draftbox mb-3">${it[2]}</div>
         <div class="d-flex flex-wrap gap-2 mb-3" id="actions-${i}">
           <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Edit draft</button>
@@ -318,8 +318,8 @@ const STEPS = [
   { sel:'#projHeader', h:'Your workspace', vo:'"This is everything for one show — in one place."',
     p:'Skylark+ — the distributor releasing this footage — emailed you a private link. It opens straight into this workspace: no login, no password, no account to manage. Everything to clear this one show lives here.' },
 
-  { sel:'#banner', h:'AI did the first draft', vo:'"You\'re not starting from a blank page."',
-    p:'The moment you submitted, AI drafted an agreement and an outreach email for every item you need. Your job is to review, send, and collect signatures — not to write contracts from scratch.' },
+  { sel:'#banner', h:'Cleared.live did the first draft', vo:'"You\'re not starting from a blank page."',
+    p:'The moment you submitted, Cleared.live prepared a drafted agreement and an outreach email for every item you need — from firm-approved templates. Your job is to review, send, and collect signatures — not to write contracts from scratch.' },
 
   { sel:'#sideProgress', h:'Track your progress', vo:'"Always know what\'s left."',
     p:'Seven items stand between you and a cleared show. This bar fills as each one is submitted and approved by the platform\'s Business Affairs team.' },
@@ -332,7 +332,7 @@ const STEPS = [
     act:()=>{ toggleItem(0); setStatus(0,'p-progress','In Progress'); } },
 
   { sel:'#body-0 .draftbox', h:'Review the draft', vo:'"Read it, tweak it, make it yours."',
-    p:'Here\'s the AI-drafted agreement, written for THIS event — venue, date, and uses already filled in. Edit anything; it\'s your document.' },
+    p:'Here\'s the draft Cleared.live prepared for THIS event — venue, date, and uses already filled in. Edit anything; it\'s your document.' },
 
   { sel:'#actions-0', h:'Set the contact &amp; send', vo:'"One click to reach the rights holder."',
     p:'Add who controls this right — Cleared.live even suggests them — then Send Clearance fires the agreement and outreach email straight to them. No copy-pasting across your inbox.' },
@@ -360,7 +360,7 @@ const STEPS = [
     p:'Instead of nine separate negotiations, songs are auto-grouped by publisher so ONE blanket sync license can cover the whole group.', tab:'music' },
 
   { sel:'#pg1', h:'Negotiate the deal terms', vo:'"See the platform\'s positions vs. the publisher\'s offer."',
-    p:'Open a group\'s deal board: Skylark+\'s target terms, the publisher\'s counter, and an MFN ledger keeping every song in the group on the best rate. AI even drafts the counter-offer.',
+    p:'Open a group\'s deal board: Skylark+\'s target terms, the publisher\'s counter, and an MFN ledger keeping every song in the group on the best rate. Cleared.live even drafts the counter-offer.',
     act:()=>{ document.getElementById('pg1Board').classList.remove('d-none'); document.getElementById('pg1').scrollIntoView({block:'center'}); } },
 
   { sel:'#delegate', h:'Not your job? Delegate it', vo:'"Hand the music to a supervisor — only the music."',
