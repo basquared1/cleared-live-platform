@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Dark rounded square background -->
   <rect width="64" height="64" rx="10" fill="#0d3b6e"/>
+  <!-- Gregorian C Clef — scaled and centered inside 64x64 -->
   <rect x="9"  y="7"  width="40" height="13" rx="2" fill="#22c55e"/>
   <rect x="9"  y="7"  width="13" height="50" rx="2" fill="#22c55e"/>
   <rect x="9"  y="44" width="40" height="13" rx="2" fill="#22c55e"/>
