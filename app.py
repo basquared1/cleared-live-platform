@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 import click
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, flash, jsonify, abort, send_file, Response, g,
+    session, flash, jsonify, abort, send_file, send_from_directory, Response, g,
 )
 from sqlalchemy import text as sa_text
 from werkzeug.security import check_password_hash
@@ -1100,6 +1100,25 @@ def _negotiation_agent(item_id):
 # ---------------------------------------------------------------------------
 # Public — landing
 # ---------------------------------------------------------------------------
+
+# Public, login-free marketing/onboarding walkthroughs — shareable at /walkthroughs.
+# Self-contained static HTML in the repo's walkthroughs/ folder.
+WALKTHROUGHS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "walkthroughs")
+
+
+@app.route("/walkthroughs")
+@app.route("/walkthroughs/")
+def walkthroughs_index():
+    return send_from_directory(WALKTHROUGHS_DIR, "index.html")
+
+
+@app.route("/walkthroughs/<path:filename>")
+def walkthroughs_file(filename):
+    # send_from_directory safely rejects path traversal; only serve .html files.
+    if not filename.endswith(".html"):
+        abort(404)
+    return send_from_directory(WALKTHROUGHS_DIR, filename)
+
 
 @app.route("/")
 def index():
