@@ -14,11 +14,14 @@
 
 {% block navbar %}
 <nav class="navbar navbar-expand-lg">
-  <div class="container-fluid px-4" style="max-width:1400px;">
+  <div class="container-fluid px-4" style="max-width:1480px;">
     <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
       Cleared<span class="text-warning">.</span>live
     </a>
     <div class="ms-auto d-flex gap-2 align-items-center">
+      <a href="/walkthroughs" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-play-circle me-1"></i><span class="d-none d-sm-inline">Walkthroughs</span>
+      </a>
       {% if platform_user %}
       <a href="{{ url_for('platform_dashboard') }}" class="btn btn-sm btn-outline-dark">
         <i class="bi bi-grid me-1"></i>Dashboard
@@ -37,7 +40,7 @@
 </nav>
 {% endblock %}
 
-<div class="{% block container_class %}container-fluid px-4 py-4{% endblock %}" style="max-width:1400px; margin:0 auto;">
+<div class="{% block container_class %}container-fluid px-4 py-4{% endblock %}" style="max-width:1480px; margin:0 auto;">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="mb-3">
@@ -54,7 +57,7 @@
 </div>
 
 <footer class="border-top mt-5 py-4 bg-white">
-  <div class="container-fluid px-4" style="max-width:1400px; margin:0 auto;">
+  <div class="container-fluid px-4" style="max-width:1480px; margin:0 auto;">
     <div class="row g-3 align-items-start">
       <div class="col-12 col-md-6">
         <div class="fw-semibold text-navy">Cleared<span class="text-warning">.</span>live</div>

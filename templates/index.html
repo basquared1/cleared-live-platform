@@ -3,33 +3,66 @@
 {% block content %}
 
 <!-- Hero -->
-<div class="hero rounded-3 p-5 mb-5">
-  <div class="row align-items-center g-4">
-    <div class="col-12 col-lg-8">
+<div class="hero rounded-3 p-4 p-lg-5 mb-5">
+  <div class="row align-items-center g-4 g-lg-5">
+    <div class="col-12 col-lg-7">
       <div class="small fw-semibold mb-2 opacity-75" style="letter-spacing:.12em;">CLEARED.LIVE PLATFORM</div>
       <h1 class="display-5 fw-bold mb-3">
-        Rights clearance infrastructure<br>for media platforms.
+        Rights clearance infrastructure for media platforms.
       </h1>
       <p class="lead opacity-90 mb-4">
-        Give your BA team a single workflow for every clearance — talent, music, location,
-        and third-party rights — from intake to green light. Submitters track progress in real time.
-        Your team never touches a spreadsheet.
+        One workflow for every clearance — talent, music, location, and third-party rights —
+        from intake to green light. Submitters track progress in real time. Your team never
+        touches a spreadsheet.
       </p>
-      <div class="d-flex flex-wrap gap-3">
+      <div class="d-flex flex-wrap gap-2 gap-md-3">
         <a href="{{ url_for('start') }}" class="btn btn-warning fw-semibold px-4">
-          Submit to a Platform or Clear Your Own Project <i class="bi bi-arrow-right ms-1"></i>
+          Submit or Clear a Project <i class="bi bi-arrow-right ms-1"></i>
         </a>
-        <a href="{{ url_for('platform_login') }}" class="btn btn-outline-light px-4">
-          Platform Login <i class="bi bi-box-arrow-in-right ms-1"></i>
+        <a href="/walkthroughs" class="btn btn-outline-light px-4">
+          <i class="bi bi-play-circle me-1"></i>Watch the walkthroughs
         </a>
         <a href="mailto:clear@cleared.live" class="btn btn-outline-light px-4">
           Talk to Us <i class="bi bi-arrow-right ms-1"></i>
         </a>
       </div>
       <p class="small opacity-75 mt-3 mb-0">
-        <strong>Submitting a project?</strong> Start here — pick the platform you're clearing for and
-        request an invite, or clear independently.
+        <strong>Submitting a project?</strong> Pick the platform you're clearing for and request an
+        invite, or clear independently. <strong>New here?</strong> The walkthroughs show it end to end.
       </p>
+    </div>
+
+    <!-- Product preview: a stylized clearance workspace -->
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-lg" style="border-radius:14px; overflow:hidden;">
+        <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#f1f5f9; border-bottom:1px solid #e2e8f0;">
+          <span style="width:10px;height:10px;border-radius:50%;background:#ff5f57;"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:#febc2e;"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:#28c840;"></span>
+          <span class="ms-2 text-muted" style="font-size:.72rem;">cleared.live/track</span>
+        </div>
+        <div class="card-body p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="fw-bold text-navy small">Clearance workspace</div>
+            <span class="badge bg-warning text-dark" style="font-size:.62rem;">3 of 4 cleared</span>
+          </div>
+          {% set rows = [
+            ('Master Recording License', 'Approved', 'success'),
+            ('Performer Releases', 'Under review', 'primary'),
+            ('Venue Filming License', 'Approved', 'success'),
+            ('E&O Insurance', 'In progress', 'info'),
+          ] %}
+          {% for label, state, color in rows %}
+          <div class="d-flex align-items-center justify-content-between py-2 {% if not loop.last %}border-bottom{% endif %}">
+            <span class="small text-dark">{{ label }}</span>
+            <span class="badge bg-{{ color }}{% if color == 'warning' %} text-dark{% endif %}" style="font-size:.62rem;">{{ state }}</span>
+          </div>
+          {% endfor %}
+          <a href="/walkthroughs" class="btn btn-navy btn-sm w-100 mt-3 fw-semibold" style="background:#0d3b6e;color:#fff;">
+            <i class="bi bi-play-fill me-1"></i>See how it works — watch the walkthroughs
+          </a>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -42,7 +75,7 @@
   </div>
   {% set steps = [
     ('bi-send', '1', 'Submit', 'Submitters fill out a tailored intake form configured for your platform. Project type, content details, rights holders, territory — all captured upfront.'),
-    ('bi-shield-check', '2', 'Clear', 'Your BA team works the clearance checklist. template-based drafting, document tracking, and party-by-party status updates. Submitters see live progress.'),
+    ('bi-shield-check', '2', 'Clear', 'Your BA team works the clearance checklist — template-based drafting, document tracking, and party-by-party status updates. Submitters see live progress.'),
     ('bi-play-circle', '3', 'Go Live', 'When every item is green, one click releases the project. A webhook fires to your content system automatically — no spreadsheet handoff.'),
   ] %}
   {% for icon, num, title, desc in steps %}
@@ -59,6 +92,48 @@
     </div>
   </div>
   {% endfor %}
+</div>
+
+<!-- Walkthroughs band -->
+<div class="card border-0 shadow-sm mb-5" style="background:linear-gradient(135deg,#0d3b6e,#0a2a4f);">
+  <div class="card-body p-4 p-lg-5 text-white">
+    <div class="row align-items-center g-4">
+      <div class="col-12 col-lg-5">
+        <div class="small fw-semibold opacity-75 mb-2" style="letter-spacing:.1em;">SEE IT IN ACTION</div>
+        <h2 class="fw-bold mb-2">Interactive walkthroughs</h2>
+        <p class="opacity-90 mb-3">
+          Self-running tours of the real clearance flow — one for every role. No login, nothing to
+          install. Start with the 60-second intro.
+        </p>
+        <a href="/walkthroughs" class="btn btn-warning fw-semibold px-4">
+          <i class="bi bi-play-circle me-1"></i>Open the walkthroughs
+        </a>
+      </div>
+      <div class="col-12 col-lg-7">
+        <div class="row g-2">
+          {% set wt = [
+            ('bi-music-note-beamed', 'Live Music Promoter', 'submitter_live_music_promoter.html'),
+            ('bi-people-fill', 'Festival Promoter', 'submitter_festival_promoter.html'),
+            ('bi-camera-reels-fill', 'Film / Documentary', 'submitter_film_producer.html'),
+            ('bi-phone-fill', 'Social Creator', 'submitter_social_creator.html'),
+            ('bi-mic-fill', 'Podcast Producer', 'submitter_podcast_producer.html'),
+            ('bi-patch-check-fill', 'Label Business Affairs', 'ba_labels.html'),
+            ('bi-broadcast-pin', 'Distributor Business Affairs', 'ba_distributors.html'),
+          ] %}
+          {% for icon, name, file in wt %}
+          <div class="col-12 col-sm-6">
+            <a href="/walkthroughs/{{ file }}" class="d-flex align-items-center gap-2 text-white text-decoration-none p-2 rounded"
+               style="background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14);">
+              <i class="bi {{ icon }} text-warning"></i>
+              <span class="small fw-semibold flex-grow-1">{{ name }}</span>
+              <i class="bi bi-arrow-right opacity-50"></i>
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Content types -->
