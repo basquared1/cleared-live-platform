@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cleared.live — Walkthrough: Live Music Promoter</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<style>
+  :root{ --navy:#0d3b6e; --gold:#f2a900; --blue:#0d6efd; }
+  body{ background:#eef1f5; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0; }
+  .text-navy{ color:var(--navy)!important; } .bg-navy{ background:var(--navy)!important; }
+  .text-gold{ color:var(--gold)!important; }
+
+  /* ---- fake browser chrome ---- */
+  .browser{ max-width:1280px; margin:18px auto; border-radius:12px; overflow:hidden;
+            box-shadow:0 18px 50px rgba(13,59,110,.25); background:#fff; }
+  .chrome-bar{ background:#dfe4ea; padding:9px 14px; display:flex; align-items:center; gap:8px; }
+  .dot{ width:12px; height:12px; border-radius:50%; }
+  .urlbar{ flex:1; background:#fff; border-radius:7px; padding:5px 12px; font-size:.82rem;
+           color:#475569; display:flex; align-items:center; gap:7px; }
+  .viewport{ height:760px; overflow-y:auto; position:relative; background:#fff; scroll-behavior:smooth; }
+
+  /* ---- app nav ---- */
+  .appnav{ display:flex; align-items:center; padding:12px 22px; border-bottom:1px solid #e2e8f0; }
+  .brand{ font-weight:700; color:#111; font-size:1.15rem; }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:20px 22px 60px; }
+
+  .item-card{ border:1px solid #e2e8f0; border-radius:12px; margin-bottom:14px; background:#fff; transition:.25s; }
+  .item-card .ic-head{ display:flex; align-items:center; gap:12px; padding:15px 18px; cursor:pointer; }
+  .ic-num{ width:30px; height:30px; border-radius:50%; background:#f1f5f9; color:var(--navy);
+           font-weight:700; display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-size:.9rem; }
+  .ic-body{ padding:0 18px 18px 60px; display:none; }
+  .item-card.open .ic-body{ display:block; }
+  .draftbox{ background:#f8fafc; border:1px solid #e2e8f0; border-left:3px solid var(--gold);
+             border-radius:8px; padding:13px 15px; font-size:.84rem; color:#334155; white-space:pre-line; }
+  .progress{ height:9px; }
+  .side-card{ border:1px solid #e2e8f0; border-radius:12px; background:#fff; margin-bottom:14px; }
+
+  /* status pills */
+  .pill{ font-size:.7rem; font-weight:600; padding:.28em .6em; border-radius:50rem; }
+  .p-pending{ background:#fff3cd; color:#664d03; }
+  .p-progress{ background:#cff4fc; color:#055160; }
+  .p-review{ background:#cfe2ff; color:#084298; }
+  .p-approved{ background:#d1e7dd; color:#0f5132; }
+
+  .tab-btn{ border:none; background:none; padding:10px 4px; margin-right:22px; font-weight:600;
+            color:#64748b; border-bottom:3px solid transparent; }
+  .tab-btn.active{ color:var(--navy); border-bottom-color:var(--gold); }
+
+  /* ---- coach mark / spotlight tour ---- */
+  /* veil is intentionally transparent: the .spot box-shadow does the dimming,
+     so a full-screen tint here would also dim the spotlighted element. */
+  #veil{ position:fixed; inset:0; background:transparent; z-index:1200; pointer-events:none; }
+  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.58);
+         z-index:1210; transition:all .45s cubic-bezier(.4,0,.2,1); pointer-events:none;
+         outline:3px solid var(--gold); }
+  #coach{ position:fixed; z-index:1230; max-width:380px; background:#fff; border-radius:14px;
+          box-shadow:0 20px 50px rgba(8,20,40,.4); padding:20px 22px; transition:all .45s cubic-bezier(.4,0,.2,1); }
+  #coach .step-n{ font-size:.72rem; font-weight:700; letter-spacing:.06em; color:var(--gold); text-transform:uppercase; }
+  #coach h5{ color:var(--navy); font-weight:700; margin:.35rem 0 .5rem; font-size:1.08rem; }
+  #coach p{ font-size:.9rem; color:#334155; margin-bottom:1rem; line-height:1.5; }
+  #coach .ctrls{ display:flex; align-items:center; gap:8px; }
+  .vo{ background:#f8fafc; border-left:3px solid var(--gold); padding:8px 11px; border-radius:6px;
+       font-size:.8rem; color:#475569; font-style:italic; margin-bottom:13px; }
+
+  /* intro / outro cards */
+  .slate{ position:absolute; inset:0; z-index:1100; display:flex; flex-direction:column;
+          align-items:center; justify-content:center; text-align:center; background:
+          linear-gradient(135deg,#0d3b6e,#0a2a4f); color:#fff; padding:40px; }
+  .slate h1{ font-weight:800; font-size:2.3rem; } .slate .dot{ color:var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="browser">
+  <div class="chrome-bar">
+    <span class="dot" style="background:#ff5f57;"></span>
+    <span class="dot" style="background:#febc2e;"></span>
+    <span class="dot" style="background:#28c840;"></span>
+    <div class="urlbar"><i class="bi bi-lock-fill text-success" style="font-size:.7rem;"></i> cleared.live/track/lm-9f3a‑demo</div>
+  </div>
+
+  <div class="viewport" id="vp">
+
+    <!-- ===== INTRO SLATE ===== -->
+    <div class="slate" id="introSlate">
+      <div style="font-size:.8rem;letter-spacing:.18em;text-transform:uppercase;color:#9bbbe0;margin-bottom:10px;">Cleared<span class="dot">.</span>live · Walkthrough</div>
+      <h1>Clearing a Filmed Live&nbsp;Show</h1>
+      <p style="max-width:540px;color:#cfdcee;font-size:1.05rem;margin-top:12px;">For live music event promoters — from invite link to fully cleared, in one workspace.</p>
+      <button class="btn btn-warning btn-lg mt-4 px-4 fw-semibold" onclick="startTour()">
+        <i class="bi bi-play-fill me-1"></i> Start walkthrough
+      </button>
+      <div class="mt-3" style="font-size:.78rem;color:#7fa0c8;">~6 min · self-running · press → to advance</div>
+    </div>
+
+    <!-- ===== APP NAV ===== -->
+    <div class="appnav">
+      <span class="brand">Cleared<span class="text-gold">.</span>live</span>
+      <span class="ms-auto badge rounded-pill px-3 py-2" style="background:#1d4ed8;color:#fff;">Skylark+ · Distributor</span>
+    </div>
+
+    <div class="wrap">
+      <!-- project header -->
+      <div id="projHeader" class="d-flex flex-wrap align-items-center gap-2 mb-1">
+        <h3 class="text-navy fw-bold mb-0 me-2">Aurora Skies — Red Rocks, Live</h3>
+        <span class="pill p-progress" id="projStatus">In Clearance</span>
+        <span class="badge bg-light text-dark border">Live Music / Concert</span>
+      </div>
+      <div class="text-muted small mb-3">Aurora Skies · Red Rocks Amphitheatre · Aug 14, 2026 · Submitted by Meridian Live Productions</div>
+
+      <!-- tabs -->
+      <div id="tabBar" class="border-bottom mb-3">
+        <button class="tab-btn active" id="tab-work" onclick="showTab('work')">Workspace</button>
+        <button class="tab-btn" id="tab-music" onclick="showTab('music')">Music Clearance <span class="badge bg-navy" style="font-size:.6rem;">9 songs</span></button>
+        <button class="tab-btn" id="tab-agree" onclick="showTab('agree')">Agreements</button>
+      </div>
+
+      <!-- status banner -->
+      <div id="banner" class="alert d-flex align-items-start gap-2" style="background:#fffbea;border:1px solid #f5c842;color:#664d03;">
+        <i class="bi bi-stars fs-5 text-warning"></i>
+        <div><strong>Your workspace is ready — start below.</strong> AI has drafted agreements and outreach emails for each item. Click <em>Start Working</em> on any item to review the draft, contact the rights holder, and upload the signed agreement. The Skylark+ BA team reviews each item as you submit it.</div>
+      </div>
+
+      <div class="row g-3">
+        <!-- ===== SIDEBAR ===== -->
+        <div class="col-12 col-xl-4 order-xl-2">
+          <div class="side-card p-3" id="sideProgress">
+            <div class="fw-semibold text-navy mb-2">Your Progress</div>
+            <div class="d-flex justify-content-between small text-muted mb-1">
+              <span><span id="pgDone">1</span> of 7 ready</span><span id="pgPct">14%</span>
+            </div>
+            <div class="progress mb-2"><div class="progress-bar bg-success" id="pgBar" style="width:14%"></div></div>
+            <div class="small text-muted">Items move to <span class="pill p-review">Under Review</span> when you submit them, then <span class="pill p-approved">Approved</span> once the BA signs off.</div>
+          </div>
+
+          <div class="side-card p-3" id="sideAttention">
+            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention <span class="badge bg-navy">6</span></div>
+            <ul class="list-unstyled small mb-0" id="attnList">
+              <li class="py-1 border-bottom">Promoter Consent — start working</li>
+              <li class="py-1 border-bottom">Master Recording License — contact label</li>
+              <li class="py-1 border-bottom">Performer Releases — 3 signers</li>
+              <li class="py-1 border-bottom">Venue Filming License — Red Rocks</li>
+              <li class="py-1 border-bottom">Crowd / Audience Release — start</li>
+              <li class="py-1">E&O Insurance — upload certificate</li>
+            </ul>
+          </div>
+
+          <div class="side-card p-3">
+            <div class="fw-semibold text-navy mb-2">Submission details</div>
+            <div class="small text-muted">Territory: Worldwide<br>Use: Streaming · Social · Promotional<br>Tier: Standard (6–15 items)</div>
+          </div>
+        </div>
+
+        <!-- ===== MAIN: WORKSPACE TAB ===== -->
+        <div class="col-12 col-xl-8 order-xl-1" id="paneWork">
+          <div id="itemList"></div>
+        </div>
+
+        <!-- ===== MAIN: MUSIC TAB ===== -->
+        <div class="col-12 col-xl-8 order-xl-1 d-none" id="paneMusic">
+          <div class="side-card p-3 mb-3" id="songReg">
+            <div class="d-flex align-items-center mb-2">
+              <span class="fw-semibold text-navy">Songs &amp; Publishing</span>
+              <span class="badge bg-light text-dark border ms-2">9 songs</span>
+              <button class="btn btn-sm btn-outline-secondary ms-auto"><i class="bi bi-magic me-1"></i>AI fill writers</button>
+            </div>
+            <table class="table table-sm small mb-0">
+              <thead><tr class="text-muted"><th>Song</th><th>Writers</th><th>Publisher</th><th>Split</th></tr></thead>
+              <tbody>
+                <tr><td>Northern Lights</td><td>J. Vance / K. Owens</td><td>Pulse Songs (BMI)</td><td>100%</td></tr>
+                <tr><td>Glass Horizon</td><td>J. Vance</td><td>Pulse Songs (BMI)</td><td>100%</td></tr>
+                <tr><td>Paper Tides</td><td>M. Reyes</td><td>Evergreen Pub (ASCAP)</td><td>100%</td></tr>
+                <tr><td colspan="4" class="text-muted">+ 6 more…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="side-card p-3" id="pubGroups">
+            <div class="d-flex align-items-center mb-2">
+              <span class="fw-semibold text-navy">Publisher Groups</span>
+              <span class="badge bg-light text-dark border ms-2">2 groups · auto-partitioned</span>
+            </div>
+            <div class="border rounded p-2 mb-2" id="pg1">
+              <div class="d-flex align-items-center">
+                <strong class="small">Pulse Songs (BMI)</strong>
+                <span class="badge bg-light text-dark border ms-2 small">6 songs</span>
+                <span class="pill p-progress ms-auto" id="pg1Status">Outreach drafted</span>
+              </div>
+              <div class="small text-muted mt-1">One blanket sync license covers all 6 songs in this group.</div>
+              <div class="mt-2 d-none" id="pg1Board">
+                <div class="small fw-semibold text-navy mb-1">Deal terms</div>
+                <div class="d-flex gap-2 flex-wrap small">
+                  <span class="badge bg-success">Primary: WW · Streaming · Perpetuity</span>
+                  <span class="badge bg-warning text-dark">Fallback: WW · 5-yr</span>
+                  <span class="badge bg-light text-dark border">Publisher offer: WW · 3-yr</span>
+                </div>
+                <div class="small text-muted mt-1">MFN ledger tracks the most-favored rate across the group.</div>
+              </div>
+            </div>
+            <div class="border rounded p-2">
+              <div class="d-flex align-items-center">
+                <strong class="small">Evergreen Pub (ASCAP)</strong>
+                <span class="badge bg-light text-dark border ms-2 small">3 songs</span>
+                <span class="pill p-progress ms-auto">Outreach drafted</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="side-card p-3 mt-3" id="delegate">
+            <div class="fw-semibold small text-navy"><i class="bi bi-people me-1"></i>Hand music clearance to someone else</div>
+            <p class="text-muted small mb-2 mt-1">Share a private link that opens <strong>only</strong> this music section — for a music supervisor. They won't see the rest of your submission.</p>
+            <button class="btn btn-sm btn-outline-primary"><i class="bi bi-link-45deg me-1"></i>Create music supervisor link</button>
+          </div>
+        </div>
+
+        <!-- ===== MAIN: AGREEMENTS TAB ===== -->
+        <div class="col-12 col-xl-8 order-xl-1 d-none" id="paneAgree">
+          <div class="side-card p-3">
+            <div class="fw-semibold text-navy mb-2">Agreements &amp; signed documents</div>
+            <table class="table table-sm small mb-0">
+              <tbody>
+                <tr><td><i class="bi bi-file-earmark-check text-success me-1"></i>Promoter Consent — executed.pdf</td><td class="text-muted text-end">Aug 2</td></tr>
+                <tr><td><i class="bi bi-file-earmark-check text-success me-1"></i>Master License (Lumen Records) — executed.pdf</td><td class="text-muted text-end">Aug 3</td></tr>
+                <tr><td><i class="bi bi-file-earmark-text text-primary me-1"></i>Sync License (Pulse Songs) — draft.docx</td><td class="text-muted text-end">Aug 4</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== OUTRO SLATE ===== -->
+    <div class="slate" id="outroSlate" style="display:none;">
+      <i class="bi bi-check-circle-fill" style="font-size:3rem;color:var(--gold);"></i>
+      <h1 class="mt-3">Cleared.</h1>
+      <p style="max-width:520px;color:#cfdcee;font-size:1.05rem;">Every right secured, every document on file, every approval logged — in one workspace your distributor can trust.</p>
+      <div class="mt-2" style="font-size:1.4rem;font-weight:700;">Cleared<span class="dot">.</span>live</div>
+      <button class="btn btn-outline-light mt-4" onclick="restart()"><i class="bi bi-arrow-counterclockwise me-1"></i>Replay</button>
+    </div>
+
+  </div><!-- /viewport -->
+</div><!-- /browser -->
+
+<!-- tour layer -->
+<div id="veil"></div>
+<div class="spot" id="spot" style="display:none;"></div>
+<div id="coach" style="display:none;">
+  <div class="step-n"><span id="cn">1</span> / <span id="ct">12</span></div>
+  <h5 id="ch"></h5>
+  <div class="vo" id="cvo"></div>
+  <p id="cp"></p>
+  <div class="ctrls">
+    <button class="btn btn-sm btn-outline-secondary" onclick="prev()"><i class="bi bi-arrow-left"></i></button>
+    <button class="btn btn-sm btn-warning fw-semibold flex-grow-1" onclick="next()" id="nextBtn">Next <i class="bi bi-arrow-right"></i></button>
+    <button class="btn btn-sm btn-outline-secondary" id="playBtn" onclick="togglePlay()" title="Auto-play"><i class="bi bi-play-fill"></i></button>
+  </div>
+</div>
+
+<script>
+const ITEMS = [
+  ["Promoter Consent",        "Consent to film and exploit the promoter's event footage.",  "PROMOTER CONSENT FOR FILMING\nThe Promoter hereby consents to the filming, recording, and exploitation of the Event held at Red Rocks Amphitheatre on Aug 14, 2026, across the territories and uses set out in the submission…"],
+  ["Master Recording License","License to the sound recordings performed at the show.",       "MASTER USE LICENSE\nLumen Records grants a non-exclusive license to synchronize the master recordings of Aurora Skies' performance with the audiovisual program…"],
+  ["Performer Releases",      "Appearance releases from the artists and featured performers.","PERFORMER APPEARANCE RELEASE\nThe undersigned performer grants the right to record and exploit their likeness and performance at the Event…"],
+  ["Venue Filming License",   "Permission from Red Rocks to film on the premises.",          "VENUE FILMING LICENSE\nRed Rocks Amphitheatre grants permission to film within the venue during the Event, subject to the venue's standard conditions…"],
+  ["Crowd / Audience Release","Notice + release covering audience members on camera.",        "CROWD / AUDIENCE RELEASE\nBy attending, audience members consent to being filmed and to the use of audience footage in the program…"],
+  ["E&O Insurance",           "Errors & omissions certificate for the production.",          "E&O INSURANCE — CERTIFICATE\nAttach the errors-and-omissions certificate of insurance naming the required parties for the production…"],
+];
+
+function renderItems(){
+  const wrap = document.getElementById('itemList');
+  wrap.innerHTML = ITEMS.map((it,i)=>`
+    <div class="item-card" id="item-${i}">
+      <div class="ic-head" onclick="toggleItem(${i})">
+        <span class="ic-num">${i+1}</span>
+        <div class="flex-grow-1">
+          <div class="fw-semibold text-navy">${it[0]}</div>
+          <div class="small text-muted">${it[1]}</div>
+        </div>
+        <span class="pill p-pending" id="st-${i}">Pending</span>
+      </div>
+      <div class="ic-body" id="body-${i}">
+        <div class="mb-2 small fw-semibold text-navy"><i class="bi bi-stars text-warning me-1"></i>AI-drafted agreement</div>
+        <div class="draftbox mb-3">${it[2]}</div>
+        <div class="d-flex flex-wrap gap-2 mb-3" id="actions-${i}">
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Edit draft</button>
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-person-plus me-1"></i>Set contact</button>
+          <button class="btn btn-sm btn-primary"><i class="bi bi-send me-1"></i>Send clearance</button>
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-chat-left-text me-1"></i>Record reply</button>
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-upload me-1"></i>Upload signed</button>
+          <button class="btn btn-sm btn-success"><i class="bi bi-check2-circle me-1"></i>Submit for review</button>
+        </div>
+        <div class="small text-muted" id="timeline-${i}"><i class="bi bi-clock-history me-1"></i>Not started yet.</div>
+      </div>
+    </div>`).join('');
+}
+renderItems();
+
+function toggleItem(i){
+  const c = document.getElementById('item-'+i);
+  document.querySelectorAll('.item-card.open').forEach(e=>{ if(e!==c) e.classList.remove('open'); });
+  c.classList.toggle('open');
+}
+function setStatus(i, cls, label){
+  const el = document.getElementById('st-'+i);
+  el.className = 'pill '+cls; el.textContent = label;
+}
+function showTab(t){
+  ['work','music','agree'].forEach(x=>{
+    document.getElementById('pane'+x[0].toUpperCase()+x.slice(1)).classList.toggle('d-none', x!==t);
+    document.getElementById('tab-'+x).classList.toggle('active', x===t);
+  });
+}
+
+/* ============ TOUR ENGINE ============ */
+const STEPS = [
+  { sel:'#projHeader', h:'Your workspace', vo:'"This is everything for one show — in one place."',
+    p:'Skylark+ — the distributor releasing this footage — emailed you a private link. It opens straight into this workspace: no login, no password, no account to manage. Everything to clear this one show lives here.' },
+
+  { sel:'#banner', h:'AI did the first draft', vo:'"You\'re not starting from a blank page."',
+    p:'The moment you submitted, AI drafted an agreement and an outreach email for every item you need. Your job is to review, send, and collect signatures — not to write contracts from scratch.' },
+
+  { sel:'#sideProgress', h:'Track your progress', vo:'"Always know what\'s left."',
+    p:'Seven items stand between you and a cleared show. This bar fills as each one is submitted and approved by the platform\'s Business Affairs team.' },
+
+  { sel:'#sideAttention', h:'What needs you next', vo:'"Skylark+ tells you where to look."',
+    p:'No guessing about what\'s outstanding. The attention list is your to-do, ordered by what\'s blocking clearance.', tab:'work' },
+
+  { sel:'#item-0', h:'Open an item', vo:'"Let\'s clear the first one."',
+    p:'Each card is one right you have to secure. Open Promoter Consent to see what Cleared.live already prepared for you.',
+    act:()=>{ toggleItem(0); setStatus(0,'p-progress','In Progress'); } },
+
+  { sel:'#body-0 .draftbox', h:'Review the draft', vo:'"Read it, tweak it, make it yours."',
+    p:'Here\'s the AI-drafted agreement, written for THIS event — venue, date, and uses already filled in. Edit anything; it\'s your document.' },
+
+  { sel:'#actions-0', h:'Set the contact &amp; send', vo:'"One click to reach the rights holder."',
+    p:'Add who controls this right — Cleared.live even suggests them — then Send Clearance fires the agreement and outreach email straight to them. No copy-pasting across your inbox.' },
+
+  { sel:'#actions-0', h:'Log the reply, upload the signature', vo:'"Everything stays attached to the item."',
+    p:'When they respond, record the reply; when it\'s signed, upload it. The signed document lives on the item forever — not buried in an email thread.',
+    act:()=>{ document.getElementById('timeline-0').innerHTML='<i class="bi bi-check2 text-success me-1"></i>Sent Aug 1 · Reply Aug 2 · Signed PDF uploaded'; } },
+
+  { sel:'#actions-0', h:'Submit for review', vo:'"Hand it to Skylark+."',
+    p:'Submit for Review sends the item to the Skylark+ BA team. It turns Under Review — out of your court, into theirs.',
+    act:()=>{ setStatus(0,'p-review','Under Review'); bumpProgress(); } },
+
+  { sel:'#st-0', h:'…and approved', vo:'"That\'s one right, fully secured."',
+    p:'Once the BA signs off, the item turns Approved and you get a reservation-of-rights notice on file. Repeat for the other six — performer releases, venue, crowd, E&O.',
+    act:()=>{ setStatus(0,'p-approved','Approved'); } },
+
+  { sel:'#tab-music', h:'The music is its own world', vo:'"Songs and recordings clear separately."',
+    p:'A live show isn\'t one license — it\'s every song performed. Open the Music Clearance tab.',
+    act:()=>{ showTab('music'); } },
+
+  { sel:'#songReg', h:'Your setlist, with the rights data', vo:'"We find the writers and publishers for you."',
+    p:'Cleared.live pulls the setlist and auto-fills writers, publishers, and PRO splits — the information you\'d normally chase down song by song.', tab:'music' },
+
+  { sel:'#pubGroups', h:'Grouped by publisher', vo:'"Nine songs become two conversations."',
+    p:'Instead of nine separate negotiations, songs are auto-grouped by publisher so ONE blanket sync license can cover the whole group.', tab:'music' },
+
+  { sel:'#pg1', h:'Negotiate the deal terms', vo:'"See the platform\'s positions vs. the publisher\'s offer."',
+    p:'Open a group\'s deal board: Skylark+\'s target terms, the publisher\'s counter, and an MFN ledger keeping every song in the group on the best rate. AI even drafts the counter-offer.',
+    act:()=>{ document.getElementById('pg1Board').classList.remove('d-none'); document.getElementById('pg1').scrollIntoView({block:'center'}); } },
+
+  { sel:'#delegate', h:'Not your job? Delegate it', vo:'"Hand the music to a supervisor — only the music."',
+    p:'Share a private link that opens just this music section. Your music supervisor works the songs and publishers without seeing the rest of your submission.', tab:'music' },
+
+  { sel:'#tab-agree', h:'One trail of everything', vo:'"Every document, in one place."',
+    p:'The Agreements tab is your permanent record — every executed agreement and signed release, ready to hand to your distributor.',
+    act:()=>{ showTab('agree'); } },
+
+  { sel:'#projStatus', h:'Cleared', vo:'"From invite link to fully cleared."',
+    p:'When all seven items are approved, the show flips to Cleared. You have a complete, defensible clearance package — built without a single contract written from scratch.',
+    act:()=>{ showTab('work'); const s=document.getElementById('projStatus'); s.className='pill p-approved'; s.textContent='Cleared'; } },
+];
+
+let cur=0, playing=false, timer=null;
+const veil=document.getElementById('veil'), spot=document.getElementById('spot'), coach=document.getElementById('coach');
+const vp=document.getElementById('vp');
+
+function startTour(){ document.getElementById('introSlate').style.display='none'; cur=0; veil.classList.add('on'); spot.style.display='block'; coach.style.display='block'; render(); }
+function render(){
+  const s = STEPS[cur];
+  if(s.tab) showTab(s.tab);
+  if(s.act) s.act();
+  document.getElementById('cn').textContent=cur+1;
+  document.getElementById('ct').textContent=STEPS.length;
+  document.getElementById('ch').innerHTML=s.h;
+  document.getElementById('cvo').textContent=s.vo;
+  document.getElementById('cp').textContent=s.p;
+  document.getElementById('nextBtn').innerHTML = (cur===STEPS.length-1)
+      ? 'Finish <i class="bi bi-check"></i>' : 'Next <i class="bi bi-arrow-right"></i>';
+  // wait for any tab/scroll change, then position
+  setTimeout(()=>position(s.sel), 120);
+}
+function position(sel){
+  const el = document.querySelector(sel);
+  if(!el){ return; }
+  el.scrollIntoView({block:'center', behavior:'smooth'});
+  setTimeout(()=>{
+    const r = el.getBoundingClientRect();
+    const pad=8;
+    spot.style.top=(r.top-pad)+'px'; spot.style.left=(r.left-pad)+'px';
+    spot.style.width=(r.width+pad*2)+'px'; spot.style.height=(r.height+pad*2)+'px';
+    // place coach: prefer right, else below, else left
+    const cw=380, ch=coach.offsetHeight||230, gap=18;
+    let top=r.top, left=r.right+gap;
+    if(left+cw > window.innerWidth-12){ left = r.left - cw - gap; }
+    if(left < 12){ left = Math.min(Math.max(12, r.left), window.innerWidth-cw-12); top = r.bottom+gap; }
+    if(top+ch > window.innerHeight-12){ top = window.innerHeight-ch-12; }
+    if(top<12) top=12;
+    coach.style.top=top+'px'; coach.style.left=left+'px';
+  }, 380);
+}
+function next(){ if(cur<STEPS.length-1){ cur++; render(); } else { finish(); } }
+function prev(){ if(cur>0){ cur--; render(); } }
+function finish(){ stopPlay(); veil.classList.remove('on'); spot.style.display='none'; coach.style.display='none'; document.getElementById('outroSlate').style.display='flex'; }
+function restart(){ location.reload(); }
+
+function togglePlay(){ playing?stopPlay():startPlay(); }
+function startPlay(){ playing=true; document.getElementById('playBtn').innerHTML='<i class="bi bi-pause-fill"></i>'; tick(); }
+function stopPlay(){ playing=false; clearTimeout(timer); document.getElementById('playBtn').innerHTML='<i class="bi bi-play-fill"></i>'; }
+function tick(){ if(!playing) return; timer=setTimeout(()=>{ if(cur<STEPS.length-1){ next(); tick(); } else { finish(); } }, 6200); }
+
+function bumpProgress(){
+  document.getElementById('pgDone').textContent='2';
+  document.getElementById('pgPct').textContent='29%';
+  document.getElementById('pgBar').style.width='29%';
+}
+
+document.addEventListener('keydown',e=>{
+  if(coach.style.display==='none') return;
+  if(e.key==='ArrowRight') next();
+  if(e.key==='ArrowLeft') prev();
+});
+window.addEventListener('resize',()=>{ if(coach.style.display!=='none') position(STEPS[cur].sel); });
+</script>
+</body>
+</html>

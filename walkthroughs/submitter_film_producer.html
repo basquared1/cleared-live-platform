@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cleared.live — Walkthrough: Independent Film / Documentary Producer</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<style>
+  :root{ --navy:#0d3b6e; --gold:#f2a900; --blue:#0d6efd; }
+  body{ background:#eef1f5; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0; }
+  .text-navy{ color:var(--navy)!important; } .bg-navy{ background:var(--navy)!important; }
+  .text-gold{ color:var(--gold)!important; }
+
+  .browser{ max-width:1280px; margin:18px auto; border-radius:12px; overflow:hidden;
+            box-shadow:0 18px 50px rgba(13,59,110,.25); background:#fff; }
+  .chrome-bar{ background:#dfe4ea; padding:9px 14px; display:flex; align-items:center; gap:8px; }
+  .dot{ width:12px; height:12px; border-radius:50%; }
+  .urlbar{ flex:1; background:#fff; border-radius:7px; padding:5px 12px; font-size:.82rem;
+           color:#475569; display:flex; align-items:center; gap:7px; }
+  .viewport{ height:760px; overflow-y:auto; position:relative; background:#fff; scroll-behavior:smooth; }
+
+  .appnav{ display:flex; align-items:center; padding:12px 22px; border-bottom:1px solid #e2e8f0; }
+  .brand{ font-weight:700; color:#111; font-size:1.15rem; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:20px 22px 60px; }
+
+  .item-card{ border:1px solid #e2e8f0; border-radius:12px; margin-bottom:14px; background:#fff; transition:.25s; }
+  .item-card .ic-head{ display:flex; align-items:center; gap:12px; padding:15px 18px; cursor:pointer; }
+  .ic-num{ width:30px; height:30px; border-radius:50%; background:#f1f5f9; color:var(--navy);
+           font-weight:700; display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-size:.9rem; }
+  .ic-body{ padding:0 18px 18px 60px; display:none; }
+  .item-card.open .ic-body{ display:block; }
+  .draftbox{ background:#f8fafc; border:1px solid #e2e8f0; border-left:3px solid var(--gold);
+             border-radius:8px; padding:13px 15px; font-size:.84rem; color:#334155; white-space:pre-line; }
+  .progress{ height:9px; }
+  .side-card{ border:1px solid #e2e8f0; border-radius:12px; background:#fff; margin-bottom:14px; }
+
+  .pill{ font-size:.7rem; font-weight:600; padding:.28em .6em; border-radius:50rem; white-space:nowrap; }
+  .p-pending{ background:#fff3cd; color:#664d03; }
+  .p-progress{ background:#cff4fc; color:#055160; }
+  .p-review{ background:#cfe2ff; color:#084298; }
+  .p-approved{ background:#d1e7dd; color:#0f5132; }
+  .p-sent{ background:#e2e3e5; color:#41464b; }
+
+  .tab-btn{ border:none; background:none; padding:10px 4px; margin-right:22px; font-weight:600;
+            color:#64748b; border-bottom:3px solid transparent; }
+  .tab-btn.active{ color:var(--navy); border-bottom-color:var(--gold); }
+
+  .role-h{ font-size:.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#94a3b8; margin:14px 0 7px; }
+  .person{ border:1px solid #e2e8f0; border-radius:11px; padding:12px 14px; margin-bottom:9px; background:#fff; }
+  .person .av{ width:36px; height:36px; border-radius:50%; color:#fff; font-weight:700;
+               display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-size:.82rem; }
+  .tmpl{ background:#fffdf5; border:1px solid #f5e6b8; border-radius:10px; padding:13px 15px;
+         font-family:Georgia,serif; font-size:.82rem; color:#4b463a; line-height:1.65; }
+  .tmpl .ph{ background:#fff3cd; border-radius:4px; padding:0 3px; color:#664d03; font-weight:600; }
+
+  /* signer view card */
+  .signcard{ border:2px solid var(--gold); border-radius:12px; background:#fff; padding:18px; }
+
+  #veil{ position:fixed; inset:0; background:transparent; z-index:1200; pointer-events:none; }
+  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.58);
+         z-index:1210; transition:all .45s cubic-bezier(.4,0,.2,1); pointer-events:none; outline:3px solid var(--gold); }
+  #coach{ position:fixed; z-index:1230; max-width:390px; background:#fff; border-radius:14px;
+          box-shadow:0 20px 50px rgba(8,20,40,.4); padding:20px 22px; transition:all .45s cubic-bezier(.4,0,.2,1); }
+  #coach .step-n{ font-size:.72rem; font-weight:700; letter-spacing:.06em; color:var(--gold); text-transform:uppercase; }
+  #coach h5{ color:var(--navy); font-weight:700; margin:.35rem 0 .5rem; font-size:1.08rem; }
+  #coach p{ font-size:.9rem; color:#334155; margin-bottom:1rem; line-height:1.5; }
+  #coach .ctrls{ display:flex; align-items:center; gap:8px; }
+  .vo{ background:#f8fafc; border-left:3px solid var(--gold); padding:8px 11px; border-radius:6px;
+       font-size:.8rem; color:#475569; font-style:italic; margin-bottom:13px; }
+
+  .slate{ position:absolute; inset:0; z-index:1100; display:flex; flex-direction:column;
+          align-items:center; justify-content:center; text-align:center;
+          background:linear-gradient(135deg,#0d3b6e,#0a2a4f); color:#fff; padding:40px; }
+  .slate h1{ font-weight:800; font-size:2.3rem; } .slate .dot{ color:var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="browser">
+  <div class="chrome-bar">
+    <span class="dot" style="background:#ff5f57;"></span>
+    <span class="dot" style="background:#febc2e;"></span>
+    <span class="dot" style="background:#28c840;"></span>
+    <div class="urlbar"><i class="bi bi-lock-fill text-success" style="font-size:.7rem;"></i> cleared.live/track/doc-4b8e‑demo</div>
+  </div>
+
+  <div class="viewport" id="vp">
+
+    <!-- INTRO -->
+    <div class="slate" id="introSlate">
+      <div style="font-size:.8rem;letter-spacing:.18em;text-transform:uppercase;color:#9bbbe0;margin-bottom:10px;">Cleared<span class="dot">.</span>live · Walkthrough</div>
+      <h1>Clearing a Documentary</h1>
+      <p style="max-width:560px;color:#cfdcee;font-size:1.05rem;margin-top:12px;">For independent film &amp; documentary producers — every license, every interview release, every location, in one workspace.</p>
+      <button class="btn btn-warning btn-lg mt-4 px-4 fw-semibold" onclick="startTour()"><i class="bi bi-play-fill me-1"></i> Start walkthrough</button>
+      <div class="mt-3" style="font-size:.78rem;color:#7fa0c8;">~6 min · self-running · press → to advance</div>
+    </div>
+
+    <div class="appnav">
+      <span class="brand">Cleared<span class="text-gold">.</span>live</span>
+      <span class="ms-auto badge rounded-pill px-3 py-2" style="background:#1d4ed8;color:#fff;">Skylark+ · Distributor</span>
+    </div>
+
+    <div class="wrap">
+      <div id="projHeader" class="d-flex flex-wrap align-items-center gap-2 mb-1">
+        <h3 class="text-navy fw-bold mb-0 me-2">The Long Static — A Documentary</h3>
+        <span class="pill p-progress" id="projStatus">In Clearance</span>
+        <span class="badge bg-light text-dark border">Documentary / Film</span>
+      </div>
+      <div class="text-muted small mb-3">Dir. Ana Ruiz · Foxglove Films · for delivery to Skylark+ · Worldwide · Streaming</div>
+
+      <div id="tabBar" class="border-bottom mb-3">
+        <button class="tab-btn active" id="tab-work" onclick="showTab('work')">Workspace</button>
+        <button class="tab-btn" id="tab-people" onclick="showTab('people')">Cast &amp; Crew <span class="badge bg-navy" style="font-size:.6rem;">5</span></button>
+        <button class="tab-btn" id="tab-agree" onclick="showTab('agree')">Agreements</button>
+      </div>
+
+      <div id="banner" class="alert d-flex align-items-start gap-2" style="background:#fffbea;border:1px solid #f5c842;color:#664d03;">
+        <i class="bi bi-stars fs-5 text-warning"></i>
+        <div><strong>Two kinds of work, one workspace.</strong> Your <em>licenses</em> — music, footage, photos, locations, brands — live on the Workspace tab, each with an AI-drafted agreement. Your <em>people</em> — interview subjects, cast, crew — live on the Cast &amp; Crew tab, where you send releases to sign. The Skylark+ BA team reviews each item as you submit it.</div>
+      </div>
+
+      <div class="row g-3">
+        <!-- SIDEBAR -->
+        <div class="col-12 col-xl-4 order-xl-2">
+          <div class="side-card p-3" id="sideProgress">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="fw-semibold text-navy">Your Progress</div><div class="fw-bold text-navy" id="pgPct">12%</div>
+            </div>
+            <div class="progress mb-2"><div class="progress-bar bg-success" id="pgBar" style="width:12%"></div></div>
+            <div class="small text-muted"><span id="pgDone">1</span> of 8 license items ready · releases tracked separately.</div>
+          </div>
+
+          <div class="side-card p-3" id="sideAttention">
+            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention <span class="badge bg-navy">5</span></div>
+            <ul class="list-unstyled small mb-0">
+              <li class="py-1 border-bottom">Archival Footage — contact rights holder</li>
+              <li class="py-1 border-bottom">Interview Subject Releases — 2 unsigned</li>
+              <li class="py-1 border-bottom">Location Releases — Riverside</li>
+              <li class="py-1 border-bottom">Brand / Trademark — review</li>
+              <li class="py-1">E&O Insurance — upload certificate</li>
+            </ul>
+          </div>
+
+          <div class="side-card p-3">
+            <div class="fw-semibold text-navy mb-2">Project details</div>
+            <div class="small text-muted">Director: Ana Ruiz<br>Company: Foxglove Films<br>Territory: Worldwide · Streaming</div>
+          </div>
+        </div>
+
+        <!-- MAIN: WORKSPACE -->
+        <div class="col-12 col-xl-8 order-xl-1" id="paneWork"><div id="itemList"></div></div>
+
+        <!-- MAIN: CAST & CREW -->
+        <div class="col-12 col-xl-8 order-xl-1 d-none" id="panePeople">
+          <!-- release template -->
+          <div class="side-card p-3 mb-3" id="tmplCard">
+            <div class="d-flex align-items-center mb-2">
+              <span class="fw-semibold text-navy"><i class="bi bi-pencil-square me-1"></i>Your release template</span>
+              <span class="badge bg-success ms-2" style="font-size:.6rem;">Custom</span>
+            </div>
+            <div class="tmpl">
+              The undersigned, <span class="ph">{signer}</span>, grants <span class="ph">{producer}</span> the irrevocable
+              right to record, use, and exploit their appearance, voice, and likeness in <span class="ph">{project}</span>
+              and its distribution by <span class="ph">{platform}</span>, in all media now known or later devised, worldwide,
+              in perpetuity. Governed by the laws of <span class="ph">{state}</span>.
+            </div>
+            <div class="small text-muted mt-2">Placeholders fill automatically per signer. Customize once; every release uses it.</div>
+          </div>
+
+          <!-- registry by role -->
+          <div class="side-card p-3" id="registry">
+            <div class="d-flex align-items-center mb-1">
+              <span class="fw-semibold text-navy">Cast &amp; Crew registry</span>
+              <span class="badge bg-light text-dark border ms-2">5 people · grouped by role</span>
+              <button class="btn btn-sm btn-outline-secondary ms-auto"><i class="bi bi-plus-lg me-1"></i>Add person</button>
+            </div>
+            <div id="peopleList"></div>
+          </div>
+
+          <!-- signer view (hidden until step) -->
+          <div class="side-card p-3 mt-3 d-none" id="signerCard">
+            <div class="small text-muted mb-2"><i class="bi bi-box-arrow-up-right me-1"></i>What the signer sees at cleared.live/release/…</div>
+            <div class="signcard">
+              <div class="fw-bold text-navy mb-2">Appearance Release — The Long Static</div>
+              <div class="tmpl mb-3" style="background:#fff;border-color:#e2e8f0;">
+                The undersigned, <strong>Dr. Elena Marsh</strong>, grants <strong>Foxglove Films</strong> the irrevocable right
+                to record, use, and exploit their appearance, voice, and likeness in <strong>The Long Static</strong> and its
+                distribution by <strong>Skylark+</strong>, worldwide, in perpetuity. Governed by the laws of <strong>California</strong>.
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="border rounded px-3 py-2 flex-grow-1" style="font-family:'Brush Script MT',cursive;font-size:1.3rem;color:#1d3a5c;" id="sigPad">Elena Marsh</div>
+                <button class="btn btn-warning fw-semibold" id="signBtn">Sign &amp; submit</button>
+              </div>
+              <div class="small text-success mt-2 d-none" id="signDone"><i class="bi bi-check-circle-fill me-1"></i>Signed — a PDF is generated and returned to Foxglove Films automatically.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MAIN: AGREEMENTS -->
+        <div class="col-12 col-xl-8 order-xl-1 d-none" id="paneAgree">
+          <div class="side-card p-3">
+            <div class="fw-semibold text-navy mb-2">Agreements &amp; signed documents</div>
+            <table class="table table-sm small mb-0"><tbody>
+              <tr><td><i class="bi bi-file-earmark-check text-success me-1"></i>Archival Footage License (Riverside Archive) — executed.pdf</td><td class="text-muted text-end">Mar 3</td></tr>
+              <tr><td><i class="bi bi-file-earmark-check text-success me-1"></i>Appearance Release — Dr. Elena Marsh — signed.pdf</td><td class="text-muted text-end">Mar 4</td></tr>
+              <tr><td><i class="bi bi-file-earmark-text text-primary me-1"></i>Location Release (Riverside) — draft.docx</td><td class="text-muted text-end">Mar 5</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUTRO -->
+    <div class="slate" id="outroSlate" style="display:none;">
+      <i class="bi bi-check-circle-fill" style="font-size:3rem;color:var(--gold);"></i>
+      <h1 class="mt-3">Cleared.</h1>
+      <p style="max-width:540px;color:#cfdcee;font-size:1.05rem;">Every license, every interview release, every location — drafted, signed, and on file in one workspace your distributor can trust.</p>
+      <div class="mt-2" style="font-size:1.4rem;font-weight:700;">Cleared<span class="dot">.</span>live</div>
+      <button class="btn btn-outline-light mt-4" onclick="restart()"><i class="bi bi-arrow-counterclockwise me-1"></i>Replay</button>
+    </div>
+
+  </div>
+</div>
+
+<div id="veil"></div>
+<div class="spot" id="spot" style="display:none;"></div>
+<div id="coach" style="display:none;">
+  <div class="step-n"><span id="cn">1</span> / <span id="ct">14</span></div>
+  <h5 id="ch"></h5>
+  <div class="vo" id="cvo"></div>
+  <p id="cp"></p>
+  <div class="ctrls">
+    <button class="btn btn-sm btn-outline-secondary" onclick="prev()"><i class="bi bi-arrow-left"></i></button>
+    <button class="btn btn-sm btn-warning fw-semibold flex-grow-1" onclick="next()" id="nextBtn">Next <i class="bi bi-arrow-right"></i></button>
+    <button class="btn btn-sm btn-outline-secondary" id="playBtn" onclick="togglePlay()" title="Auto-play"><i class="bi bi-play-fill"></i></button>
+  </div>
+</div>
+
+<script>
+const ITEMS = [
+  ["Music Sync License(s)",      "Sync rights for any music in the film.",            "MUSIC SYNCHRONIZATION LICENSE\nLicenses the right to synchronize the identified compositions with the audiovisual program 'The Long Static' for the territories and uses set out in the submission…"],
+  ["Master Recording License(s)","The sound recordings used, from each owner.",       "MASTER USE LICENSE\nGrants a non-exclusive license to use the identified master recordings in 'The Long Static' and its distribution…"],
+  ["Archival Footage Rights",    "Third-party archival clips used in the film.",      "ARCHIVAL FOOTAGE LICENSE\nRiverside Archive grants the right to incorporate the identified archival footage into 'The Long Static', worldwide, for streaming distribution…"],
+  ["Photo / Still Image Rights", "Photographs and stills appearing on screen.",       "STILL IMAGE LICENSE\nGrants the right to reproduce and display the identified photographs within 'The Long Static'…"],
+  ["Interview Subject Releases", "On-camera interviewees — handled in Cast & Crew.",  "→ Interview subjects are managed on the Cast & Crew tab, where you send each person an appearance release to sign."],
+  ["Location Releases",          "Permission to film at each location.",              "LOCATION RELEASE\nThe property owner grants permission to film at the identified location and to exploit the resulting footage in 'The Long Static'…"],
+  ["Brand / Trademark Clearance","Logos and marks visible on screen.",               "BRAND / TRADEMARK CLEARANCE\nReview and clearance of third-party trademarks, logos, and brands appearing in 'The Long Static'…"],
+  ["E&O Insurance Documentation","Errors & omissions certificate for the film.",      "E&O INSURANCE — CERTIFICATE\nAttach the errors-and-omissions certificate of insurance for 'The Long Static', naming the required parties…"],
+];
+function renderItems(){
+  document.getElementById('itemList').innerHTML = ITEMS.map((it,i)=>`
+    <div class="item-card" id="item-${i}">
+      <div class="ic-head" onclick="toggleItem(${i})">
+        <span class="ic-num">${i+1}</span>
+        <div class="flex-grow-1"><div class="fw-semibold text-navy">${it[0]}</div><div class="small text-muted">${it[1]}</div></div>
+        <span class="pill p-pending" id="st-${i}">Pending</span>
+      </div>
+      <div class="ic-body" id="body-${i}">
+        <div class="mb-2 small fw-semibold text-navy"><i class="bi bi-stars text-warning me-1"></i>AI-drafted agreement</div>
+        <div class="draftbox mb-3">${it[2]}</div>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Edit draft</button>
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-person-plus me-1"></i>Set contact</button>
+          <button class="btn btn-sm btn-primary"><i class="bi bi-send me-1"></i>Send clearance</button>
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-upload me-1"></i>Upload signed</button>
+          <button class="btn btn-sm btn-success"><i class="bi bi-check2-circle me-1"></i>Submit for review</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+renderItems();
+
+const PEOPLE = [
+  { role:"Talent / Cast",        name:"Dr. Elena Marsh", sub:"Interview subject", color:"#7c3aed", rel:"pending" },
+  { role:"Talent / Cast",        name:"James Okoro",     sub:"Interview subject", color:"#0ea5e9", rel:"pending" },
+  { role:"Director",             name:"Ana Ruiz",        sub:"Director",          color:"#111827", rel:"na" },
+  { role:"Cinematographer / DP", name:"Tom Fields",      sub:"Director of Photography", color:"#475569", rel:"na" },
+  { role:"Company / Vendor",     name:"Riverside Archive", sub:"Archival footage", color:"#b45309", rel:"na" },
+];
+function initials(n){ return n.replace(/^Dr\.\s*/,'').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function relBadge(rel){
+  if(rel==='signed') return '<span class="pill p-approved">Release: Signed</span>';
+  if(rel==='sent')   return '<span class="pill p-sent">Release: Sent</span>';
+  if(rel==='pending')return '<span class="pill p-pending">Release: Not sent</span>';
+  return '';
+}
+function relAction(i,rel){
+  if(rel==='na') return '<span class="small text-muted">No release needed</span>';
+  if(rel==='signed') return '<span class="small text-success"><i class="bi bi-check-circle-fill me-1"></i>Release signed</span>';
+  if(rel==='sent') return '<button class="btn btn-sm btn-outline-secondary">Send reminder</button> <span class="small text-muted ms-1">link sent</span>';
+  return '<button class="btn btn-sm btn-navy fw-semibold"><i class="bi bi-pen me-1"></i>Send release</button>';
+}
+function renderPeople(){
+  let html=''; let lastRole=null;
+  PEOPLE.forEach((p,i)=>{
+    if(p.role!==lastRole){ html+=`<div class="role-h">${p.role}</div>`; lastRole=p.role; }
+    html+=`<div class="person" id="person-${i}">
+      <div class="d-flex align-items-center gap-3">
+        <span class="av" style="background:${p.color}">${initials(p.name)}</span>
+        <div class="flex-grow-1"><div class="fw-semibold text-navy">${p.name}</div><div class="small text-muted">${p.sub}</div></div>
+        <span id="relb-${i}">${relBadge(p.rel)}</span>
+      </div>
+      <div class="mt-2" id="rela-${i}">${relAction(i,p.rel)}</div>
+    </div>`;
+  });
+  document.getElementById('peopleList').innerHTML=html;
+}
+renderPeople();
+function setRel(i,rel){ PEOPLE[i].rel=rel; document.getElementById('relb-'+i).innerHTML=relBadge(rel); document.getElementById('rela-'+i).innerHTML=relAction(i,rel); }
+
+function toggleItem(i){
+  const c=document.getElementById('item-'+i);
+  document.querySelectorAll('.item-card.open').forEach(e=>{ if(e!==c) e.classList.remove('open'); });
+  c.classList.toggle('open');
+}
+function setStatus(i,cls,label){ const el=document.getElementById('st-'+i); el.className='pill '+cls; el.textContent=label; }
+function showTab(t){
+  ['work','people','agree'].forEach(x=>{
+    document.getElementById('pane'+x[0].toUpperCase()+x.slice(1)).classList.toggle('d-none', x!==t);
+    document.getElementById('tab-'+x).classList.toggle('active', x===t);
+  });
+}
+
+/* ============ TOUR ============ */
+const STEPS = [
+  { sel:'#projHeader', h:'Your workspace', vo:'"The whole film — in one place."',
+    p:'Skylark+, the distributor releasing your documentary, emailed you a private link. It opens straight into this workspace — no login, no account. Everything to clear The Long Static lives here.' },
+
+  { sel:'#banner', h:'Films clear two ways at once', vo:'"Licenses on one tab, people on another."',
+    p:'A documentary isn\'t one kind of clearance. You license things — music, archival footage, photos, locations, brands — and you collect releases from people on camera. Cleared.live splits them into two tabs so neither slips.' },
+
+  { sel:'#sideProgress', h:'Track the licenses', vo:'"Eight license items to a cleared film."',
+    p:'The Workspace tab holds your eight license items. This bar fills as each is submitted and approved. Releases are tracked separately on Cast & Crew.' },
+
+  { sel:'#item-2', h:'Open a license item', vo:'"AI already drafted it."',
+    p:'Open Archival Footage Rights. Like every license item, Cleared.live has already drafted the agreement for this film — title, territory, and use filled in.',
+    act:()=>{ toggleItem(2); setStatus(2,'p-progress','In Progress'); } },
+
+  { sel:'#item-2 .ic-body', h:'Draft → contact → send → upload', vo:'"The same flow for every license."',
+    p:'Review the draft, set the rights holder, send the request, and upload the signed agreement when it comes back. Then submit it for the Skylark+ BA team to approve.',
+    act:()=>{ setStatus(2,'p-review','Under Review'); bump(2,25); } },
+
+  { sel:'#st-2', h:'…and approved', vo:'"One license down."',
+    p:'Once the BA signs off, the item turns Approved. Music, photos, locations, brands, E&O — all the same rhythm.',
+    act:()=>{ setStatus(2,'p-approved','Approved'); } },
+
+  { sel:'#tab-people', h:'Now the people', vo:'"This is where a film is different."',
+    p:'A documentary lives or dies on its releases — every person on camera has to sign one. Open the Cast & Crew tab.',
+    act:()=>{ showTab('people'); } },
+
+  { sel:'#tmplCard', h:'Write your release once', vo:'"Your language, every signer."',
+    p:'Set your release wording one time. The placeholders — signer, producer, project, platform, governing state — fill in automatically for each person, so every release is correct without rewriting it.', tab:'people' },
+
+  { sel:'#registry', h:'Everyone on camera, by role', vo:'"Cast, crew, vendors — all here."',
+    p:'Add everyone involved, grouped by role: interview subjects, director, DP, archival vendors. Cleared.live knows which roles need a release and which don\'t.', tab:'people' },
+
+  { sel:'#person-0', h:'Send a release', vo:'"One click — they get a signing link."',
+    p:'Send Dr. Elena Marsh her appearance release. She gets an email with a private link; you don\'t print, scan, or chase paper.',
+    act:()=>{ setRel(0,'sent'); document.getElementById('person-0').scrollIntoView({block:'center'}); }, tab:'people' },
+
+  { sel:'#signerCard', h:'What the signer sees', vo:'"Read it, sign it, done."',
+    p:'On their end, the signer opens the link, reads the release with their name already filled in, and signs — no account, no app.',
+    act:()=>{ document.getElementById('signerCard').classList.remove('d-none'); setTimeout(()=>document.getElementById('signerCard').scrollIntoView({block:'center'}),200); }, tab:'people' },
+
+  { sel:'#signBtn', h:'Signed → PDF returned', vo:'"A signed PDF comes straight back to you."',
+    p:'The moment they sign, Cleared.live generates a signed PDF and files it against this person — automatically. No collecting attachments from email.',
+    act:()=>{ document.getElementById('signDone').classList.remove('d-none'); setRel(0,'signed'); } },
+
+  { sel:'#registry', h:'Track every signature', vo:'"See who\'s signed at a glance."',
+    p:'Each person shows their release status — signed, sent, or not yet. Send reminders in a click. You always know exactly who\'s outstanding.',
+    act:()=>{ setRel(1,'sent'); }, tab:'people' },
+
+  { sel:'#tab-agree', h:'Everything in one record', vo:'"Licenses and releases, together."',
+    p:'The Agreements tab pulls every executed license and every signed release into one place — a complete chain of clearance, ready to deliver to Skylark+. When all of it is approved, the film flips to Cleared.',
+    act:()=>{ showTab('agree'); } },
+];
+
+let cur=0, playing=false, timer=null;
+const spot=document.getElementById('spot'), coach=document.getElementById('coach');
+function startTour(){ document.getElementById('introSlate').style.display='none'; cur=0; spot.style.display='block'; coach.style.display='block'; render(); }
+function render(){
+  const s=STEPS[cur];
+  if(s.tab) showTab(s.tab);
+  if(s.act) s.act();
+  document.getElementById('cn').textContent=cur+1;
+  document.getElementById('ct').textContent=STEPS.length;
+  document.getElementById('ch').innerHTML=s.h;
+  document.getElementById('cvo').textContent=s.vo;
+  document.getElementById('cp').textContent=s.p;
+  document.getElementById('nextBtn').innerHTML=(cur===STEPS.length-1)?'Finish <i class="bi bi-check"></i>':'Next <i class="bi bi-arrow-right"></i>';
+  setTimeout(()=>position(s.sel),120);
+}
+function position(sel){
+  const el=document.querySelector(sel); if(!el) return;
+  el.scrollIntoView({block:'center',behavior:'smooth'});
+  setTimeout(()=>{
+    const r=el.getBoundingClientRect(), pad=8;
+    spot.style.top=(r.top-pad)+'px'; spot.style.left=(r.left-pad)+'px';
+    spot.style.width=(r.width+pad*2)+'px'; spot.style.height=(r.height+pad*2)+'px';
+    const cw=390, ch=coach.offsetHeight||230, gap=18;
+    let top=r.top, left=r.right+gap;
+    if(left+cw>window.innerWidth-12) left=r.left-cw-gap;
+    if(left<12){ left=Math.min(Math.max(12,r.left),window.innerWidth-cw-12); top=r.bottom+gap; }
+    if(top+ch>window.innerHeight-12) top=window.innerHeight-ch-12;
+    if(top<12) top=12;
+    coach.style.top=top+'px'; coach.style.left=left+'px';
+  },380);
+}
+function next(){ if(cur<STEPS.length-1){ cur++; render(); } else finish(); }
+function prev(){ if(cur>0){ cur--; render(); } }
+function finish(){ stopPlay(); spot.style.display='none'; coach.style.display='none'; document.getElementById('outroSlate').style.display='flex'; }
+function restart(){ location.reload(); }
+function togglePlay(){ playing?stopPlay():startPlay(); }
+function startPlay(){ playing=true; document.getElementById('playBtn').innerHTML='<i class="bi bi-pause-fill"></i>'; tick(); }
+function stopPlay(){ playing=false; clearTimeout(timer); document.getElementById('playBtn').innerHTML='<i class="bi bi-play-fill"></i>'; }
+function tick(){ if(!playing) return; timer=setTimeout(()=>{ if(cur<STEPS.length-1){ next(); tick(); } else finish(); },6400); }
+function bump(done,pct){ document.getElementById('pgDone').textContent=done; document.getElementById('pgPct').textContent=pct+'%'; document.getElementById('pgBar').style.width=pct+'%'; }
+
+document.addEventListener('keydown',e=>{
+  if(coach.style.display==='none') return;
+  if(e.key==='ArrowRight') next();
+  if(e.key==='ArrowLeft') prev();
+});
+window.addEventListener('resize',()=>{ if(coach.style.display!=='none') position(STEPS[cur].sel); });
+</script>
+</body>
+</html>

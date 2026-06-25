@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cleared.live — Walkthrough: Festival Promoter (multi-label)</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<style>
+  :root{ --navy:#0d3b6e; --gold:#f2a900; --blue:#0d6efd; }
+  body{ background:#eef1f5; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0; }
+  .text-navy{ color:var(--navy)!important; } .bg-navy{ background:var(--navy)!important; }
+  .text-gold{ color:var(--gold)!important; }
+
+  .browser{ max-width:1280px; margin:18px auto; border-radius:12px; overflow:hidden;
+            box-shadow:0 18px 50px rgba(13,59,110,.25); background:#fff; }
+  .chrome-bar{ background:#dfe4ea; padding:9px 14px; display:flex; align-items:center; gap:8px; }
+  .dot{ width:12px; height:12px; border-radius:50%; }
+  .urlbar{ flex:1; background:#fff; border-radius:7px; padding:5px 12px; font-size:.82rem;
+           color:#475569; display:flex; align-items:center; gap:7px; }
+  .viewport{ height:760px; overflow-y:auto; position:relative; background:#fff; scroll-behavior:smooth; }
+
+  .appnav{ display:flex; align-items:center; padding:12px 22px; border-bottom:1px solid #e2e8f0; }
+  .brand{ font-weight:700; color:#111; font-size:1.15rem; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:20px 22px 60px; }
+
+  .item-card{ border:1px solid #e2e8f0; border-radius:12px; margin-bottom:14px; background:#fff; transition:.25s; }
+  .item-card .ic-head{ display:flex; align-items:center; gap:12px; padding:15px 18px; cursor:pointer; }
+  .ic-num{ width:30px; height:30px; border-radius:50%; background:#f1f5f9; color:var(--navy);
+           font-weight:700; display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-size:.9rem; }
+  .ic-body{ padding:0 18px 18px 60px; display:none; }
+  .item-card.open .ic-body{ display:block; }
+  .draftbox{ background:#f8fafc; border:1px solid #e2e8f0; border-left:3px solid var(--gold);
+             border-radius:8px; padding:13px 15px; font-size:.84rem; color:#334155; white-space:pre-line; }
+  .progress{ height:9px; }
+  .side-card{ border:1px solid #e2e8f0; border-radius:12px; background:#fff; margin-bottom:14px; }
+
+  .pill{ font-size:.7rem; font-weight:600; padding:.28em .6em; border-radius:50rem; white-space:nowrap; }
+  .p-pending{ background:#fff3cd; color:#664d03; }
+  .p-progress{ background:#cff4fc; color:#055160; }
+  .p-review{ background:#cfe2ff; color:#084298; }
+  .p-approved{ background:#d1e7dd; color:#0f5132; }
+  .p-routed{ background:#e7defc; color:#3b1f7a; }
+
+  .tab-btn{ border:none; background:none; padding:10px 4px; margin-right:22px; font-weight:600;
+            color:#64748b; border-bottom:3px solid transparent; }
+  .tab-btn.active{ color:var(--navy); border-bottom-color:var(--gold); }
+
+  /* artist row */
+  .artist{ border:1px solid #e2e8f0; border-radius:11px; padding:13px 15px; margin-bottom:11px; background:#fff; }
+  .artist .av{ width:38px; height:38px; border-radius:50%; color:#fff; font-weight:700;
+               display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .lbl-chip{ font-size:.72rem; font-weight:600; padding:.2em .6em; border-radius:6px;
+             background:#f1f5f9; color:#334155; border:1px solid #e2e8f0; }
+
+  #veil{ position:fixed; inset:0; background:transparent; z-index:1200; pointer-events:none; }
+  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.58);
+         z-index:1210; transition:all .45s cubic-bezier(.4,0,.2,1); pointer-events:none; outline:3px solid var(--gold); }
+  #coach{ position:fixed; z-index:1230; max-width:390px; background:#fff; border-radius:14px;
+          box-shadow:0 20px 50px rgba(8,20,40,.4); padding:20px 22px; transition:all .45s cubic-bezier(.4,0,.2,1); }
+  #coach .step-n{ font-size:.72rem; font-weight:700; letter-spacing:.06em; color:var(--gold); text-transform:uppercase; }
+  #coach h5{ color:var(--navy); font-weight:700; margin:.35rem 0 .5rem; font-size:1.08rem; }
+  #coach p{ font-size:.9rem; color:#334155; margin-bottom:1rem; line-height:1.5; }
+  #coach .ctrls{ display:flex; align-items:center; gap:8px; }
+  .vo{ background:#f8fafc; border-left:3px solid var(--gold); padding:8px 11px; border-radius:6px;
+       font-size:.8rem; color:#475569; font-style:italic; margin-bottom:13px; }
+
+  .slate{ position:absolute; inset:0; z-index:1100; display:flex; flex-direction:column;
+          align-items:center; justify-content:center; text-align:center;
+          background:linear-gradient(135deg,#0d3b6e,#0a2a4f); color:#fff; padding:40px; }
+  .slate h1{ font-weight:800; font-size:2.3rem; } .slate .dot{ color:var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="browser">
+  <div class="chrome-bar">
+    <span class="dot" style="background:#ff5f57;"></span>
+    <span class="dot" style="background:#febc2e;"></span>
+    <span class="dot" style="background:#28c840;"></span>
+    <div class="urlbar"><i class="bi bi-lock-fill text-success" style="font-size:.7rem;"></i> cleared.live/track/fest-7c21‑demo</div>
+  </div>
+
+  <div class="viewport" id="vp">
+
+    <!-- INTRO -->
+    <div class="slate" id="introSlate">
+      <div style="font-size:.8rem;letter-spacing:.18em;text-transform:uppercase;color:#9bbbe0;margin-bottom:10px;">Cleared<span class="dot">.</span>live · Walkthrough</div>
+      <h1>Clearing a Whole Festival</h1>
+      <p style="max-width:560px;color:#cfdcee;font-size:1.05rem;margin-top:12px;">For festival promoters — one event, many artists, many labels. You clear every act; each label issues its waiver; it all rolls up in one place.</p>
+      <button class="btn btn-warning btn-lg mt-4 px-4 fw-semibold" onclick="startTour()"><i class="bi bi-play-fill me-1"></i> Start walkthrough</button>
+      <div class="mt-3" style="font-size:.78rem;color:#7fa0c8;">~6 min · self-running · press → to advance</div>
+    </div>
+
+    <div class="appnav">
+      <span class="brand">Cleared<span class="text-gold">.</span>live</span>
+      <span class="ms-auto badge rounded-pill px-3 py-2" style="background:#1d4ed8;color:#fff;">Skylark+ · Distributor</span>
+    </div>
+
+    <div class="wrap">
+      <div id="projHeader" class="d-flex flex-wrap align-items-center gap-2 mb-1">
+        <h3 class="text-navy fw-bold mb-0 me-2">Cascade Live Fest 2026 — Filmed Stream</h3>
+        <span class="pill p-progress" id="projStatus">In Clearance</span>
+        <span class="badge bg-light text-dark border">Festival / Multi-Artist Event</span>
+      </div>
+      <div class="text-muted small mb-3">Riverside Grounds · Sep 5–7, 2026 · Submitted by Meridian Live Productions · for delivery to Skylark+</div>
+
+      <div id="tabBar" class="border-bottom mb-3">
+        <button class="tab-btn active" id="tab-work" onclick="showTab('work')">Event Clearances</button>
+        <button class="tab-btn" id="tab-lineup" onclick="showTab('lineup')">Lineup <span class="badge bg-navy" style="font-size:.6rem;">5 artists</span></button>
+        <button class="tab-btn" id="tab-agree" onclick="showTab('agree')">Agreements</button>
+      </div>
+
+      <div id="banner" class="alert d-flex align-items-start gap-2" style="background:#fffbea;border:1px solid #f5c842;color:#664d03;">
+        <i class="bi bi-stars fs-5 text-warning"></i>
+        <div><strong>It's all your work — that's what makes a promoter a promoter.</strong> You clear the event itself <em>and</em> every artist's music and performance. For a signed act, the <strong>label issues a conditional waiver</strong> — your permission to film — after it reviews the clearances <em>you</em> completed. The label or artist's management may help, but the work and the responsibility stay with you. Use the <strong>Lineup</strong> tab to open a thread for every act.</div>
+      </div>
+
+      <div class="row g-3">
+        <!-- SIDEBAR -->
+        <div class="col-12 col-xl-4 order-xl-2">
+          <div class="side-card p-3" id="sideProgress">
+            <div class="fw-semibold text-navy mb-2">Festival Progress</div>
+            <div class="d-flex justify-content-between small text-muted mb-1"><span>Event clearances</span><span id="evPct">25%</span></div>
+            <div class="progress mb-2"><div class="progress-bar bg-success" id="evBar" style="width:25%"></div></div>
+            <div class="d-flex justify-content-between small text-muted mb-1"><span>Artists cleared</span><span id="artPct">0 / 5</span></div>
+            <div class="progress mb-2"><div class="progress-bar bg-primary" id="artBar" style="width:0%"></div></div>
+            <div class="small text-muted">The festival is cleared when every event item <em>and</em> every artist is approved.</div>
+          </div>
+
+          <div class="side-card p-3" id="sideAttention">
+            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention</div>
+            <ul class="list-unstyled small mb-0">
+              <li class="py-1 border-bottom">5 artists to clear</li>
+              <li class="py-1 border-bottom">Venue Filming License — Riverside</li>
+              <li class="py-1 border-bottom">Crowd / Audience Release</li>
+              <li class="py-1">E&O Insurance — upload certificate</li>
+            </ul>
+          </div>
+
+          <div class="side-card p-3">
+            <div class="fw-semibold text-navy mb-2">Event details</div>
+            <div class="small text-muted">Territory: Worldwide<br>Use: Streaming · Social · Promotional<br>3 days · 5 headline acts</div>
+          </div>
+        </div>
+
+        <!-- MAIN: EVENT CLEARANCES -->
+        <div class="col-12 col-xl-8 order-xl-1" id="paneWork">
+          <div id="itemList"></div>
+        </div>
+
+        <!-- MAIN: LINEUP -->
+        <div class="col-12 col-xl-8 order-xl-1 d-none" id="paneLineup">
+          <div class="d-flex align-items-center mb-2">
+            <span class="fw-semibold text-navy">Artist lineup</span>
+            <span class="badge bg-light text-dark border ms-2">5 acts · 4 labels · 1 independent</span>
+            <button class="btn btn-sm btn-outline-secondary ms-auto"><i class="bi bi-plus-lg me-1"></i>Add artist</button>
+          </div>
+          <p class="text-muted small mb-3">You clear each act's master, sync, and performer rights yourself. For a signed act, open a thread on their label — the label reviews your completed clearances and issues its conditional waiver (your permission to film). Independent acts you clear directly. Invite a label or management to assist if you like; it stays your responsibility.</p>
+          <div id="artistList"></div>
+        </div>
+
+        <!-- MAIN: AGREEMENTS -->
+        <div class="col-12 col-xl-8 order-xl-1 d-none" id="paneAgree">
+          <div class="side-card p-3">
+            <div class="fw-semibold text-navy mb-2">Agreements &amp; signed documents</div>
+            <table class="table table-sm small mb-0"><tbody>
+              <tr><td><i class="bi bi-file-earmark-check text-success me-1"></i>Venue Filming License (Riverside Grounds) — executed.pdf</td><td class="text-muted text-end">Sep 1</td></tr>
+              <tr><td><i class="bi bi-file-earmark-check text-success me-1"></i>Crowd / Audience Release — executed.pdf</td><td class="text-muted text-end">Sep 1</td></tr>
+              <tr><td><i class="bi bi-diagram-3 text-primary me-1"></i>Aurora Skies — your clearances + Lumen Records conditional waiver</td><td class="text-muted text-end">waiver issued</td></tr>
+              <tr><td><i class="bi bi-diagram-3 text-primary me-1"></i>The Hollow Coast — your clearances + Sony Music conditional waiver</td><td class="text-muted text-end">waiver issued</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUTRO -->
+    <div class="slate" id="outroSlate" style="display:none;">
+      <i class="bi bi-check-circle-fill" style="font-size:3rem;color:var(--gold);"></i>
+      <h1 class="mt-3">Festival cleared.</h1>
+      <p style="max-width:540px;color:#cfdcee;font-size:1.05rem;">One event, five acts, four labels — every act cleared by you and waived by its label, all rolling up into a single package for Skylark+.</p>
+      <div class="mt-2" style="font-size:1.4rem;font-weight:700;">Cleared<span class="dot">.</span>live</div>
+      <button class="btn btn-outline-light mt-4" onclick="restart()"><i class="bi bi-arrow-counterclockwise me-1"></i>Replay</button>
+    </div>
+
+  </div>
+</div>
+
+<div id="veil"></div>
+<div class="spot" id="spot" style="display:none;"></div>
+<div id="coach" style="display:none;">
+  <div class="step-n"><span id="cn">1</span> / <span id="ct">12</span></div>
+  <h5 id="ch"></h5>
+  <div class="vo" id="cvo"></div>
+  <p id="cp"></p>
+  <div class="ctrls">
+    <button class="btn btn-sm btn-outline-secondary" onclick="prev()"><i class="bi bi-arrow-left"></i></button>
+    <button class="btn btn-sm btn-warning fw-semibold flex-grow-1" onclick="next()" id="nextBtn">Next <i class="bi bi-arrow-right"></i></button>
+    <button class="btn btn-sm btn-outline-secondary" id="playBtn" onclick="togglePlay()" title="Auto-play"><i class="bi bi-play-fill"></i></button>
+  </div>
+</div>
+
+<script>
+/* ---- EVENT-LEVEL clearance items (the promoter's own half) ---- */
+const ITEMS = [
+  ["Promoter Consent",        "Your consent, as promoter, to film and exploit the event.",  "PROMOTER CONSENT FOR FILMING\nMeridian Live Productions consents to the filming, recording, and exploitation of Cascade Live Fest 2026 across the territories and uses set out in the submission…"],
+  ["Venue Filming License",   "Permission from Riverside Grounds to film the festival.",     "VENUE FILMING LICENSE\nRiverside Grounds grants permission to film throughout the festival on Sep 5–7, 2026, subject to the venue's standard conditions…"],
+  ["Crowd / Audience Release","Notice + release covering attendees on camera.",             "CROWD / AUDIENCE RELEASE\nBy attending Cascade Live Fest, attendees consent to being filmed and to the use of audience footage in the program…"],
+  ["E&O Insurance",           "Errors & omissions certificate for the festival production.", "E&O INSURANCE — CERTIFICATE\nAttach the errors-and-omissions certificate of insurance for the festival production, naming the required parties…"],
+];
+function renderItems(){
+  document.getElementById('itemList').innerHTML = ITEMS.map((it,i)=>`
+    <div class="item-card" id="item-${i}">
+      <div class="ic-head" onclick="toggleItem(${i})">
+        <span class="ic-num">${i+1}</span>
+        <div class="flex-grow-1"><div class="fw-semibold text-navy">${it[0]}</div><div class="small text-muted">${it[1]}</div></div>
+        <span class="pill p-pending" id="st-${i}">Pending</span>
+      </div>
+      <div class="ic-body" id="body-${i}">
+        <div class="mb-2 small fw-semibold text-navy"><i class="bi bi-stars text-warning me-1"></i>AI-drafted agreement</div>
+        <div class="draftbox mb-3">${it[2]}</div>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Edit draft</button>
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-person-plus me-1"></i>Set contact</button>
+          <button class="btn btn-sm btn-primary"><i class="bi bi-send me-1"></i>Send clearance</button>
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-upload me-1"></i>Upload signed</button>
+          <button class="btn btn-sm btn-success"><i class="bi bi-check2-circle me-1"></i>Submit for review</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+renderItems();
+
+/* ---- LINEUP: artists, each routed to their own label ---- */
+const ARTISTS = [
+  { name:"Aurora Skies",     label:"Lumen Records", signed:true,  color:"#1d4ed8", route:"label"  },
+  { name:"The Hollow Coast", label:"Sony Music",    signed:true,  color:"#111827", route:"label"  },
+  { name:"Neon Verse",       label:"Warner Records",signed:true,  color:"#0099ff", route:"label"  },
+  { name:"Marisol",          label:"UMG",           signed:true,  color:"#003087", route:"label"  },
+  { name:"Pale Lanterns",    label:"Independent",   signed:false, color:"#64748b", route:"direct" },
+];
+function initials(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function renderArtists(){
+  document.getElementById('artistList').innerHTML = ARTISTS.map((a,i)=>`
+    <div class="artist" id="art-${i}">
+      <div class="d-flex align-items-center gap-3">
+        <span class="av" style="background:${a.color}">${initials(a.name)}</span>
+        <div class="flex-grow-1">
+          <div class="fw-semibold text-navy">${a.name}</div>
+          <div class="small text-muted">
+            ${a.signed ? 'Signed to <span class="lbl-chip">'+a.label+'</span>' : '<span class="lbl-chip">Independent — no label</span>'}
+          </div>
+        </div>
+        <span class="pill p-pending" id="ast-${i}">Awaiting routing</span>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mt-2" id="aact-${i}">
+        ${a.signed
+          ? `<button class="btn btn-sm btn-primary"><i class="bi bi-diagram-3 me-1"></i>Open thread · ${a.label} issues waiver</button>
+             <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-envelope me-1"></i>Invite ${a.label} / mgmt to assist</button>`
+          : `<button class="btn btn-sm btn-primary"><i class="bi bi-pencil me-1"></i>Clear directly</button>
+             <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-envelope me-1"></i>Invite artist's team to assist</button>`}
+      </div>
+    </div>`).join('');
+}
+renderArtists();
+
+function toggleItem(i){
+  const c=document.getElementById('item-'+i);
+  document.querySelectorAll('.item-card.open').forEach(e=>{ if(e!==c) e.classList.remove('open'); });
+  c.classList.toggle('open');
+}
+function setStatus(i,cls,label){ const el=document.getElementById('st-'+i); el.className='pill '+cls; el.textContent=label; }
+function setArt(i,cls,label){ const el=document.getElementById('ast-'+i); el.className='pill '+cls; el.textContent=label; }
+function showTab(t){
+  ['work','lineup','agree'].forEach(x=>{
+    document.getElementById('pane'+x[0].toUpperCase()+x.slice(1)).classList.toggle('d-none', x!==t);
+    document.getElementById('tab-'+x).classList.toggle('active', x===t);
+  });
+}
+
+/* ============ TOUR ============ */
+const STEPS = [
+  { sel:'#projHeader', h:'One workspace, one festival', vo:'"The entire event — in one place."',
+    p:'Meridian Live Productions is filming Cascade Live Fest for delivery to the distributor, Skylark+. Skylark+ emailed a private link that opens straight into this workspace — no login, no account.' },
+
+  { sel:'#banner', h:'It is all your work', vo:'"You clear everything. The label just issues its waiver."',
+    p:'This is the key idea — and the part people get wrong. The grounds, the crowd, your consent, the insurance, AND every artist\'s music and performance: all yours to clear. For a signed act, the label\'s only job is to review what you completed and issue its conditional waiver — your permission to film. You don\'t hand the work to the labels; you do it.' },
+
+  { sel:'#sideProgress', h:'Two progress tracks', vo:'"Event clearances, and artist clearances — both yours."',
+    p:'The festival isn\'t cleared until both halves are done: your event clearances, and each artist\'s clearances that you complete — each one gated by its label\'s conditional waiver. Watch both bars fill as we go.' },
+
+  { sel:'#item-0', h:'Your half: the event clearances', vo:'"The same simple flow you\'d expect."',
+    p:'Open any event item and Cleared.live has already drafted the agreement — venue, crowd, promoter consent, E&O. Review, send, collect the signature, submit for review.',
+    act:()=>{ toggleItem(0); setStatus(0,'p-progress','In Progress'); } },
+
+  { sel:'#item-0 .ic-body', h:'Send and submit', vo:'"AI drafted it; you just finish it."',
+    p:'It reads for THIS festival — dates, grounds, uses already filled in. Edit anything, send it to the rights holder, then submit for the Skylark+ BA team to approve.',
+    act:()=>{ setStatus(0,'p-review','Under Review'); bumpEvent(); } },
+
+  { sel:'#tab-lineup', h:'Now the artists', vo:'"Here\'s where the labels come in."',
+    p:'Open the Lineup tab. This is what makes a festival a festival — many acts, each one needing a different label\'s waiver before you can film it.',
+    act:()=>{ showTab('lineup'); } },
+
+  { sel:'#artistList', h:'Five acts, four labels, one independent', vo:'"Each act shows which label must waive."',
+    p:'Cleared.live shows each artist with the label they\'re signed to — Aurora Skies on Lumen, The Hollow Coast on Sony, Neon Verse on Warner, Marisol on UMG — and Pale Lanterns, unsigned. Each signed act needs that label\'s waiver before you can film it.', tab:'lineup' },
+
+  { sel:'#art-0', h:'Open a signed act\'s clearance', vo:'"This is where YOU do the work."',
+    p:'Opening Aurora Skies\' thread is where you clear the master, sync, and performer rights for this act — the same draft-send-upload flow as any clearance. When you\'re done, Lumen Records reviews what you completed and issues its conditional waiver: your permission to film. You stay responsible throughout.',
+    act:()=>{ setArt(0,'p-progress','Clearing · Lumen waiver pending'); document.getElementById('art-0').scrollIntoView({block:'center'}); } },
+
+  { sel:'#artistList', h:'Open the rest', vo:'"Four acts you clear; four labels that waive."',
+    p:'Same for each signed act — you clear Sony\'s, Warner\'s, and UMG\'s artists yourself, and each label issues its own conditional waiver once your clearances are in. The label is the gate, not the worker.',
+    act:()=>{ setArt(1,'p-progress','Clearing · Sony waiver pending'); setArt(2,'p-progress','Clearing · Warner waiver pending'); setArt(3,'p-progress','Clearing · UMG waiver pending'); }, tab:'lineup' },
+
+  { sel:'#art-4', h:'The independent act', vo:'"No label, no waiver — you just clear it."',
+    p:'Pale Lanterns is unsigned, so there\'s no label waiver to obtain — you clear this act directly. Either way, the work is yours. You can invite an artist\'s team or a label to assist on any act, but responsibility never leaves you.',
+    act:()=>{ setArt(4,'p-progress','Clearing directly'); document.getElementById('art-4').scrollIntoView({block:'center'}); } },
+
+  { sel:'#sideProgress', h:'It all rolls up to you', vo:'"You complete it; the labels waive; it rolls up here."',
+    p:'As you finish each act and each label issues its conditional waiver, the status rolls up here. You see the whole festival\'s progress in one place — every act cleared by you, every signed act waived by its label.',
+    act:()=>{ setArt(0,'p-approved','Cleared · Lumen waiver issued'); setArt(1,'p-approved','Cleared · Sony waiver issued'); setArt(2,'p-approved','Cleared · Warner waiver issued'); setArt(3,'p-approved','Cleared · UMG waiver issued'); setArt(4,'p-approved','Cleared directly'); bumpArtists(5); }, tab:'lineup' },
+
+  { sel:'#tab-agree', h:'One package, every party', vo:'"Your clearances and every label\'s waiver, together."',
+    p:'The Agreements tab pulls it all into one record — your executed event licenses, your per-artist clearances, and each label\'s conditional waiver — ready to deliver to Skylark+.',
+    act:()=>{ showTab('agree'); } },
+
+  { sel:'#projStatus', h:'Festival cleared', vo:'"You cleared it. The labels waived it."',
+    p:'Event clearances done, every act cleared by you, and every signed act waived by its label. The festival flips to Cleared — your work, gated by four labels\' conditional waivers, all in one workspace.',
+    act:()=>{ showTab('work'); const s=document.getElementById('projStatus'); s.className='pill p-approved'; s.textContent='Cleared'; } },
+];
+
+let cur=0, playing=false, timer=null;
+const veil=document.getElementById('veil'), spot=document.getElementById('spot'), coach=document.getElementById('coach');
+
+function startTour(){ document.getElementById('introSlate').style.display='none'; cur=0; spot.style.display='block'; coach.style.display='block'; render(); }
+function render(){
+  const s=STEPS[cur];
+  if(s.tab) showTab(s.tab);
+  if(s.act) s.act();
+  document.getElementById('cn').textContent=cur+1;
+  document.getElementById('ct').textContent=STEPS.length;
+  document.getElementById('ch').innerHTML=s.h;
+  document.getElementById('cvo').textContent=s.vo;
+  document.getElementById('cp').textContent=s.p;
+  document.getElementById('nextBtn').innerHTML=(cur===STEPS.length-1)?'Finish <i class="bi bi-check"></i>':'Next <i class="bi bi-arrow-right"></i>';
+  setTimeout(()=>position(s.sel),120);
+}
+function position(sel){
+  const el=document.querySelector(sel); if(!el) return;
+  el.scrollIntoView({block:'center',behavior:'smooth'});
+  setTimeout(()=>{
+    const r=el.getBoundingClientRect(), pad=8;
+    spot.style.top=(r.top-pad)+'px'; spot.style.left=(r.left-pad)+'px';
+    spot.style.width=(r.width+pad*2)+'px'; spot.style.height=(r.height+pad*2)+'px';
+    const cw=390, ch=coach.offsetHeight||230, gap=18;
+    let top=r.top, left=r.right+gap;
+    if(left+cw>window.innerWidth-12) left=r.left-cw-gap;
+    if(left<12){ left=Math.min(Math.max(12,r.left),window.innerWidth-cw-12); top=r.bottom+gap; }
+    if(top+ch>window.innerHeight-12) top=window.innerHeight-ch-12;
+    if(top<12) top=12;
+    coach.style.top=top+'px'; coach.style.left=left+'px';
+  },380);
+}
+function next(){ if(cur<STEPS.length-1){ cur++; render(); } else finish(); }
+function prev(){ if(cur>0){ cur--; render(); } }
+function finish(){ stopPlay(); spot.style.display='none'; coach.style.display='none'; document.getElementById('outroSlate').style.display='flex'; }
+function restart(){ location.reload(); }
+function togglePlay(){ playing?stopPlay():startPlay(); }
+function startPlay(){ playing=true; document.getElementById('playBtn').innerHTML='<i class="bi bi-pause-fill"></i>'; tick(); }
+function stopPlay(){ playing=false; clearTimeout(timer); document.getElementById('playBtn').innerHTML='<i class="bi bi-play-fill"></i>'; }
+function tick(){ if(!playing) return; timer=setTimeout(()=>{ if(cur<STEPS.length-1){ next(); tick(); } else finish(); },6400); }
+
+function bumpEvent(){ document.getElementById('evPct').textContent='50%'; document.getElementById('evBar').style.width='50%'; }
+function bumpArtists(n){
+  const pct=Math.round(n/5*100);
+  document.getElementById('artPct').textContent=n+' / 5';
+  document.getElementById('artBar').style.width=pct+'%';
+}
+
+document.addEventListener('keydown',e=>{
+  if(coach.style.display==='none') return;
+  if(e.key==='ArrowRight') next();
+  if(e.key==='ArrowLeft') prev();
+});
+window.addEventListener('resize',()=>{ if(coach.style.display!=='none') position(STEPS[cur].sel); });
+</script>
+</body>
+</html>
