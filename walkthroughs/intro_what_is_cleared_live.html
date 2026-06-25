@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>What is Cleared.live — 60-second intro</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<style>
+  :root{ --navy:#0d3b6e; --navy2:#0a2a4f; --gold:#f2a900; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:#0a2a4f; }
+  .stage{ position:relative; max-width:1100px; aspect-ratio:16/9; margin:24px auto; border-radius:16px; overflow:hidden;
+          background:linear-gradient(135deg,var(--navy),var(--navy2)); box-shadow:0 24px 70px rgba(0,0,0,.45); color:#fff; }
+  .scene{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+          text-align:center; padding:6% 9%; opacity:0; transform:translateY(14px); transition:opacity .7s ease, transform .7s ease; pointer-events:none; }
+  .scene.on{ opacity:1; transform:none; }
+  .kicker{ font-size:.8rem; letter-spacing:.2em; text-transform:uppercase; color:#9bbbe0; margin-bottom:14px; }
+  .scene h1{ font-weight:800; font-size:clamp(1.6rem,4.4vw,3rem); line-height:1.1; margin:0 0 .5em; }
+  .scene p{ font-size:clamp(1rem,2vw,1.35rem); color:#cfdcee; max-width:760px; margin:.2em 0; line-height:1.5; }
+  .gold{ color:var(--gold); } .brand-dot{ color:var(--gold); }
+  /* chaos chips */
+  .chips{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; max-width:740px; margin-top:6px; }
+  .chip{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16); border-radius:999px;
+         padding:8px 16px; font-size:.95rem; color:#dce7f5; }
+  .chip.bad{ border-color:rgba(255,120,120,.4); color:#ffd9d9; }
+  /* pipeline row */
+  .flow{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:10px; }
+  .node{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.16); border-radius:12px; padding:12px 16px; min-width:120px; }
+  .node .i{ font-size:1.4rem; color:var(--gold); } .node .t{ font-size:.85rem; margin-top:5px; color:#e7eefb; }
+  .arrow{ color:#6f93c2; font-size:1.2rem; }
+  .aud{ display:flex; flex-wrap:wrap; gap:9px; justify-content:center; max-width:760px; margin-top:8px; }
+  .aud span{ background:rgba(242,169,0,.12); border:1px solid rgba(242,169,0,.4); color:#ffe6b0; border-radius:999px; padding:7px 15px; font-size:.92rem; }
+  /* CTA */
+  .cta a{ display:inline-block; margin-top:18px; background:var(--gold); color:#1a1300; font-weight:700; text-decoration:none;
+          padding:13px 26px; border-radius:10px; font-size:1.05rem; }
+  .badge-soft{ display:inline-flex; align-items:center; gap:7px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
+               border-radius:999px; padding:7px 15px; font-size:.85rem; color:#dce7f5; margin-bottom:16px; }
+  /* progress + controls */
+  .bar{ position:absolute; left:0; bottom:0; height:4px; background:var(--gold); width:0%; transition:width .25s linear; }
+  .ctl{ position:absolute; bottom:14px; right:16px; display:flex; gap:8px; z-index:5; }
+  .ctl button{ background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:8px;
+               width:36px; height:34px; cursor:pointer; font-size:.95rem; }
+  .ctl button:hover{ background:rgba(255,255,255,.2); }
+  .dots{ position:absolute; bottom:18px; left:50%; transform:translateX(-50%); display:flex; gap:7px; z-index:5; }
+  .dots i{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.3); transition:.3s; }
+  .dots i.on{ background:var(--gold); width:22px; border-radius:5px; }
+  .caption{ text-align:center; color:#9bbbe0; font-size:.85rem; margin:6px auto 30px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+
+  <!-- 1 -->
+  <div class="scene" data-i="0">
+    <div class="kicker">Cleared<span class="brand-dot">.</span>live</div>
+    <h1>Clearing content is a mess.</h1>
+    <p>Before a show, a film, or a post can go out, every right inside it has to be cleared — and the work scatters across inboxes, PDFs, and last-minute panic.</p>
+  </div>
+
+  <!-- 2 -->
+  <div class="scene" data-i="1">
+    <h1>Every song. Every face. Every location.</h1>
+    <p>Each one is its own right, its own rights holder, its own agreement.</p>
+    <div class="chips">
+      <span class="chip bad">Sync license</span><span class="chip bad">Master license</span>
+      <span class="chip bad">Performer release</span><span class="chip bad">Venue license</span>
+      <span class="chip bad">Footage rights</span><span class="chip bad">Interview release</span>
+      <span class="chip bad">Crowd release</span><span class="chip bad">E&O insurance</span>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="scene" data-i="2">
+    <div class="badge-soft"><i class="bi bi-stars gold"></i> One workspace</div>
+    <h1>Cleared<span class="brand-dot">.</span>live turns it into a checklist.</h1>
+    <p>Every right for one project, laid out as items — nothing scattered, nothing forgotten.</p>
+  </div>
+
+  <!-- 4 -->
+  <div class="scene" data-i="3">
+    <h1>The drafts are <span class="gold">provided</span>.</h1>
+    <p>Cleared.live prepares an agreement and an outreach email for every item, from firm-approved templates. You review, send, and collect signatures — you never start from a blank page.</p>
+  </div>
+
+  <!-- 5 -->
+  <div class="scene" data-i="4">
+    <h1>Submit. Clear. Cleared.</h1>
+    <div class="flow">
+      <div class="node"><div class="i"><i class="bi bi-pencil-square"></i></div><div class="t">Drafts provided</div></div>
+      <span class="arrow"><i class="bi bi-arrow-right"></i></span>
+      <div class="node"><div class="i"><i class="bi bi-send"></i></div><div class="t">You send &amp; sign</div></div>
+      <span class="arrow"><i class="bi bi-arrow-right"></i></span>
+      <div class="node"><div class="i"><i class="bi bi-shield-check"></i></div><div class="t">BA reviews</div></div>
+      <span class="arrow"><i class="bi bi-arrow-right"></i></span>
+      <div class="node"><div class="i"><i class="bi bi-patch-check-fill"></i></div><div class="t">Cleared</div></div>
+    </div>
+    <p style="margin-top:14px;">Business Affairs approves each item — with a complete, time-stamped record behind every decision.</p>
+  </div>
+
+  <!-- 6 -->
+  <div class="scene" data-i="5">
+    <h1>Built for everyone in the chain.</h1>
+    <div class="aud">
+      <span>Live music promoters</span><span>Festivals</span><span>Film &amp; doc producers</span>
+      <span>Social creators</span><span>Podcasters</span><span>Labels</span><span>Distributors</span>
+    </div>
+    <p style="margin-top:14px;">Submitters do the clearance; labels and distributors review and sign off — on one rail.</p>
+  </div>
+
+  <!-- 7 CTA -->
+  <div class="scene" data-i="6">
+    <div style="font-size:2.4rem;font-weight:800;">Cleared<span class="brand-dot">.</span>live</div>
+    <p style="margin-top:8px;">Clearance that drafts itself, tracks itself, and proves itself.</p>
+    <div class="cta"><a href="index.html">See the walkthroughs <i class="bi bi-arrow-right"></i></a></div>
+  </div>
+
+  <div class="bar" id="bar"></div>
+  <div class="dots" id="dots"></div>
+  <div class="ctl">
+    <button id="playBtn" title="Play / pause"><i class="bi bi-pause-fill" id="playIcon"></i></button>
+    <button onclick="restart()" title="Replay"><i class="bi bi-arrow-counterclockwise"></i></button>
+  </div>
+</div>
+<div class="caption">60-second intro · auto-plays · click a dot to jump</div>
+
+<script>
+  const scenes = Array.from(document.querySelectorAll('.scene'));
+  const DUR = 9000; // ms per scene (~63s total over 7)
+  let cur = -1, playing = true, timer = null, t0 = 0, elapsed = 0, raf = null;
+  const bar = document.getElementById('bar');
+
+  // dots
+  const dots = document.getElementById('dots');
+  scenes.forEach((_,i)=>{ const d=document.createElement('i'); d.onclick=()=>go(i); dots.appendChild(d); });
+  const dotEls = Array.from(dots.children);
+
+  function show(i){
+    scenes.forEach(s=>s.classList.remove('on'));
+    dotEls.forEach(d=>d.classList.remove('on'));
+    scenes[i].classList.add('on'); dotEls[i].classList.add('on'); cur=i;
+  }
+  function go(i){ clearTimeout(timer); show(i); elapsed=0; if(playing) run(); else { cancelAnimationFrame(raf); bar.style.width='0%'; } }
+  function run(){
+    t0 = performance.now() - elapsed;
+    cancelAnimationFrame(raf); tick();
+    clearTimeout(timer);
+    timer = setTimeout(()=>{ if(cur < scenes.length-1){ go(cur+1); } else { pause(); } }, DUR - elapsed);
+  }
+  function tick(){
+    elapsed = performance.now() - t0;
+    bar.style.width = Math.min(100, elapsed/DUR*100) + '%';
+    if(playing && elapsed < DUR){ raf = requestAnimationFrame(tick); }
+  }
+  function pause(){ playing=false; document.getElementById('playIcon').className='bi bi-play-fill'; clearTimeout(timer); cancelAnimationFrame(raf); elapsed = performance.now()-t0; }
+  function play(){ playing=true; document.getElementById('playIcon').className='bi bi-pause-fill'; if(cur>=scenes.length-1){ restart(); } else run(); }
+  document.getElementById('playBtn').onclick = ()=> playing ? pause() : play();
+  function restart(){ elapsed=0; go(0); if(!playing) play(); }
+
+  go(0); // autostart
+</script>
+</body>
+</html>

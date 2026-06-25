@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cleared.live — Walkthroughs</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<style>
+  :root{ --navy:#0d3b6e; --navy2:#0a2a4f; --gold:#f2a900; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:#eef1f5; color:#1f2a37; }
+  a{ color:inherit; }
+  .wrap{ max-width:1080px; margin:0 auto; padding:0 20px 70px; }
+
+  /* hero */
+  .hero{ background:linear-gradient(135deg,var(--navy),var(--navy2)); color:#fff; padding:48px 20px 40px; text-align:center; }
+  .hero .brand{ font-weight:800; font-size:1.3rem; margin-bottom:18px; }
+  .hero .dot{ color:var(--gold); }
+  .hero h1{ font-weight:800; font-size:clamp(1.8rem,4vw,2.6rem); margin:0 0 .35em; }
+  .hero p{ color:#cfdcee; max-width:620px; margin:0 auto 22px; font-size:1.08rem; line-height:1.5; }
+  .hero .play{ display:inline-flex; align-items:center; gap:9px; background:var(--gold); color:#1a1300; font-weight:700;
+               text-decoration:none; padding:13px 24px; border-radius:10px; font-size:1.02rem; }
+  .hero .play:hover{ filter:brightness(1.05); }
+
+  .sec{ margin-top:38px; }
+  .sec h2{ font-size:.82rem; letter-spacing:.12em; text-transform:uppercase; color:#64748b; font-weight:700; margin:0 0 14px; }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+
+  .card{ display:flex; flex-direction:column; background:#fff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;
+         text-decoration:none; color:inherit; transition:transform .15s ease, box-shadow .15s ease; }
+  .card:hover{ transform:translateY(-3px); box-shadow:0 14px 32px rgba(13,59,110,.16); border-color:#c7d6ec; }
+  .thumb{ height:118px; display:flex; align-items:center; justify-content:center; position:relative; }
+  .thumb .ic{ font-size:2.4rem; color:#fff; opacity:.95; }
+  .thumb .tag{ position:absolute; top:10px; left:10px; background:rgba(255,255,255,.85); color:#0d3b6e; font-size:.66rem;
+               font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:.25em .6em; border-radius:6px; }
+  .thumb .min{ position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,.35); color:#fff; font-size:.7rem; padding:.2em .55em; border-radius:6px; }
+  .card .b{ padding:14px 16px 16px; flex:1; display:flex; flex-direction:column; }
+  .card .b .t{ font-weight:700; color:var(--navy); font-size:1.04rem; }
+  .card .b .d{ color:#64748b; font-size:.86rem; margin-top:5px; line-height:1.45; flex:1; }
+  .card .b .go{ margin-top:12px; font-size:.84rem; font-weight:600; color:#0d6efd; }
+
+  .foot{ text-align:center; color:#94a3b8; font-size:.82rem; margin-top:44px; }
+  .foot strong{ color:#64748b; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="brand">Cleared<span class="dot">.</span>live</div>
+  <h1>Walkthroughs</h1>
+  <p>Self-running, interactive tours of how clearance works on Cleared.live — one for every audience. No login, nothing to install. Click any card to play.</p>
+  <a class="play" href="intro_what_is_cleared_live.html"><i class="bi bi-play-circle-fill"></i> Watch the 60-second intro</a>
+</div>
+
+<div class="wrap">
+
+  <div class="sec">
+    <h2>For submitters — the people doing the clearance</h2>
+    <div class="grid" id="gridSub"></div>
+  </div>
+
+  <div class="sec">
+    <h2>For business affairs — the people who review &amp; sign off</h2>
+    <div class="grid" id="gridBA"></div>
+  </div>
+
+  <div class="foot">
+    <strong>Cleared<span style="color:#f2a900;">.</span>live</strong> · Each walkthrough is a self-contained page — embed it, link it, or screen-record it.
+  </div>
+</div>
+
+<script>
+  const SUB = [
+    { f:"submitter_live_music_promoter.html", t:"Live Music Promoter", min:"~6 min", c:"#1d4ed8", ic:"bi-music-note-beamed",
+      d:"Clear a filmed live show end-to-end — items, the music tab, publisher deal board, and delegating to a supervisor." },
+    { f:"submitter_festival_promoter.html", t:"Festival Promoter", min:"~6 min", c:"#7c3aed", ic:"bi-people-fill",
+      d:"One event, many artists, many labels. You clear every act; each label issues its conditional waiver." },
+    { f:"submitter_film_producer.html", t:"Film / Documentary Producer", min:"~6 min", c:"#0f766e", ic:"bi-camera-reels-fill",
+      d:"Licenses plus people: the Cast & Crew tab, a custom release template, and the signer's view to a signed PDF." },
+    { f:"submitter_social_creator.html", t:"Social Media Creator", min:"~5 min", c:"#db2777", ic:"bi-phone-fill",
+      d:"Music, people, reused clips, and brands — cleared fast enough to keep a campaign brand-safe." },
+    { f:"submitter_podcast_producer.html", t:"Podcast Producer", min:"~6 min", c:"#b45309", ic:"bi-mic-fill",
+      d:"Guest releases, music, samples, sponsors, distribution — set once, reuse every episode." },
+  ];
+  const BA = [
+    { f:"ba_labels.html", t:"Label Business Affairs", min:"~6 min", c:"#003087", ic:"bi-patch-check-fill",
+      d:"Verify the promoter's clearances, see the auto-sent reservation-of-rights notice, and issue the conditional waiver." },
+    { f:"ba_distributors.html", t:"Distributor Business Affairs", min:"~6 min", c:"#1d4ed8", ic:"bi-broadcast-pin",
+      d:"Set your deal terms once, review every item, run the publisher deal board, and green-light straight to your rights system." },
+  ];
+  function card(x){
+    return `<a class="card" href="${x.f}">
+      <div class="thumb" style="background:linear-gradient(135deg,${x.c},#0a2a4f);">
+        <span class="tag">Interactive</span>
+        <i class="ic bi ${x.ic}"></i>
+        <span class="min">${x.min}</span>
+      </div>
+      <div class="b">
+        <div class="t">${x.t}</div>
+        <div class="d">${x.d}</div>
+        <div class="go">Play walkthrough <i class="bi bi-arrow-right"></i></div>
+      </div>
+    </a>`;
+  }
+  document.getElementById('gridSub').innerHTML = SUB.map(card).join('');
+  document.getElementById('gridBA').innerHTML  = BA.map(card).join('');
+</script>
+</body>
+</html>
