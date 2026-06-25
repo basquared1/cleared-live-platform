@@ -1107,6 +1107,8 @@ WALKTHROUGHS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wal
 
 
 @app.route("/walkthroughs")
+@app.route("/walthroughs")      # common typo (missing 'k')
+@app.route("/walkthrough")      # singular
 def walkthroughs_redirect():
     # Redirect to the trailing-slash form so the hub's relative links resolve under /walkthroughs/.
     return redirect("/walkthroughs/", code=301)
