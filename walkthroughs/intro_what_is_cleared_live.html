@@ -111,7 +111,7 @@
   <div class="scene" data-i="6">
     <div style="font-size:2.4rem;font-weight:800;">Cleared<span class="brand-dot">.</span>live</div>
     <p style="margin-top:8px;">Clearance that drafts itself, tracks itself, and proves itself.</p>
-    <div class="cta"><a href="index.html">See the walkthroughs <i class="bi bi-arrow-right"></i></a></div>
+    <div class="cta"><a href="/walkthroughs/" id="ctaLink">See the walkthroughs <i class="bi bi-arrow-right"></i></a></div>
   </div>
 
   <div class="bar" id="bar"></div>
@@ -124,6 +124,11 @@
 <div class="caption">60-second intro · auto-plays · click a dot to jump</div>
 
 <script>
+  // Embedded inside the hub's auto-play overlay? Then signal the parent instead of navigating.
+  const EMBED = new URLSearchParams(location.search).has('embed') || window.parent !== window;
+  let doneSent = false;
+  function signalDone(){ if(EMBED && !doneSent){ doneSent = true; try{ window.parent.postMessage('intro-done','*'); }catch(e){} } }
+
   const scenes = Array.from(document.querySelectorAll('.scene'));
   const DUR = 9000; // ms per scene (~63s total over 7)
   let cur = -1, playing = true, timer = null, t0 = 0, elapsed = 0, raf = null;
@@ -139,7 +144,9 @@
     dotEls.forEach(d=>d.classList.remove('on'));
     scenes[i].classList.add('on'); dotEls[i].classList.add('on'); cur=i;
   }
-  function go(i){ clearTimeout(timer); show(i); elapsed=0; if(playing) run(); else { cancelAnimationFrame(raf); bar.style.width='0%'; } }
+  function go(i){ clearTimeout(timer); show(i); elapsed=0;
+    if(i===scenes.length-1){ setTimeout(signalDone, 3500); } // reveal the hub shortly after the closing card
+    if(playing) run(); else { cancelAnimationFrame(raf); bar.style.width='0%'; } }
   function run(){
     t0 = performance.now() - elapsed;
     cancelAnimationFrame(raf); tick();
@@ -155,6 +162,10 @@
   function play(){ playing=true; document.getElementById('playIcon').className='bi bi-pause-fill'; if(cur>=scenes.length-1){ restart(); } else run(); }
   document.getElementById('playBtn').onclick = ()=> playing ? pause() : play();
   function restart(){ elapsed=0; go(0); if(!playing) play(); }
+
+  // When embedded, the CTA button closes the overlay instead of loading the hub inside the iframe.
+  var cta = document.getElementById('ctaLink');
+  if (cta) cta.addEventListener('click', function(e){ if(EMBED){ e.preventDefault(); signalDone(); } });
 
   go(0); // autostart
 </script>

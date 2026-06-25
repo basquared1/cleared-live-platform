@@ -1107,6 +1107,11 @@ WALKTHROUGHS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wal
 
 
 @app.route("/walkthroughs")
+def walkthroughs_redirect():
+    # Redirect to the trailing-slash form so the hub's relative links resolve under /walkthroughs/.
+    return redirect("/walkthroughs/", code=301)
+
+
 @app.route("/walkthroughs/")
 def walkthroughs_index():
     return send_from_directory(WALKTHROUGHS_DIR, "index.html")
