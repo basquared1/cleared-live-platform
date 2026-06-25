@@ -5906,7 +5906,10 @@ def migrate_db_cmd():
                 print(f"  submissions.{col_name}: {exc}")
 
     # Backfill: ensure every existing submission carries the E&O item its template
-    # now requires (added to all project types except UGC). Idempotent.
+    # requires. E&O was removed from the creator types (live_music, festival, documentary,
+    # social, podcast) — those have no eo_def, so they're skipped here. Only the non-creator
+    # types that still require E&O (unscripted, label review, feature_film, tv_series, branded)
+    # are backfilled. Idempotent; only adds, never removes.
     eo_defs = {}
     for tkey, items in CLEARANCE_TEMPLATES.items():
         for it in items:

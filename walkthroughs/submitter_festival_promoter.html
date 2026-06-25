@@ -133,8 +133,7 @@
             <ul class="list-unstyled small mb-0">
               <li class="py-1 border-bottom">5 artists to clear</li>
               <li class="py-1 border-bottom">Venue Filming License — Riverside</li>
-              <li class="py-1 border-bottom">Crowd / Audience Release</li>
-              <li class="py-1">E&O Insurance — upload certificate</li>
+              <li class="py-1">Crowd / Audience Release</li>
             </ul>
           </div>
 
@@ -207,7 +206,6 @@ const ITEMS = [
   ["Promoter Consent",        "Your consent, as promoter, to film and exploit the event.",  "PROMOTER CONSENT FOR FILMING\nMeridian Live Productions consents to the filming, recording, and exploitation of Cascade Live Fest 2026 across the territories and uses set out in the submission…"],
   ["Venue Filming License",   "Permission from Riverside Grounds to film the festival.",     "VENUE FILMING LICENSE\nRiverside Grounds grants permission to film throughout the festival on Sep 5–7, 2026, subject to the venue's standard conditions…"],
   ["Crowd / Audience Release","Notice + release covering attendees on camera.",             "CROWD / AUDIENCE RELEASE\nBy attending Cascade Live Fest, attendees consent to being filmed and to the use of audience footage in the program…"],
-  ["E&O Insurance",           "Errors & omissions certificate for the festival production.", "E&O INSURANCE — CERTIFICATE\nAttach the errors-and-omissions certificate of insurance for the festival production, naming the required parties…"],
 ];
 function renderItems(){
   document.getElementById('itemList').innerHTML = ITEMS.map((it,i)=>`
@@ -285,13 +283,13 @@ const STEPS = [
     p:'Meridian Live Productions is filming Cascade Live Fest for delivery to the distributor, Skylark+. Skylark+ emailed a private link that opens straight into this workspace — no login, no account.' },
 
   { sel:'#banner', h:'It is all your work', vo:'"You clear everything. The label just issues its waiver."',
-    p:'This is the key idea — and the part people get wrong. The grounds, the crowd, your consent, the insurance, AND every artist\'s music and performance: all yours to clear. For a signed act, the label\'s only job is to review what you completed and issue its conditional waiver — your permission to film. You don\'t hand the work to the labels; you do it.' },
+    p:'This is the key idea — and the part people get wrong. The grounds, the crowd, your consent, AND every artist\'s music and performance: all yours to clear. For a signed act, the label\'s only job is to review what you completed and issue its conditional waiver — your permission to film. You don\'t hand the work to the labels; you do it.' },
 
   { sel:'#sideProgress', h:'Two progress tracks', vo:'"Event clearances, and artist clearances — both yours."',
     p:'The festival isn\'t cleared until both halves are done: your event clearances, and each artist\'s clearances that you complete — each one gated by its label\'s conditional waiver. Watch both bars fill as we go.' },
 
   { sel:'#item-0', h:'Your half: the event clearances', vo:'"The same simple flow you\'d expect."',
-    p:'Open any event item and Cleared.live has already drafted the agreement — venue, crowd, promoter consent, E&O. Review, send, collect the signature, submit for review.',
+    p:'Open any event item and Cleared.live has already drafted the agreement — venue, crowd, promoter consent. Review, send, collect the signature, submit for review.',
     act:()=>{ toggleItem(0); setStatus(0,'p-progress','In Progress'); } },
 
   { sel:'#item-0 .ic-body', h:'Send and submit', vo:'"Cleared.live drafted it; you just finish it."',

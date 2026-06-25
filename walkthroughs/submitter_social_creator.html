@@ -77,24 +77,23 @@
 
       <div id="banner" class="alert d-flex align-items-start gap-2" style="background:#fffbea;border:1px solid #f5c842;color:#664d03;">
         <i class="bi bi-stars fs-5 text-warning"></i>
-        <div><strong>A short list, drafted for you.</strong> Six things stand between you and a brand-safe post: the music, the people on camera, any user content you reused, the brands you showed, and your insurance. Cleared.live drafted an agreement for each. Northwind's team reviews them as you go.</div>
+        <div><strong>A short list, drafted for you.</strong> Five things stand between you and a brand-safe post: the music, the people on camera, any user content you reused, and the brands you showed. Cleared.live drafted an agreement for each. Northwind's team reviews them as you go.</div>
       </div>
 
       <div class="row g-3">
         <div class="col-12 col-xl-4 order-xl-2">
           <div class="side-card p-3" id="sideProgress">
-            <div class="d-flex justify-content-between align-items-center mb-1"><div class="fw-semibold text-navy">Your Progress</div><div class="fw-bold text-navy" id="pgPct">17%</div></div>
-            <div class="progress mb-2"><div class="progress-bar bg-success" id="pgBar" style="width:17%"></div></div>
-            <div class="small text-muted"><span id="pgDone">1</span> of 6 items ready for review.</div>
+            <div class="d-flex justify-content-between align-items-center mb-1"><div class="fw-semibold text-navy">Your Progress</div><div class="fw-bold text-navy" id="pgPct">20%</div></div>
+            <div class="progress mb-2"><div class="progress-bar bg-success" id="pgBar" style="width:20%"></div></div>
+            <div class="small text-muted"><span id="pgDone">1</span> of 5 items ready for review.</div>
           </div>
           <div class="side-card p-3" id="sideAttention">
-            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention <span class="badge bg-navy">5</span></div>
+            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention <span class="badge bg-navy">4</span></div>
             <ul class="list-unstyled small mb-0">
               <li class="py-1 border-bottom">Music License — clear the track</li>
               <li class="py-1 border-bottom">Performer Consent — 1 on-camera</li>
               <li class="py-1 border-bottom">UGC Rights — reused clip</li>
-              <li class="py-1 border-bottom">Brand / Trademark — review</li>
-              <li class="py-1">E&O — upload certificate</li>
+              <li class="py-1">Brand / Trademark — review</li>
             </ul>
           </div>
           <div class="side-card p-3">
@@ -147,7 +146,6 @@ const ITEMS = [
   ["Performer / Talent Consent","Anyone appearing on camera with you.",            "PERFORMER / TALENT CONSENT\nThe undersigned consents to the recording and use of their appearance and likeness in the social content 'Spring Capsule'…"],
   ["UGC Rights Clearance",     "Any user-generated clip you reused.",             "UGC RIGHTS CLEARANCE\nThe original creator grants the right to incorporate and exploit the identified user-generated content within 'Spring Capsule'…"],
   ["Brand / Trademark Clearance","Logos or brands visible in the content.",       "BRAND / TRADEMARK CLEARANCE\nReview and clearance of third-party brands, logos, and trademarks appearing in the social content…"],
-  ["E&O Insurance Documentation","Errors & omissions certificate, if required.",  "E&O INSURANCE — CERTIFICATE\nAttach the errors-and-omissions certificate of insurance, if the campaign requires one…"],
 ];
 function renderItems(){
   document.getElementById('itemList').innerHTML = ITEMS.map((it,i)=>`
@@ -178,16 +176,16 @@ function showTab(t){ ['work','agree'].forEach(x=>{ document.getElementById('pane
 const STEPS = [
   { sel:'#projHeader', h:'Your workspace', vo:'"Your whole campaign — one link."',
     p:'Northwind, the brand behind this campaign, emailed you a private link. It opens this workspace — no login, no account. Everything to make Spring Capsule brand-safe is here.' },
-  { sel:'#banner', h:'Six things, already drafted', vo:'"You\'re not starting from zero."',
-    p:'Social looks simple but the rights aren\'t: the music, anyone on camera, reused clips, visible brands, insurance. Cleared.live drafted an agreement for each one the moment you submitted.' },
-  { sel:'#sideProgress', h:'A short, finite list', vo:'"Six items to brand-safe."',
-    p:'No mystery about scope — six items, and you can see exactly how many are left. This is the difference between posting confidently and hoping nothing gets pulled.' },
+  { sel:'#banner', h:'Five things, already drafted', vo:'"You\'re not starting from zero."',
+    p:'Social looks simple but the rights aren\'t: the music, anyone on camera, reused clips, and visible brands. Cleared.live drafted an agreement for each one the moment you submitted.' },
+  { sel:'#sideProgress', h:'A short, finite list', vo:'"Five items to brand-safe."',
+    p:'No mystery about scope — five items, and you can see exactly how many are left. This is the difference between posting confidently and hoping nothing gets pulled.' },
   { sel:'#item-0', h:'Clear the music', vo:'"The thing that gets posts taken down."',
     p:'Open Music License. The single most common reason a sponsored post gets muted or pulled is unlicensed music — so this is drafted and ready to send to the rights holder.',
     act:()=>{ toggleItem(0); setStatus(0,'p-progress','In Progress'); } },
   { sel:'#item-0 .ic-body', h:'Send it, upload it', vo:'"One flow for every item."',
     p:'Review the draft, set the contact, send the request, upload the signed license when it returns, then submit it for Northwind to approve.',
-    act:()=>{ setStatus(0,'p-review','Under Review'); bump(2,33); } },
+    act:()=>{ setStatus(0,'p-review','Under Review'); bump(2,40); } },
   { sel:'#st-0', h:'Approved', vo:'"That\'s the big one done."',
     p:'Once approved it turns green. The same quick rhythm clears the rest.',
     act:()=>{ setStatus(0,'p-approved','Approved'); } },
@@ -204,7 +202,7 @@ const STEPS = [
     p:'The Agreements tab holds every executed license and signed consent for the campaign — proof of clearance you can hand the brand instantly.',
     act:()=>{ showTab('agree'); } },
   { sel:'#projStatus', h:'Brand-safe and posted', vo:'"Clear once. Post without fear."',
-    p:'With all six approved, the campaign flips to Cleared. The music, the people, the clips, the brands — all documented. Post it and move on.',
+    p:'With all five approved, the campaign flips to Cleared. The music, the people, the clips, the brands — all documented. Post it and move on.',
     act:()=>{ showTab('work'); const s=document.getElementById('projStatus'); s.className='pill p-approved'; s.textContent='Cleared'; } },
 ];
 

@@ -132,13 +132,12 @@
           </div>
 
           <div class="side-card p-3" id="sideAttention">
-            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention <span class="badge bg-navy">5</span></div>
+            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention <span class="badge bg-navy">4</span></div>
             <ul class="list-unstyled small mb-0">
               <li class="py-1 border-bottom">Archival Footage — contact rights holder</li>
               <li class="py-1 border-bottom">Interview Subject Releases — 2 unsigned</li>
               <li class="py-1 border-bottom">Location Releases — Riverside</li>
-              <li class="py-1 border-bottom">Brand / Trademark — review</li>
-              <li class="py-1">E&O Insurance — upload certificate</li>
+              <li class="py-1">Brand / Trademark — review</li>
             </ul>
           </div>
 
@@ -246,7 +245,6 @@ const ITEMS = [
   ["Interview Subject Releases", "On-camera interviewees — handled in Cast & Crew.",  "→ Interview subjects are managed on the Cast & Crew tab, where you send each person an appearance release to sign."],
   ["Location Releases",          "Permission to film at each location.",              "LOCATION RELEASE\nThe property owner grants permission to film at the identified location and to exploit the resulting footage in 'The Long Static'…"],
   ["Brand / Trademark Clearance","Logos and marks visible on screen.",               "BRAND / TRADEMARK CLEARANCE\nReview and clearance of third-party trademarks, logos, and brands appearing in 'The Long Static'…"],
-  ["E&O Insurance Documentation","Errors & omissions certificate for the film.",      "E&O INSURANCE — CERTIFICATE\nAttach the errors-and-omissions certificate of insurance for 'The Long Static', naming the required parties…"],
 ];
 function renderItems(){
   document.getElementById('itemList').innerHTML = ITEMS.map((it,i)=>`
@@ -342,7 +340,7 @@ const STEPS = [
     act:()=>{ setStatus(2,'p-review','Under Review'); bump(2,25); } },
 
   { sel:'#st-2', h:'…and approved', vo:'"One license down."',
-    p:'Once the BA signs off, the item turns Approved. Music, photos, locations, brands, E&O — all the same rhythm.',
+    p:'Once the BA signs off, the item turns Approved. Music, photos, locations, brands — all the same rhythm.',
     act:()=>{ setStatus(2,'p-approved','Approved'); } },
 
   { sel:'#tab-people', h:'Now the people', vo:'"This is where a film is different."',

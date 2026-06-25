@@ -136,14 +136,13 @@
           </div>
 
           <div class="side-card p-3" id="sideAttention">
-            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention <span class="badge bg-navy">6</span></div>
+            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention <span class="badge bg-navy">5</span></div>
             <ul class="list-unstyled small mb-0" id="attnList">
               <li class="py-1 border-bottom">Promoter Consent — start working</li>
               <li class="py-1 border-bottom">Master Recording License — contact label</li>
               <li class="py-1 border-bottom">Performer Releases — 3 signers</li>
               <li class="py-1 border-bottom">Venue Filming License — Red Rocks</li>
-              <li class="py-1 border-bottom">Crowd / Audience Release — start</li>
-              <li class="py-1">E&O Insurance — upload certificate</li>
+              <li class="py-1">Crowd / Audience Release — start</li>
             </ul>
           </div>
 
@@ -265,7 +264,6 @@ const ITEMS = [
   ["Performer Releases",      "Appearance releases from the artists and featured performers.","PERFORMER APPEARANCE RELEASE\nThe undersigned performer grants the right to record and exploit their likeness and performance at the Event…"],
   ["Venue Filming License",   "Permission from Red Rocks to film on the premises.",          "VENUE FILMING LICENSE\nRed Rocks Amphitheatre grants permission to film within the venue during the Event, subject to the venue's standard conditions…"],
   ["Crowd / Audience Release","Notice + release covering audience members on camera.",        "CROWD / AUDIENCE RELEASE\nBy attending, audience members consent to being filmed and to the use of audience footage in the program…"],
-  ["E&O Insurance",           "Errors & omissions certificate for the production.",          "E&O INSURANCE — CERTIFICATE\nAttach the errors-and-omissions certificate of insurance naming the required parties for the production…"],
 ];
 
 function renderItems(){
@@ -346,7 +344,7 @@ const STEPS = [
     act:()=>{ setStatus(0,'p-review','Under Review'); bumpProgress(); } },
 
   { sel:'#st-0', h:'…and approved', vo:'"That\'s one right, fully secured."',
-    p:'Once the BA signs off, the item turns Approved and you get a reservation-of-rights notice on file. Repeat for the other six — performer releases, venue, crowd, E&O.',
+    p:'Once the BA signs off, the item turns Approved and you get a reservation-of-rights notice on file. Repeat for the rest — master license, performer releases, venue, crowd.',
     act:()=>{ setStatus(0,'p-approved','Approved'); } },
 
   { sel:'#tab-music', h:'The music is its own world', vo:'"Songs and recordings clear separately."',

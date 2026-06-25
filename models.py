@@ -38,7 +38,6 @@ CLEARANCE_TEMPLATES = {
         {"key": "performer_release",  "label": "Performer Releases",               "priority": 4},
         {"key": "venue_license",      "label": "Venue Filming License",            "priority": 5},
         {"key": "crowd_release",      "label": "Crowd / Audience Release",         "priority": 6},
-        {"key": "eo_documentation",   "label": "E&O Insurance Documentation",      "priority": 7},
     ],
     # Festival = event-level clearances only. Per-artist music/master/label clearance
     # fans out to each artist's own thread via the festival artist roster.
@@ -46,7 +45,6 @@ CLEARANCE_TEMPLATES = {
         {"key": "promoter_consent",  "label": "Promoter Filming Rights Consent", "priority": 1},
         {"key": "venue_license",     "label": "Venue Filming License",           "priority": 2},
         {"key": "crowd_release",     "label": "Crowd / Audience Release",        "priority": 3},
-        {"key": "eo_documentation",  "label": "E&O Insurance Documentation",     "priority": 4},
     ],
     "documentary": [
         {"key": "sync_license",        "label": "Music Sync License(s)",           "priority": 1},
@@ -56,7 +54,6 @@ CLEARANCE_TEMPLATES = {
         {"key": "interview_releases",  "label": "Interview Subject Releases",      "priority": 5},
         {"key": "location_releases",   "label": "Location Releases",               "priority": 6},
         {"key": "trademark_clearance", "label": "Brand / Trademark Clearance",    "priority": 7},
-        {"key": "eo_documentation",    "label": "E&O Insurance Documentation",     "priority": 8},
     ],
     "unscripted": [
         {"key": "music_clearance",     "label": "Music Clearance",                          "priority": 1},
@@ -74,7 +71,6 @@ CLEARANCE_TEMPLATES = {
         {"key": "performer_consent",  "label": "Performer / Talent Consent", "priority": 3},
         {"key": "ugc_clearance",      "label": "UGC Rights Clearance",       "priority": 4},
         {"key": "brand_clearance",    "label": "Brand / Trademark Clearance","priority": 5},
-        {"key": "eo_documentation",   "label": "E&O Insurance Documentation","priority": 6},
     ],
     "podcast": [
         {"key": "guest_release",       "label": "Guest / Interview Release",          "priority": 1},
@@ -84,7 +80,6 @@ CLEARANCE_TEMPLATES = {
         {"key": "sponsor_agreement",   "label": "Sponsor / Ad Read Agreement",        "priority": 5},
         {"key": "sample_clearance",    "label": "Audio Sample / Clip Clearance",      "priority": 6},
         {"key": "distributor_license", "label": "Platform Distribution License",      "priority": 7},
-        {"key": "eo_documentation",    "label": "E&O Insurance Documentation",        "priority": 8},
     ],
     # Label waiver mode: label reviews submitter's completed clearances, then issues conditional waiver
     "live_music_label": [

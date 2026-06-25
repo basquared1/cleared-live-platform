@@ -77,24 +77,23 @@
 
       <div id="banner" class="alert d-flex align-items-start gap-2" style="background:#fffbea;border:1px solid #f5c842;color:#664d03;">
         <i class="bi bi-stars fs-5 text-warning"></i>
-        <div><strong>Every episode, the same eight checks.</strong> Your guest, your music and samples, your co-host and sponsor deals, your distribution and insurance — each one drafted for you. Reuse the same setup every episode; only the guest and clips change. Resonate Media reviews as you submit.</div>
+        <div><strong>Every episode, the same seven checks.</strong> Your guest, your music and samples, your co-host and sponsor deals, and your distribution — each one drafted for you. Reuse the same setup every episode; only the guest and clips change. Resonate Media reviews as you submit.</div>
       </div>
 
       <div class="row g-3">
         <div class="col-12 col-xl-4 order-xl-2">
           <div class="side-card p-3" id="sideProgress">
-            <div class="d-flex justify-content-between align-items-center mb-1"><div class="fw-semibold text-navy">Your Progress</div><div class="fw-bold text-navy" id="pgPct">12%</div></div>
-            <div class="progress mb-2"><div class="progress-bar bg-success" id="pgBar" style="width:12%"></div></div>
-            <div class="small text-muted"><span id="pgDone">1</span> of 8 items ready for review.</div>
+            <div class="d-flex justify-content-between align-items-center mb-1"><div class="fw-semibold text-navy">Your Progress</div><div class="fw-bold text-navy" id="pgPct">14%</div></div>
+            <div class="progress mb-2"><div class="progress-bar bg-success" id="pgBar" style="width:14%"></div></div>
+            <div class="small text-muted"><span id="pgDone">1</span> of 7 items ready for review.</div>
           </div>
           <div class="side-card p-3" id="sideAttention">
-            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention <span class="badge bg-navy">5</span></div>
+            <div class="fw-semibold text-navy mb-2"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>Needs your attention <span class="badge bg-navy">4</span></div>
             <ul class="list-unstyled small mb-0">
               <li class="py-1 border-bottom">Guest Release — send to this week's guest</li>
               <li class="py-1 border-bottom">Background Music — clear the bed</li>
               <li class="py-1 border-bottom">Audio Sample — clip used at 12:04</li>
-              <li class="py-1 border-bottom">Sponsor / Ad Read — confirm terms</li>
-              <li class="py-1">E&O — upload certificate</li>
+              <li class="py-1">Sponsor / Ad Read — confirm terms</li>
             </ul>
           </div>
           <div class="side-card p-3">
@@ -149,7 +148,6 @@ const ITEMS = [
   ["Sponsor / Ad Read Agreement","Terms for the ad read or sponsorship.",           "SPONSOR / AD READ AGREEMENT\nSets out the sponsor's ad-read placement, usage rights, and terms within the episode…"],
   ["Audio Sample / Clip Clearance","Any third-party clip or sample you used.",       "AUDIO SAMPLE / CLIP CLEARANCE\nClears the identified third-party audio sample or clip used within the episode for the stated distribution…"],
   ["Platform Distribution License","Rights to distribute on each platform.",         "PLATFORM DISTRIBUTION LICENSE\nGrants the rights necessary to distribute the episode across the identified podcast platforms…"],
-  ["E&O Insurance Documentation","Errors & omissions certificate for the show.",     "E&O INSURANCE — CERTIFICATE\nAttach the errors-and-omissions certificate of insurance for 'The Undercurrent', naming the required parties…"],
 ];
 function renderItems(){
   document.getElementById('itemList').innerHTML = ITEMS.map((it,i)=>`
@@ -181,15 +179,15 @@ const STEPS = [
   { sel:'#projHeader', h:'Your workspace', vo:'"One episode — one link."',
     p:'Resonate Media, your network, emailed a private link that opens this workspace — no login, no account. Everything to clear Episode 114 lives here.' },
   { sel:'#banner', h:'The same eight, every episode', vo:'"Set it once; reuse it weekly."',
-    p:'A podcast is a repeatable machine: the same eight checks each episode — guest, music, samples, co-host, sponsor, distribution, insurance. Cleared.live drafts them all; week to week only the guest and clips change.' },
-  { sel:'#sideProgress', h:'Episode progress', vo:'"Eight items to a clean drop."',
+    p:'A podcast is a repeatable machine: the same seven checks each episode — guest, music, samples, co-host, sponsor, distribution. Cleared.live drafts them all; week to week only the guest and clips change.' },
+  { sel:'#sideProgress', h:'Episode progress', vo:'"Seven items to a clean drop."',
     p:'The bar fills as each item is submitted and approved by the network. You always know what\'s left before the episode goes live.' },
   { sel:'#item-0', h:'Start with the guest', vo:'"The release that protects the interview."',
     p:'Open Guest / Interview Release. This is the one that can bite later — a guest who never signed off. Cleared.live drafts it and sends them a link to sign; no chasing a PDF.',
     act:()=>{ toggleItem(0); setStatus(0,'p-progress','In Progress'); } },
   { sel:'#item-0 .ic-body', h:'Send, sign, submit', vo:'"One flow for every item."',
     p:'Review the release, send the guest their signing link, upload the signed copy when it returns, then submit it for the network to approve.',
-    act:()=>{ setStatus(0,'p-review','Under Review'); bump(2,25); } },
+    act:()=>{ setStatus(0,'p-review','Under Review'); bump(2,29); } },
   { sel:'#st-0', h:'Approved', vo:'"Guest, locked."',
     p:'Approved and on file. Now the rest of the stack.',
     act:()=>{ setStatus(0,'p-approved','Approved'); } },
@@ -202,14 +200,11 @@ const STEPS = [
   { sel:'#item-6', h:'Distribution rights', vo:'"Cleared to publish everywhere."',
     p:'The Platform Distribution License confirms you have the rights to push the episode to each podcast platform you publish on.',
     act:()=>{ toggleItem(6); } },
-  { sel:'#item-7', h:'And insurance', vo:'"E&O, on file."',
-    p:'Upload your errors-and-omissions certificate and the stack is complete.',
-    act:()=>{ toggleItem(7); } },
   { sel:'#tab-agree', h:'One record per episode', vo:'"Every clearance, filed."',
     p:'The Agreements tab keeps every signed release and license for this episode in one place — your proof of clearance, episode by episode.',
     act:()=>{ showTab('agree'); } },
   { sel:'#projStatus', h:'Cleared — and repeatable', vo:'"Drop it. Then do it again next week."',
-    p:'All eight approved, the episode flips to Cleared. Next week, the same setup carries over — only the guest and clips change. That\'s clearance at podcast speed.',
+    p:'All seven approved, the episode flips to Cleared. Next week, the same setup carries over — only the guest and clips change. That\'s clearance at podcast speed.',
     act:()=>{ showTab('work'); const s=document.getElementById('projStatus'); s.className='pill p-approved'; s.textContent='Cleared'; } },
   { sel:'#sideProgress', h:'That is the whole loop', vo:'"Clear once, then it is muscle memory."',
     p:'Guest in, items drafted, signatures collected, network approves, episode cleared. The same rhythm every week — without a lawyer on retainer for each drop.', tab:'work' },
