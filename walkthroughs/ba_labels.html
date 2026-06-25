@@ -37,7 +37,7 @@
   .mailbody{ padding:15px 17px; font-size:.82rem; color:#334155; line-height:1.6; }
   .clause{ border-left:3px solid var(--gold); padding:6px 11px; margin:9px 0; background:#fafafa; border-radius:0 6px 6px 0; }
   #veil{ position:fixed; inset:0; background:transparent; z-index:1200; pointer-events:none; }
-  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.58); z-index:1210; transition:all .45s cubic-bezier(.4,0,.2,1); pointer-events:none; outline:3px solid var(--gold); }
+  .spot{ position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(8,20,40,.42); z-index:1210; transition:all .45s cubic-bezier(.4,0,.2,1); pointer-events:none; outline:3px solid var(--gold); }
   #coach{ position:fixed; z-index:1230; max-width:390px; background:#fff; border-radius:14px; box-shadow:0 20px 50px rgba(8,20,40,.4); padding:20px 22px; transition:all .45s cubic-bezier(.4,0,.2,1); }
   #coach .step-n{ font-size:.72rem; font-weight:700; letter-spacing:.06em; color:var(--gold); text-transform:uppercase; }
   #coach h5{ color:var(--navy); font-weight:700; margin:.35rem 0 .5rem; font-size:1.08rem; }
@@ -85,7 +85,7 @@
         <div class="side-card p-3" id="queue">
           <div class="fw-semibold text-navy mb-2"><i class="bi bi-check2-square me-1 text-warning"></i>Your sign-off queue <span class="badge bg-navy">3</span></div>
           <div class="qrow"><i class="bi bi-folder2-open text-navy"></i><div class="flex-grow-1"><strong>Aurora Skies — Red Rocks, Live</strong><div class="text-muted" style="font-size:.78rem;">Meridian Live Productions · all 7 items uploaded</div></div><span class="pill p-review">Ready for sign-off</span></div>
-          <div class="qrow"><i class="bi bi-folder2-open text-navy"></i><div class="flex-grow-1"><strong>Glasshouse — Greek Theatre</strong><div class="text-muted" style="font-size:.78rem;">Lyric Touring · 5 of 7 uploaded</div></div><span class="pill p-flag">In progress</span></div>
+          <div class="qrow"><i class="bi bi-folder2-open text-navy"></i><div class="flex-grow-1"><strong>Glasshouse — Greek Theatre</strong><div class="text-muted" style="font-size:.78rem;">Lyric Touring · 5 of 6 uploaded</div></div><span class="pill p-flag">In progress</span></div>
           <div class="qrow" style="border-bottom:none;"><i class="bi bi-folder2-open text-navy"></i><div class="flex-grow-1"><strong>Nightjar — The Fillmore</strong><div class="text-muted" style="font-size:.78rem;">Apex Live · awaiting masters</div></div><span class="pill p-flag">In progress</span></div>
         </div>
         <div class="side-card p-3">
@@ -110,7 +110,7 @@
           <div class="col-12 col-xl-4">
             <div class="side-card p-3" id="sideBA">
               <div class="fw-semibold text-navy mb-2">Sign-off summary</div>
-              <div class="small text-muted mb-1"><span id="verN">0</span> of 7 verifications approved</div>
+              <div class="small text-muted mb-1"><span id="verN">0</span> of 6 verifications approved</div>
               <div class="progress mb-2" style="height:8px;"><div class="progress-bar bg-success" id="verBar" style="width:0%"></div></div>
               <div class="small text-muted">The Conditional Label Waiver unlocks once all six are approved.</div>
             </div>
@@ -212,8 +212,7 @@ const STEPS = [
   { sel:'#queue', h:'Your sign-off queue', vo:'"The titles waiting on you, and only you."',
     p:'This queue surfaces the submissions where the promoter has finished and you\'re the next move. Aurora Skies has all six clearances uploaded — ready for your sign-off.', pane:'dash' },
   { sel:'#queue .qrow', h:'Open the title', vo:'"Let\'s sign one off."',
-    p:'Open Aurora Skies. Remember the model: the promoter did the clearance work — your job is to verify it and issue UMG\'s waiver.',
-    act:()=>{ showPane('project'); } },
+    p:'Open Aurora Skies. Remember the model: the promoter did the clearance work — your job is to verify it and issue UMG\'s waiver.', pane:'dash' },
   { sel:'#itemList', h:'Six to verify, one to issue', vo:'"Verify the work; issue the waiver."',
     p:'Every label submission arrives as the same structured file: the six clearances the promoter had to obtain, each its own line — and the seventh item, the Conditional Label Waiver, which is yours alone.', pane:'project' },
   { sel:'#item-2', h:'Open a verification', vo:'"The evidence is attached to the decision."',
@@ -252,6 +251,7 @@ function render(){ const s=STEPS[cur]; if(s.pane) showPane(s.pane); if(s.act) s.
   setTimeout(()=>position(s.sel),130); }
 function position(sel){ const el=document.querySelector(sel); if(!el) return; el.scrollIntoView({block:'center',behavior:'smooth'});
   setTimeout(()=>{ const r=el.getBoundingClientRect(), pad=8;
+    if(r.width===0 && r.height===0) return;  // target hidden — keep prior spot, don't collapse the cutout
     spot.style.top=(r.top-pad)+'px'; spot.style.left=(r.left-pad)+'px'; spot.style.width=(r.width+pad*2)+'px'; spot.style.height=(r.height+pad*2)+'px';
     const cw=390, ch=coach.offsetHeight||230, gap=18; let top=r.top, left=r.right+gap;
     if(left+cw>window.innerWidth-12) left=r.left-cw-gap;
