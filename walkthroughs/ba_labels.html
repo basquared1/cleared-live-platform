@@ -67,7 +67,7 @@
     <div class="appnav">
       <span class="brand">Cleared<span class="text-gold">.</span>live</span>
       <span class="badge bg-light text-dark border ms-1" style="font-size:.7rem;">Clearance Portal</span>
-      <span class="ms-auto badge rounded-pill px-3 py-2" style="background:#003087;color:#fff;">UMG · Business Affairs</span>
+      <span class="ms-auto badge rounded-pill px-3 py-2" style="background:#003087;color:#fff;">Lumen Records · Business Affairs</span>
     </div>
 
     <div class="wrap">
@@ -122,10 +122,10 @@
                   <div class="mt-1" style="font-size:.74rem;">Subject: Clearance Sign-Off — Reservation of Rights &amp; Continuing Indemnity — Master Recording License | Aurora Skies</div>
                 </div>
                 <div class="mailbody">
-                  <div class="text-muted mb-2">UMG has recorded its clearance sign-off on this item. The sign-off is administrative, on these express terms:</div>
-                  <div class="clause"><strong>1. Reliance on Submitter.</strong> UMG's acceptance is made in reliance on the documentation provided by Meridian; UMG has not independently verified the underlying rights.</div>
-                  <div class="clause"><strong>2. Continuing Indemnity.</strong> Meridian remains responsible for securing all rights and continues to indemnify, defend, and hold UMG harmless.</div>
-                  <div class="clause"><strong>3. Reservation of Rights.</strong> Nothing waives any right or remedy of UMG; all are expressly reserved.</div>
+                  <div class="text-muted mb-2">Lumen Records has recorded its clearance sign-off on this item. The sign-off is administrative, on these express terms:</div>
+                  <div class="clause"><strong>1. Reliance on Submitter.</strong> Lumen Records' acceptance is made in reliance on the documentation provided by Meridian; Lumen Records has not independently verified the underlying rights.</div>
+                  <div class="clause"><strong>2. Continuing Indemnity.</strong> Meridian remains responsible for securing all rights and continues to indemnify, defend, and hold Lumen Records harmless.</div>
+                  <div class="clause"><strong>3. Reservation of Rights.</strong> Nothing waives any right or remedy of Lumen Records; all are expressly reserved.</div>
                 </div>
               </div>
             </div>
@@ -189,7 +189,7 @@ function renderItems(){
   html += `<div class="item-card issuer" id="item-6">
       <div class="ic-head" onclick="toggleItem(6)">
         <span class="ic-num" style="background:#f5e6b8;">7</span>
-        <div class="flex-grow-1"><div class="fw-semibold text-navy">Conditional Label Waiver — Issue</div><div class="small text-muted">UMG's waiver — your action, once the six are verified.</div></div>
+        <div class="flex-grow-1"><div class="fw-semibold text-navy">Conditional Label Waiver — Issue</div><div class="small text-muted">Lumen Records' waiver — your action, once the six are verified.</div></div>
         <span class="pill p-locked" id="st-6">Locked</span>
       </div>
       <div class="ic-body" id="body-6">
@@ -212,7 +212,7 @@ const STEPS = [
   { sel:'#queue', h:'Your sign-off queue', vo:'"The titles waiting on you, and only you."',
     p:'This queue surfaces the submissions where the promoter has finished and you\'re the next move. Aurora Skies has all six clearances uploaded — ready for your sign-off.', pane:'dash' },
   { sel:'#queue .qrow', h:'Open the title', vo:'"Let\'s sign one off."',
-    p:'Open Aurora Skies. Remember the model: the promoter did the clearance work — your job is to verify it and issue UMG\'s waiver.', pane:'dash' },
+    p:'Open Aurora Skies. Remember the model: the promoter did the clearance work — your job is to verify it and issue Lumen Records\'s waiver.', pane:'dash' },
   { sel:'#itemList', h:'Six to verify, one to issue', vo:'"Verify the work; issue the waiver."',
     p:'Every label submission arrives as the same structured file: the six clearances the promoter had to obtain, each its own line — and the seventh item, the Conditional Label Waiver, which is yours alone.', pane:'project' },
   { sel:'#item-2', h:'Open a verification', vo:'"The evidence is attached to the decision."',
@@ -225,7 +225,7 @@ const STEPS = [
     p:'The instant you approve, Cleared.live emails the submitter a formal notice — copying your team and Cleared.live — putting three things in writing.',
     act:()=>{ document.getElementById('mailSlot').classList.remove('d-none'); setTimeout(()=>document.getElementById('mailSlot').scrollIntoView({block:'center'}),200); } },
   { sel:'#mailSlot .mailbody', h:'Three clauses, automatic', vo:'"Reliance. Indemnity. Reservation."',
-    p:'Reliance on the submitter; their continuing indemnity; and a full reservation of UMG\'s rights. The thing outside counsel would tell you to send every single time — sent every single time, with no extra step.' },
+    p:'Reliance on the submitter; their continuing indemnity; and a full reservation of Lumen Records\'s rights. The thing outside counsel would tell you to send every single time — sent every single time, with no extra step.' },
   { sel:'#item-3', h:'Verify the rest', vo:'"Different rights, same discipline."',
     p:'Performer releases, venue, crowd, publishing — each approved on its own evidence, each generating its own protected notice.',
     act:()=>{ document.getElementById('mailSlot').classList.add('d-none'); setStatus(3,'p-approved','Approved'); setStatus(1,'p-approved','Approved'); setStatus(4,'p-approved','Approved'); setStatus(5,'p-approved','Approved'); setStatus(0,'p-approved','Approved'); setVer(6); toggleItem(3); } },

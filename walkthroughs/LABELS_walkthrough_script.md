@@ -1,4 +1,4 @@
-# Cleared.live — Walkthrough Script: **Labels** (UMG-style)
+# Cleared.live — Walkthrough Script: **Labels** (major-label style)
 
 **Audience:** Label Business Affairs / clearance teams operating in *waiver mode* (`platform_mode = "label_waiver"`).
 **What it teaches:** How a label receives a live-music filming submission, verifies the six underlying clearances item-by-item, issues a conditional label waiver, and — critically — how every sign-off auto-generates an on-the-record reservation-of-rights / continuing-indemnity notice.
@@ -10,7 +10,7 @@
 
 ## Pre-flight (do this before recording)
 
-- Log in as a label BA on a `label_waiver` platform (UMG / Sony / Warner seed accounts).
+- Log in as a label BA on a `label_waiver` platform (use a neutral label account for the demo, e.g. Lumen Records — Aurora Skies' label — rather than a real major).
 - Stage **one submission with all six items uploaded** and sitting at *under_review* — your hero project for the verify/approve scenes.
 - Stage a **second, partially-worked submission** with one item that's *missing/incomplete* — for the Reject + draft tools scene.
 - Stage a **third submission already cleared** — so the dashboard "Cleared" stat isn't zero.
