@@ -56,7 +56,7 @@
             <div class="fw-semibold">Your agreements are drafted for you</div>
             <div class="opacity-75 mt-1">
               We've already started building clearance agreements from firm-approved templates
-              for each of your {{ sub.clearance_items|length }} rights holders —
+              for each of your {{ sub.submitter_items|length }} rights holders —
               {% if sub.project_type == 'live_music' %}
                 record label, music publisher, venue, and performers.
               {% elif sub.project_type == 'documentary' %}
@@ -107,7 +107,7 @@
           <div class="small">
             <div class="fw-semibold">Green light — all items cleared</div>
             <div class="opacity-75 mt-1">
-              When all {{ sub.clearance_items|length }} items are approved, your project is
+              When all {{ sub.submitter_items|length }} items are approved, your project is
               fully cleared on {{ sub.platform.name }}. Your workspace turns green and you'll
               receive confirmation.
             </div>
@@ -150,7 +150,7 @@
           {% if sub.event_date %}<tr><td class="text-muted small ps-4">Event Date</td><td class="small">{{ sub.event_date }}</td></tr>{% endif %}
           <tr><td class="text-muted small ps-4">Platform</td><td class="small">{{ sub.platform.name }}</td></tr>
           <tr><td class="text-muted small ps-4">Territory</td><td class="small">{{ sub.territory_label }}</td></tr>
-          <tr><td class="text-muted small ps-4">Items to clear</td><td class="small fw-semibold">{{ sub.clearance_items|length }} rights holders</td></tr>
+          <tr><td class="text-muted small ps-4">Items to clear</td><td class="small fw-semibold">{{ sub.submitter_items|length }} rights holders</td></tr>
           <tr><td class="text-muted small ps-4">Contact</td><td class="small">{{ sub.submitter_name }}{% if sub.submitter_company %} · {{ sub.submitter_company }}{% endif %}</td></tr>
         </tbody>
       </table>
@@ -166,10 +166,10 @@
       </div>
     </div>
     <div class="card-body p-0">
-      {% for item in sub.clearance_items %}
+      {% for item in sub.submitter_items %}
       <div class="d-flex align-items-center gap-3 px-4 py-3 border-bottom">
         <span class="badge bg-light text-dark border" style="min-width:26px; font-size:.72rem;">{{ loop.index }}</span>
-        <span class="small">{{ item.item_label }}</span>
+        <span class="small">{{ item.submitter_label }}</span>
         <span class="badge bg-light text-dark border ms-auto small">Preparing…</span>
       </div>
       {% endfor %}

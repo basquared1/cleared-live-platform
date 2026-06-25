@@ -55,10 +55,13 @@
   <div class="alert alert-info border-0 mb-4 py-3 px-4 d-flex gap-3 align-items-start" style="border-left:4px solid #0d6efd !important;">
     <i class="bi bi-people-fill fs-5 mt-1 flex-shrink-0"></i>
     <div class="small">
-      <strong>Festival lineup.</strong> Add every artist on the bill. For each one, route the clearance
-      into their <strong>label's BA queue</strong> if they're signed, run it <strong>directly</strong> if
-      they're independent, or <strong>hand it off</strong> to their management or label. The event-level
-      clearances (promoter consent, venue, crowd, E&amp;O) live on the Event Clearances tab.
+      <strong>Festival lineup.</strong> Add every artist on the bill. <strong>You complete the clearance
+      for every artist</strong> — that's the promoter's job, and your permission to film each act depends on it.
+      For a signed artist, open a thread on their <strong>label</strong> so the label can review your
+      completed clearances and <strong>issue its conditional waiver</strong>; clear an independent artist
+      <strong>directly</strong>. You can <strong>invite</strong> a label or management to assist, but it stays
+      your responsibility. The event-level clearances (promoter consent, venue, crowd, E&amp;O) live on the
+      Event Clearances tab.
     </div>
   </div>
 
@@ -97,10 +100,10 @@
             <div class="mt-3 p-2 rounded d-flex align-items-center gap-2 flex-wrap" style="background:#f5f7fb;">
               <i class="bi bi-arrow-return-right text-muted"></i>
               <span class="small">
-                {% if a.routed_platform %}In <strong>{{ a.routed_platform.name }}</strong>'s BA queue{% else %}Direct clearance thread{% endif %}
+                {% if a.routed_platform %}You clear it · <strong>{{ a.routed_platform.name }}</strong> issues the waiver{% else %}You clear it directly{% endif %}
               </span>
               <span class="small text-muted">· {{ a.child_submission.progress_pct }}% cleared</span>
-              {% if a.handed_off_to %}<span class="small text-muted">· handed to {{ a.handed_off_to }}</span>{% endif %}
+              {% if a.handed_off_to %}<span class="small text-muted">· {{ a.handed_off_to }} assisting</span>{% endif %}
               <a class="btn btn-sm btn-outline-dark ms-auto" href="{{ url_for('track', token=a.child_submission.token) }}">
                 Open thread <i class="bi bi-box-arrow-up-right ms-1"></i>
               </a>
@@ -109,8 +112,8 @@
             <form method="POST" action="{{ url_for('festival_artist_handoff', token=access_token, artist_id=a.id) }}"
                   class="d-flex gap-2 mt-2">
               <input type="email" name="handoff_email" class="form-control form-control-sm"
-                     placeholder="Hand off to mgmt / label email" value="{{ a.contact_email or '' }}">
-              <button class="btn btn-sm btn-outline-primary text-nowrap">Hand off</button>
+                     placeholder="Invite mgmt / label to assist (email)" value="{{ a.contact_email or '' }}">
+              <button class="btn btn-sm btn-outline-primary text-nowrap">Invite to assist</button>
             </form>
             {% else %}
             <!-- Not routed yet: routing choices -->
@@ -120,7 +123,7 @@
               <form method="POST" action="{{ url_for('festival_artist_route', token=access_token, artist_id=a.id) }}">
                 <input type="hidden" name="mode" value="label">
                 <button class="btn btn-sm btn-navy fw-semibold">
-                  <i class="bi bi-send me-1"></i>Route to {{ match.name }} BA
+                  <i class="bi bi-send me-1"></i>Open thread · {{ match.name }} issues waiver
                 </button>
               </form>
               {% elif a.is_signed and a.label_name %}
@@ -137,8 +140,8 @@
               <form method="POST" action="{{ url_for('festival_artist_handoff', token=access_token, artist_id=a.id) }}"
                     class="d-flex gap-1">
                 <input type="email" name="handoff_email" class="form-control form-control-sm" style="max-width:200px;"
-                       placeholder="mgmt / label email" value="{{ a.contact_email or '' }}">
-                <button class="btn btn-sm btn-outline-primary text-nowrap">Hand off</button>
+                       placeholder="invite mgmt / label to assist" value="{{ a.contact_email or '' }}">
+                <button class="btn btn-sm btn-outline-primary text-nowrap">Invite to assist</button>
               </form>
             </div>
             {% endif %}
@@ -174,8 +177,8 @@
             <button class="btn btn-sm btn-navy fw-semibold"><i class="bi bi-plus-lg me-1"></i>Add artist</button>
           </form>
           <div class="small text-muted mt-3" style="font-size:.75rem;">
-            We auto-match the label to a connected BA queue. Unmatched labels and independent
-            artists route directly or hand off.
+            We auto-match the label so you can send your completed clearances to them for their
+            conditional waiver. Unmatched labels and independent artists are cleared directly.
           </div>
         </div>
       </div>

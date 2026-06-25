@@ -61,7 +61,7 @@
           {% for item in items %}
           <tr>
             <td class="ps-3">
-              <span class="fw-semibold text-navy">{{ item.item_label }}</span>
+              <span class="fw-semibold text-navy">{{ item.submitter_label }}</span>
               {% if item.negotiation_log %}
               <div class="small text-muted"><i class="bi bi-chat-left-text me-1"></i>{{ item.negotiation_log|length }} thread message{{ 's' if item.negotiation_log|length != 1 else '' }}</div>
               {% endif %}

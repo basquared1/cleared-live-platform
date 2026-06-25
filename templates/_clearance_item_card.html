@@ -18,7 +18,7 @@
             {% else %}text-warning{% endif %}"></i>
           <div class="flex-grow-1">
             <div class="d-flex align-items-center flex-wrap gap-2">
-              <span class="fw-semibold">{{ item.item_label }}</span>
+              <span class="fw-semibold">{{ item.submitter_label }}</span>
               <span class="badge bg-{{ item.status_color }} {% if item.status_color == 'light' %}text-dark border{% endif %}">
                 {{ item.status_label }}
               </span>

@@ -157,6 +157,16 @@ def is_music_item(item_key):
     return (item_key or "") in MUSIC_ITEM_KEYS
 
 
+# Item keys for actions only the ISSUING party performs (e.g. a label issuing its conditional
+# waiver). These are hidden from the submitter/promoter workspace — the submitter does the
+# clearance work; issuing the waiver is the reviewing platform's action, done from its dashboard.
+ISSUER_ONLY_ITEM_KEYS = {"conditional_label_waiver"}
+
+
+def is_issuer_only_item(item_key):
+    return (item_key or "") in ISSUER_ONLY_ITEM_KEYS
+
+
 PRICING_TIERS = {
     "basic":    {"label": "Basic",    "price": 500,  "desc": "Up to 5 clearance items. Single event or content piece."},
     "standard": {"label": "Standard", "price": 1000, "desc": "6–15 clearance items. Most film, series, and live content."},
@@ -397,6 +407,23 @@ class Submission(db.Model):
         return round(done / total * 100)
 
     @property
+    def submitter_items(self):
+        """Clearance items the submitter/promoter is responsible for working — excludes
+        issuer-only actions (e.g. the label's waiver issuance), which belong to the reviewing
+        platform. For non-label-waiver submissions this equals clearance_items."""
+        return [i for i in self.clearance_items if not i.is_issuer_action]
+
+    @property
+    def submitter_progress_pct(self):
+        """Progress over the submitter's own items only, so the promoter isn't left stuck on
+        an item the label must issue."""
+        items = self.submitter_items
+        if not items:
+            return 0
+        done = sum(1 for i in items if i.status in ("cleared", "waived", "n_a"))
+        return round(done / len(items) * 100)
+
+    @property
     def music_clearance_counts(self):
         """(done, total) for the Music Clearance group: music clearance items plus
         publisher clearance groups (sync per publisher). Used for music-only progress."""
@@ -499,6 +526,24 @@ class ClearanceItem(db.Model):
     deal_points_json = db.Column(db.Text)   # JSON list — structured deal points (our/their/agreed grid)
 
     documents = db.relationship("SubmissionDocument", backref="clearance_item", lazy=True)
+
+    @property
+    def is_issuer_action(self):
+        """True if this item is an action only the issuing platform performs (e.g. a label
+        issuing its conditional waiver) — it is not the submitter's work and is hidden from
+        the submitter/promoter workspace."""
+        return is_issuer_only_item(self.item_key)
+
+    @property
+    def submitter_label(self):
+        """Doer-facing label for the submitter/promoter workspace. Label-waiver templates phrase
+        items from the reviewer's POV ('— Verify & Review'); the submitter is doing the work, so
+        show the clean name. The label's own dashboard keeps the full reviewer-facing item_label."""
+        lbl = (self.item_label or "").strip()
+        for suffix in (" — Verify & Review", " — Issue"):
+            if lbl.endswith(suffix):
+                return lbl[: -len(suffix)].strip()
+        return lbl
 
     @property
     def deal_terms(self):
@@ -840,9 +885,12 @@ class ClearanceGuideline(db.Model):
 
 class FestivalArtist(db.Model):
     """One artist on a festival lineup. A festival is a parent Submission (project_type
-    'festival') submitted by a promoter; each artist fans out to its own clearance thread —
-    routed into the artist's label BA queue (a child Submission on that label Platform) if
-    the artist is signed, or handled directly / handed off to management if not."""
+    'festival') submitted by a promoter. The promoter is responsible for completing every
+    artist's clearance. Each artist fans out to its own clearance thread (a child Submission)
+    that the PROMOTER owns and works: if the artist is signed, the thread sits on the label's
+    Platform so the label can review the completed clearances and ISSUE its conditional waiver;
+    if independent, it's cleared directly. The artist's management or label may be invited to
+    ASSIST, but responsibility stays with the promoter."""
     __tablename__ = "festival_artists"
     id            = db.Column(db.Integer, primary_key=True)
     submission_id = db.Column(db.Integer, db.ForeignKey("submissions.id"), nullable=False)  # parent festival
@@ -858,7 +906,7 @@ class FestivalArtist(db.Model):
     child_submission_id = db.Column(db.Integer, db.ForeignKey("submissions.id")) # the artist's clearance thread
     status        = db.Column(db.String(30), default="pending")
     # pending | routed_label | routed_direct | handed_off | cleared
-    handed_off_to = db.Column(db.String(200))           # email the clearance was handed off to
+    handed_off_to = db.Column(db.String(200))           # email invited to assist (promoter still owns it)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
     festival        = db.relationship("Submission", foreign_keys=[submission_id], backref="festival_artists")
@@ -868,10 +916,10 @@ class FestivalArtist(db.Model):
     @property
     def status_label(self):
         return {
-            "pending":       "Not routed",
-            "routed_label":  "In label BA queue",
-            "routed_direct": "Direct clearance",
-            "handed_off":    "Handed off",
+            "pending":       "Not started",
+            "routed_label":  "Clearing → label issues waiver",
+            "routed_direct": "Clearing directly",
+            "handed_off":    "Assist invited",
             "cleared":       "Cleared",
         }.get(self.status, self.status.replace("_", " ").title())
 

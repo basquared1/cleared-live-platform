@@ -1397,9 +1397,11 @@ def _render_track(token, view):
             status="approved", show_to_submitters=True,
         ).first()
         project_guidelines = gl.public_content if (gl and gl.public_content) else None
-    # Split clearance items into the Music Clearance group and everything else.
-    music_items   = [ci for ci in sub.clearance_items if is_music_item(ci.item_key)]
-    general_items = [ci for ci in sub.clearance_items if not is_music_item(ci.item_key)]
+    # Split clearance items into the Music Clearance group and everything else. Issuer-only
+    # items (e.g. the label's conditional-waiver issuance) are the reviewing platform's action,
+    # not the submitter's work — hide them from the submitter workspace.
+    music_items   = [ci for ci in sub.clearance_items if is_music_item(ci.item_key) and not ci.is_issuer_action]
+    general_items = [ci for ci in sub.clearance_items if not is_music_item(ci.item_key) and not ci.is_issuer_action]
     # Which item types have a firm-approved template — drives templates-first drafting UI.
     try:
         template_keys = {t.doc_type for t in Template.query.filter_by(is_active=True).all()}
@@ -1794,8 +1796,14 @@ def _match_label_platform(label_name):
 
 
 def _spawn_artist_submission(festival, artist, platform):
-    """Create a per-artist clearance thread (child Submission) under the given platform.
-    Label platforms get the review/waiver package; everything else gets live_music."""
+    """Create a per-artist clearance thread (child Submission) for the festival.
+
+    The PROMOTER owns and is responsible for completing every artist's clearance — routing
+    never transfers that work. A thread on a label platform uses the label-waiver package so
+    the label can REVIEW the promoter's completed clearances and ISSUE its conditional waiver;
+    a direct thread uses the standard live_music package the promoter clears itself. Either
+    way the submitter (owner) is the promoter; the artist's management/label is only an
+    optional assist contact."""
     template_key = "live_music_label" if platform.platform_mode == "label_waiver" else "live_music"
     child = Submission(
         platform_id        = platform.id,
@@ -1810,12 +1818,20 @@ def _spawn_artist_submission(festival, artist, platform):
         intended_use       = festival.intended_use,
         submitter_name     = festival.submitter_name,
         submitter_company  = festival.submitter_company,
-        submitter_email    = artist.contact_email or festival.submitter_email,
+        submitter_email    = festival.submitter_email,   # the promoter owns and is responsible for the thread
         submitter_phone    = festival.submitter_phone,
         pricing_tier       = festival.pricing_tier,
         price_cents        = 0,
         status             = "submitted",
-        ba_notes           = f"Festival lineup clearance — part of \"{festival.event_name or festival.title}\".",
+        ba_notes           = (
+            f"Festival lineup clearance — part of \"{festival.event_name or festival.title}\". "
+            f"Promoter ({festival.submitter_company or festival.submitter_name}) is responsible for "
+            f"completing this artist's clearances; "
+            + (f"{platform.name} reviews them and issues its conditional waiver."
+               if platform.platform_mode == "label_waiver"
+               else "cleared directly.")
+            + (f" Assist contact: {artist.contact_email}." if artist.contact_email else "")
+        ),
     )
     db.session.add(child)
     db.session.flush()
@@ -1829,8 +1845,10 @@ def _spawn_artist_submission(festival, artist, platform):
 
 @app.route("/track/<token>/festival")
 def track_festival(token):
-    """Festival lineup workspace — the promoter manages every artist and routes each
-    to the right label BA process (or direct / handoff)."""
+    """Festival lineup workspace — the promoter manages and completes clearance for every
+    artist: opening a thread on the artist's label (so the label can review and issue its
+    conditional waiver), clearing an independent act directly, or inviting a label/manager
+    to assist. The promoter remains responsible throughout."""
     sub = _sub(token)
     artists = FestivalArtist.query.filter_by(submission_id=sub.id)\
         .order_by(FestivalArtist.created_at).all()
@@ -1878,9 +1896,11 @@ def festival_artist_delete(token, artist_id):
 
 @app.route("/track/<token>/festival/artist/<int:artist_id>/route", methods=["POST"])
 def festival_artist_route(token, artist_id):
-    """Fan an artist out to a clearance thread:
-      mode=label  → route into the matched label's BA queue (child submission on that label)
-      mode=direct → spin up a direct clearance thread under the festival's own platform"""
+    """Open a promoter-owned clearance thread for an artist. The promoter completes the
+    clearances either way:
+      mode=label  → thread sits on the matched label's platform so the label can review the
+                    completed clearances and issue its conditional waiver
+      mode=direct → promoter clears the artist directly under the festival's own platform"""
     sub = _sub(token)
     a   = FestivalArtist.query.filter_by(id=artist_id, submission_id=sub.id).first_or_404()
     if a.child_submission_id:
@@ -1899,26 +1919,30 @@ def festival_artist_route(token, artist_id):
         a.child_submission_id = child.id
         a.status = "routed_label"
         db.session.commit()
-        flash(f"{a.artist_name} routed into {label.name}'s clearance queue.", "success")
+        flash(f"Clearance thread opened for {a.artist_name}. You complete the clearances; "
+              f"{label.name} reviews them and issues its conditional waiver. You remain responsible.",
+              "success")
     else:
         child = _spawn_artist_submission(sub, a, sub.platform)
         a.child_submission_id = child.id
         a.status = "routed_direct"
         db.session.commit()
-        flash(f"Direct clearance thread created for {a.artist_name}.", "success")
+        flash(f"Direct clearance thread opened for {a.artist_name} — you clear this artist yourself.", "success")
     return redirect(url_for("track_festival", token=token))
 
 
 @app.route("/track/<token>/festival/artist/<int:artist_id>/handoff", methods=["POST"])
 def festival_artist_handoff(token, artist_id):
-    """Hand an artist's clearance to their management or label. Creates the thread (if not
-    already) and emails the contact a link to run it. Promoter stays able to watch progress."""
+    """Invite the artist's management or label to ASSIST with this artist's clearance.
+    Creates the promoter-owned thread (if not already) and emails the contact a link to help.
+    This does NOT transfer responsibility — the promoter remains the owner and is responsible
+    for completing the clearances."""
     sub = _sub(token)
     a   = FestivalArtist.query.filter_by(id=artist_id, submission_id=sub.id).first_or_404()
     to_email = (request.form.get("handoff_email", "").strip().lower()
                 or a.contact_email or "")
     if not to_email:
-        flash("Enter an email to hand off to.", "danger")
+        flash("Enter an email to invite to assist.", "danger")
         return redirect(url_for("track_festival", token=token))
 
     # Ensure a clearance thread exists — handoff routes to the label if matched, else direct.
@@ -1942,19 +1966,22 @@ def festival_artist_handoff(token, artist_id):
             _resend.Emails.send({
                 "from": f"{sub.submitter_name or 'Cleared.live'} <clear@cleared.live>",
                 "to": to_email,
-                "subject": f"Clearance handoff — {a.artist_name} at {sub.event_name or sub.title}",
-                "text": (f"You've been asked to handle clearance for {a.artist_name} at "
-                         f"\"{sub.event_name or sub.title}\".\n\n"
+                "subject": f"Clearance assist request — {a.artist_name} at {sub.event_name or sub.title}",
+                "text": (f"{sub.submitter_company or sub.submitter_name or 'The promoter'} has invited you to "
+                         f"help with clearance for {a.artist_name} at \"{sub.event_name or sub.title}\".\n\n"
                          f"Open the clearance workspace here:\n{link}\n\n"
-                         f"This link lets you complete every clearance item for this artist."),
+                         f"You can help complete the clearance items for this artist. "
+                         f"{sub.submitter_company or sub.submitter_name or 'The promoter'} remains responsible "
+                         f"for ensuring this artist is fully cleared."),
             })
             sent = True
         except Exception:
             sent = False
     if sent:
-        flash(f"Clearance for {a.artist_name} handed off to {to_email}.", "success")
+        flash(f"Invited {to_email} to assist with {a.artist_name}'s clearance. "
+              f"You remain responsible for completing it.", "success")
     else:
-        flash(f"Handoff thread ready. Share this link with {to_email}: {link}", "info")
+        flash(f"Assist link ready. Share it with {to_email}: {link}", "info")
     return redirect(url_for("track_festival", token=token))
 
 
@@ -1978,7 +2005,7 @@ def track_agreements(token):
     (draft → negotiating → out for signature → executed) plus the full paper trail."""
     sub = _sub(token)
     items = sorted(
-        sub.clearance_items,
+        sub.submitter_items,   # hide issuer-only items (e.g. the label's waiver issuance)
         key=lambda it: (it.agreement_stage_order, it.agreement_last_activity or datetime.min),
         reverse=True,
     )
@@ -5158,36 +5185,36 @@ def _last_outbound_at(item):
 def _scan_submitter_actions(sub):
     """What does the submitter need to do, right now, across this submission?"""
     actions = []
-    for it in sub.clearance_items:
+    for it in sub.submitter_items:
         if it.status in ("cleared", "waived", "n_a", "under_review"):
             continue
         if it.neg_state == "needs_approval":
             rec = it.ai_recommendation or {}
             if rec.get("recommended_action") == "send_for_signature":
-                actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "high",
+                actions.append({"item_id": it.id, "label": it.submitter_label, "item_key": it.item_key, "urgency": "high",
                                 "action": "Approve & send for signature",
                                 "detail": "AI says terms are agreed — one click to send the agreement."})
             else:
-                actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "high",
+                actions.append({"item_id": it.id, "label": it.submitter_label, "item_key": it.item_key, "urgency": "high",
                                 "action": "Approve the AI's drafted reply",
                                 "detail": rec.get("assessment") or "AI has drafted your next move."})
         elif it.neg_state == "awaiting_reply":
             last = _last_outbound_at(it)
             if last and (datetime.utcnow() - last) > timedelta(days=STALL_DAYS):
                 days = (datetime.utcnow() - last).days
-                actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "medium",
+                actions.append({"item_id": it.id, "label": it.submitter_label, "item_key": it.item_key, "urgency": "medium",
                                 "action": "Follow up — no reply",
                                 "detail": f"No response in {days} days. Record a reply or send a nudge."})
         elif it.status == "pending":
-            actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "low",
+            actions.append({"item_id": it.id, "label": it.submitter_label, "item_key": it.item_key, "urgency": "low",
                             "action": "Start clearance", "detail": "Not started yet."})
         elif it.status == "in_progress" and not it.ai_outreach_sent_at:
             if it.party_email and it.ai_outreach_body:
-                actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "medium",
+                actions.append({"item_id": it.id, "label": it.submitter_label, "item_key": it.item_key, "urgency": "medium",
                                 "action": "Send outreach",
                                 "detail": "Draft and contact are ready — one click to send."})
             else:
-                actions.append({"item_id": it.id, "label": it.item_label, "item_key": it.item_key, "urgency": "medium",
+                actions.append({"item_id": it.id, "label": it.submitter_label, "item_key": it.item_key, "urgency": "medium",
                                 "action": "Send outreach",
                                 "detail": "Add the rights holder contact and send the request."})
     return actions
