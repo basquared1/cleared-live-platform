@@ -16,6 +16,29 @@ You do all of this in **two dashboards: Render + GoDaddy.** Nothing here is a co
 
 ---
 
+## ✅ CHOSEN PATH (2026-06-24): STAGE FIRST at `app.cleared.live`
+
+Do **only this** for now. It adds the new build at `app.cleared.live` and **changes nothing** about the
+live `cleared.live` (the original LRH app stays exactly as-is — zero risk). Promote the apex later
+(Parts A & B below) once you're happy.
+
+1. **Render → `cleared-live-platform` service → Settings → Custom Domains → Add Custom Domain:**
+   `app.cleared.live`
+   - Render shows a **CNAME** target — it will be **`cleared-live-platform.onrender.com`**. Copy it exactly.
+2. **GoDaddy → cleared.live → DNS → Add record:**
+   - Type **CNAME**, Name **`app`**, Value **`cleared-live-platform.onrender.com`**, TTL default.
+3. Back in Render, wait until `app.cleared.live` shows **Verified / Certificate Issued** (minutes–1 hr).
+4. Test **`https://app.cleared.live`** → you should see the **new build**. The walkthroughs are then at
+   **`https://app.cleared.live/walkthroughs`** — a clean link you can share with Mara.
+
+That's it for staging. The live `cleared.live` and its `/login` app are unaffected. When you're ready to
+make the new build the *real* `cleared.live`, run **Part A** then **Part B** below (and you can remove the
+`app.cleared.live` domain afterward, or keep it).
+
+---
+
+---
+
 ## Order of operations (no-downtime)
 
 Do **Part A first** (old app keeps working at its new v1 address), then **Part B** (move cleared.live to the new build).
