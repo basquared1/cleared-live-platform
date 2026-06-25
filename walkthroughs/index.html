@@ -119,8 +119,10 @@
   (function(){
     var ov = document.getElementById('introOverlay');
     var fr = document.getElementById('introFrame');
-    // Play once per browser session so navigating back to the hub doesn't replay it.
-    if (sessionStorage.getItem('wt_intro_seen') === '1') return;
+    // Play once per browser session so navigating back to the hub doesn't replay it —
+    // unless ?intro=1 is present, which force-plays it on demand.
+    var forceIntro = new URLSearchParams(location.search).get('intro') === '1';
+    if (!forceIntro && sessionStorage.getItem('wt_intro_seen') === '1') return;
     ov.style.display = 'block';
     fr.src = '/walkthroughs/intro_what_is_cleared_live.html?embed=1';
     function closeIntro(){
