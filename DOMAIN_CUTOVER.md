@@ -16,7 +16,35 @@ You do all of this in **two dashboards: Render + GoDaddy.** Nothing here is a co
 
 ---
 
-## ✅ CHOSEN PATH (2026-06-24): STAGE FIRST at `app.cleared.live`
+## ⚠️ Render custom-domain limit (2026-06-24)
+
+The Render **workspace plan includes only 2 custom domains**, and both are used:
+`production-legal-hub` and `live-rights-hub` (= cleared.live). So you **cannot add a new custom
+domain** (e.g. `app.cleared.live` or `v1.cleared.live`) without freeing a slot or upgrading.
+
+**What this means:**
+- **Staging / sharing does NOT need a custom domain.** The new build is already public at
+  `https://cleared-live-platform.onrender.com` (walkthroughs at `…/walkthroughs`). Share that link as-is.
+- **The apex cutover can be done with ZERO new slots** *if* you let the old LRH app stay at
+  `live-rights-hub.onrender.com` (skip `v1.cleared.live`): in Render, **remove** `cleared.live`/`www`
+  from `live-rights-hub` and **add** them to `cleared-live-platform` — same slot, reassigned.
+- **`v1.cleared.live` is the only piece that needs an extra slot.** Add it only if you want a pretty URL
+  for the old app — which requires freeing a slot (drop PLB's or LRH's domain) or upgrading the plan.
+
+So: **Part A (v1) below is OPTIONAL and slot-costly. The slot-free cutover = just Part B**, but in
+Part B step 5 you remove cleared.live/www from LRH first (LRH then lives at its onrender.com URL).
+
+---
+
+## ✅ CHOSEN PATH (2026-06-24): STAGE FIRST — share the onrender URL (no custom domain)
+
+Because of the 2-domain limit, staging is simply: **share `https://cleared-live-platform.onrender.com`
+(and `…/walkthroughs`)** with reviewers. No Render/GoDaddy changes needed right now.
+
+When ready for the real `cleared.live` cutover, use the **slot-free path**: skip Part A, do Part B but
+remove cleared.live/www from `live-rights-hub` before adding them to `cleared-live-platform`.
+
+<details><summary>Original "stage at app.cleared.live" steps (needs a free custom-domain slot — not available now)</summary>
 
 Do **only this** for now. It adds the new build at `app.cleared.live` and **changes nothing** about the
 live `cleared.live` (the original LRH app stays exactly as-is — zero risk). Promote the apex later
@@ -35,7 +63,7 @@ That's it for staging. The live `cleared.live` and its `/login` app are unaffect
 make the new build the *real* `cleared.live`, run **Part A** then **Part B** below (and you can remove the
 `app.cleared.live` domain afterward, or keep it).
 
----
+</details>
 
 ---
 
