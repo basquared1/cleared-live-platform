@@ -67,6 +67,58 @@
   </div>
 </div>
 
+<!-- Audience fork: route the two visitor types -->
+<div class="row g-3 mb-5">
+  <div class="col-12">
+    <h2 class="fw-bold text-navy mb-1">Where do you fit?</h2>
+    <p class="text-muted mb-0">Cleared.live serves two sides of the same rail — pick your path.</p>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-4 d-flex flex-column">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="bi bi-building-fill text-navy fs-4"></i>
+          <h5 class="fw-bold text-navy mb-0">I run a platform or BA team</h5>
+        </div>
+        <p class="text-muted small flex-grow-1 mb-3">
+          Labels, distributors, studios, networks. Receive submissions, review and approve every
+          clearance item, and green-light straight to your rights system.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+          <a href="{{ url_for('platform_login') }}" class="btn btn-navy fw-semibold" style="background:#0d3b6e;color:#fff;">
+            Platform Login <i class="bi bi-box-arrow-in-right ms-1"></i>
+          </a>
+          <a href="/walkthroughs/ba_distributors.html" class="btn btn-outline-dark">
+            <i class="bi bi-play-circle me-1"></i>See the BA walkthrough
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm h-100" style="border-top:3px solid #f2a900 !important;">
+      <div class="card-body p-4 d-flex flex-column">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="bi bi-send-fill text-warning fs-4"></i>
+          <h5 class="fw-bold text-navy mb-0">I'm submitting a project</h5>
+        </div>
+        <p class="text-muted small flex-grow-1 mb-3">
+          Promoters, festivals, film & doc producers, creators, podcasters. Do your clearance with
+          drafts provided for every item — or clear independently, no platform required.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+          <a href="{{ url_for('start') }}" class="btn btn-warning fw-semibold">
+            Submit or Clear a Project <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+          <a href="/walkthroughs/submitter_live_music_promoter.html" class="btn btn-outline-dark">
+            <i class="bi bi-play-circle me-1"></i>See a submitter walkthrough
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- How it works -->
 <div class="row g-4 mb-5">
   <div class="col-12">
