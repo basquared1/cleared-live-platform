@@ -1119,6 +1119,25 @@ def walkthroughs_index():
     return send_from_directory(WALKTHROUGHS_DIR, "index.html")
 
 
+@app.route("/walkthroughs/favicon.ico")
+def walkthroughs_favicon():
+    # Safari resolves a Start-Page favorite's tile icon relative to its directory
+    # (/walkthroughs/favicon.ico), not the site root — serve the C-clef here too.
+    return send_from_directory(
+        os.path.join(app.root_path, "static"),
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon",
+    )
+
+
+@app.route("/walkthroughs/apple-touch-icon.png")
+@app.route("/walkthroughs/apple-touch-icon-precomposed.png")
+def walkthroughs_apple_icon():
+    return send_from_directory(
+        os.path.join(app.root_path, "static"), "apple-touch-icon.png"
+    )
+
+
 @app.route("/walkthroughs/<path:filename>")
 def walkthroughs_file(filename):
     # send_from_directory safely rejects path traversal; only serve .html files.
