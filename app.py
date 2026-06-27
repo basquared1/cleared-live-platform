@@ -1127,6 +1127,26 @@ def walkthroughs_file(filename):
     return send_from_directory(WALKTHROUGHS_DIR, filename)
 
 
+@app.route("/favicon.ico")
+def favicon_ico():
+    # Browsers and webview/desktop tab contexts request /favicon.ico at the site
+    # root and ignore the <link rel="icon"> tags. Serve the C-clef .ico here.
+    return send_from_directory(
+        os.path.join(app.root_path, "static"),
+        "favicon.ico",
+        mimetype="image/vnd.microsoft.icon",
+    )
+
+
+@app.route("/apple-touch-icon.png")
+@app.route("/apple-touch-icon-precomposed.png")
+def apple_touch_icon():
+    # iOS/Safari fetch these at the root regardless of <link> tags.
+    return send_from_directory(
+        os.path.join(app.root_path, "static"), "apple-touch-icon.png"
+    )
+
+
 @app.route("/")
 def index():
     return render_template("index.html", pricing_tiers=PRICING_TIERS)
